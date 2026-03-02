@@ -12,7 +12,12 @@
     "@apollo/client": "^4.1.6",
     "@aws-amplify/ui-react": "^6.15.1",
     "@aws-sdk/client-cognito-identity-provider": "^3.1000.0",
+    "@chakra-ui/icons": "^2.2.4",
+    "@chakra-ui/react": "^2.10.9",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
     "aws-amplify": "^6.16.2",
+    "framer-motion": "^12.34.4",
     "graphql": "^16.13.0",
     "next": "16.1.6",
     "pg": "^8.19.0",
@@ -21,7 +26,9 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@jest/globals": "^30.2.0",
     "@tailwindcss/postcss": "^4",
+    "@types/jest": "^30.0.0",
     "@types/node": "^20",
     "@types/pg": "^8.16.0",
     "@types/react": "^19",
