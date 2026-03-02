@@ -23,6 +23,7 @@ import {
 } from '@chakra-ui/react';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { getGroupDetails } from '@/lib/services/groupService';
+import { MemberList } from '@/components/groups/MemberList';
 
 interface GroupDetailsData {
   group: {
@@ -300,28 +301,13 @@ export default function GroupDetailsPage() {
               )}
             </HStack>
 
-            <VStack spacing={3} align="stretch">
-              {members.map((member, index) => (
-                <Card key={`${member.user_id}-${index}`}>
-                  <CardBody>
-                    <HStack justify="space-between" align="center">
-                      <HStack spacing={3}>
-                        <Avatar name={member.user_id} size="md" />
-                        <VStack align="flex-start" spacing={0}>
-                          <Text fontWeight="semibold">{member.user_id}</Text>
-                          <Text fontSize="sm" color="gray.500">
-                            Joined {new Date(member.joined_at).toLocaleDateString()}
-                          </Text>
-                        </VStack>
-                      </HStack>
-                      <Badge colorScheme={member.role === 'admin' ? 'purple' : 'blue'}>
-                        {member.role.toUpperCase()}
-                      </Badge>
-                    </HStack>
-                  </CardBody>
-                </Card>
-              ))}
-            </VStack>
+            <MemberList
+              members={members}
+              currentUserRole={currentUserRole}
+              currentUserId={userId}
+              showActions={true}
+              emptyMessage="No members in this group yet"
+            />
           </Box>
 
           {isAdmin && (
