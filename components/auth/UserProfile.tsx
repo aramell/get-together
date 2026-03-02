@@ -23,7 +23,7 @@ import type { UserProfile as UserProfileType } from '@/lib/services/authService'
 
 export default function UserProfile() {
   const router = useRouter();
-  const { user, logout, isLoading: authLoading } = useAuth();
+  const { userId, logout, isAuthenticated } = useAuth();
   const [profile, setProfile] = useState<UserProfileType | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,13 +31,13 @@ export default function UserProfile() {
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        if (!user?.id) {
+        if (!userId) {
           setError('User not authenticated');
           setLoading(false);
           return;
         }
 
-        const result = await getUserProfile(user.id);
+        const result = await getUserProfile(userId);
         if (result.success && result.profile) {
           setProfile(result.profile);
         } else {
@@ -51,10 +51,10 @@ export default function UserProfile() {
       }
     };
 
-    if (!authLoading) {
+    if (isAuthenticated) {
       loadProfile();
     }
-  }, [user, authLoading]);
+  }, [userId, isAuthenticated]);
 
   const handleEditProfile = () => {
     router.push('/profile/edit');
@@ -69,7 +69,7 @@ export default function UserProfile() {
     router.push('/auth/login');
   };
 
-  if (authLoading || loading) {
+  if (!isAuthenticated || loading) {
     return (
       <Container maxW="md" py={{ base: '12', md: '24' }}>
         <VStack spacing={8} align="center" justify="center" minH="400px">

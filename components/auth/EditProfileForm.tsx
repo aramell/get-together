@@ -31,7 +31,7 @@ interface EditProfileFormProps {
 }
 
 export default function EditProfileForm({ onSuccess, initialProfile }: EditProfileFormProps) {
-  const { user } = useAuth();
+  const { userId } = useAuth();
   const [formData, setFormData] = useState({
     display_name: initialProfile?.display_name || '',
     new_email: '',
@@ -93,7 +93,7 @@ export default function EditProfileForm({ onSuccess, initialProfile }: EditProfi
       setFieldErrors({});
 
       try {
-        if (!user?.id) {
+        if (!userId) {
           setError('User not authenticated');
           setLoading(false);
           return;
@@ -119,7 +119,7 @@ export default function EditProfileForm({ onSuccess, initialProfile }: EditProfi
 
         // Handle profile update
         if (Object.keys(updates).length > 0) {
-          const result = await updateUserProfile(user.id, updates);
+          const result = await updateUserProfile(userId, updates);
           if (!result.success) {
             setError(result.message || 'Failed to update profile');
             setLoading(false);
@@ -131,7 +131,7 @@ export default function EditProfileForm({ onSuccess, initialProfile }: EditProfi
         // Handle avatar upload
         if (selectedFile) {
           setUploadProgress(50);
-          const uploadResult = await uploadAvatar(user.id, selectedFile);
+          const uploadResult = await uploadAvatar(userId, selectedFile);
           if (!uploadResult.success) {
             setError(uploadResult.message || 'Failed to upload avatar');
             setLoading(false);
@@ -147,7 +147,7 @@ export default function EditProfileForm({ onSuccess, initialProfile }: EditProfi
 
         // Handle email change
         if (formData.new_email) {
-          const emailResult = await requestEmailChange(user.id, formData.new_email);
+          const emailResult = await requestEmailChange(userId, formData.new_email);
           if (!emailResult.success) {
             setError(emailResult.message || 'Failed to request email change');
             setLoading(false);
@@ -173,7 +173,7 @@ export default function EditProfileForm({ onSuccess, initialProfile }: EditProfi
         setTimeout(() => setUploadProgress(0), 1000);
       }
     },
-    [formData, selectedFile, user, onSuccess]
+    [formData, selectedFile, userId, onSuccess]
   );
 
   return (

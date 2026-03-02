@@ -21,7 +21,7 @@ import type { UserProfile as UserProfileType } from '@/lib/services/authService'
 
 export default function EditProfilePage() {
   const router = useRouter();
-  const { user, isLoading: authLoading } = useAuth();
+  const { userId, isAuthenticated } = useAuth();
   const [profile, setProfile] = useState<UserProfileType | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -29,13 +29,13 @@ export default function EditProfilePage() {
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        if (!user?.id) {
+        if (!userId) {
           setError('User not authenticated');
           setLoading(false);
           return;
         }
 
-        const result = await getUserProfile(user.id);
+        const result = await getUserProfile(userId);
         if (result.success && result.profile) {
           setProfile(result.profile);
         } else {
@@ -49,17 +49,17 @@ export default function EditProfilePage() {
       }
     };
 
-    if (!authLoading) {
+    if (isAuthenticated) {
       loadProfile();
     }
-  }, [user, authLoading]);
+  }, [userId, isAuthenticated]);
 
   const handleSuccess = () => {
     // Redirect back to profile page after successful update
     router.push('/profile');
   };
 
-  if (authLoading || loading) {
+  if (!isAuthenticated || loading) {
     return (
       <Container maxW="md" py={{ base: '12', md: '24' }}>
         <VStack spacing={8} align="center" justify="center" minH="400px">
