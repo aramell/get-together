@@ -1,4 +1,4 @@
-import { CognitoIdentityProviderClient, AdminCreateUserCommand, AdminInitiateAuthCommand } from '@aws-sdk/client-cognito-identity-provider';
+import { CognitoIdentityProviderClient, AdminCreateUserCommand, AdminInitiateAuthCommand, ForgotPasswordCommand, ConfirmForgotPasswordCommand } from '@aws-sdk/client-cognito-identity-provider';
 
 const cognitoClient = new CognitoIdentityProviderClient({
   region: process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-1',
@@ -28,6 +28,24 @@ export interface LoginResponse {
   idToken?: string;
   refreshToken?: string;
   userId?: string;
+  error?: string;
+  errorCode?: string;
+}
+
+export interface ForgotPasswordResponse {
+  success: boolean;
+  message: string;
+  codeDeliveryDetails?: {
+    destination: string;
+    deliveryMedium: string;
+  };
+  error?: string;
+  errorCode?: string;
+}
+
+export interface ResetPasswordResponse {
+  success: boolean;
+  message: string;
   error?: string;
   errorCode?: string;
 }
@@ -69,6 +87,38 @@ const loginErrorCodeMap: Record<string, { message: string; statusCode: number }>
   TooManyRequestsException: {
     message: 'Too many login attempts. Please try again later.',
     statusCode: 429,
+  },
+};
+
+// Error code mapping for password reset errors
+const resetErrorCodeMap: Record<string, { message: string; statusCode: number }> = {
+  UserNotFoundException: {
+    message: 'We cannot find an account with that email address',
+    statusCode: 404,
+  },
+  UserNotConfirmedException: {
+    message: 'Please confirm your email before resetting your password',
+    statusCode: 403,
+  },
+  InvalidParameterException: {
+    message: 'Invalid input provided',
+    statusCode: 422,
+  },
+  TooManyRequestsException: {
+    message: 'Too many password reset attempts. Please try again later.',
+    statusCode: 429,
+  },
+  ExpiredCodeException: {
+    message: 'This reset link has expired. Please request a new one.',
+    statusCode: 400,
+  },
+  InvalidPasswordException: {
+    message: 'Password does not meet requirements',
+    statusCode: 422,
+  },
+  NotAuthorizedException: {
+    message: 'Invalid reset code or email',
+    statusCode: 401,
   },
 };
 
@@ -235,6 +285,139 @@ export async function loginUser(email: string, password: string): Promise<LoginR
     };
 
     console.error('Login error:', { errorCode, message: error.message });
+
+    return {
+      success: false,
+      message: errorInfo.message,
+      error: errorCode,
+      errorCode,
+    };
+  }
+}
+
+/**
+ * Initiate password reset flow via email
+ * @param email User's email address
+ * @returns ForgotPasswordResponse with code delivery details or error
+ */
+export async function forgotPassword(email: string): Promise<ForgotPasswordResponse> {
+  try {
+    // Validate input
+    if (!email || typeof email !== 'string') {
+      return {
+        success: false,
+        message: 'Invalid email provided',
+        error: 'INVALID_EMAIL',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    // Request password reset from Cognito
+    const command = new ForgotPasswordCommand({
+      ClientId: CLIENT_ID,
+      Username: email,
+    });
+
+    const response = await cognitoClient.send(command);
+
+    if (response.CodeDeliveryDetails) {
+      return {
+        success: true,
+        message: 'Password reset code sent to email',
+        codeDeliveryDetails: {
+          destination: response.CodeDeliveryDetails.Destination || '',
+          deliveryMedium: response.CodeDeliveryDetails.DeliveryMedium || '',
+        },
+      };
+    }
+
+    return {
+      success: false,
+      message: 'Failed to initiate password reset',
+      error: 'UNKNOWN_ERROR',
+      errorCode: 'UNKNOWN_ERROR',
+    };
+  } catch (error: any) {
+    const errorCode = error.name || error.code || 'UNKNOWN_ERROR';
+    const errorInfo = resetErrorCodeMap[errorCode] || {
+      message: error.message || 'An unexpected error occurred',
+      statusCode: 500,
+    };
+
+    console.error('Forgot password error:', { errorCode, message: error.message });
+
+    return {
+      success: false,
+      message: errorInfo.message,
+      error: errorCode,
+      errorCode,
+    };
+  }
+}
+
+/**
+ * Complete password reset with confirmation code
+ * @param email User's email address
+ * @param code Confirmation code from email
+ * @param newPassword New password
+ * @returns ResetPasswordResponse with success or error details
+ */
+export async function resetPassword(
+  email: string,
+  code: string,
+  newPassword: string
+): Promise<ResetPasswordResponse> {
+  try {
+    // Validate inputs
+    if (!email || typeof email !== 'string') {
+      return {
+        success: false,
+        message: 'Invalid email provided',
+        error: 'INVALID_EMAIL',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    if (!code || typeof code !== 'string') {
+      return {
+        success: false,
+        message: 'Reset code is required',
+        error: 'INVALID_CODE',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 8) {
+      return {
+        success: false,
+        message: 'Password must be at least 8 characters',
+        error: 'INVALID_PASSWORD',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    // Confirm password reset with Cognito
+    const command = new ConfirmForgotPasswordCommand({
+      ClientId: CLIENT_ID,
+      Username: email,
+      ConfirmationCode: code,
+      Password: newPassword,
+    });
+
+    await cognitoClient.send(command);
+
+    return {
+      success: true,
+      message: 'Password reset successful. You can now log in with your new password.',
+    };
+  } catch (error: any) {
+    const errorCode = error.name || error.code || 'UNKNOWN_ERROR';
+    const errorInfo = resetErrorCodeMap[errorCode] || {
+      message: error.message || 'An unexpected error occurred',
+      statusCode: 500,
+    };
+
+    console.error('Reset password error:', { errorCode, message: error.message });
 
     return {
       success: false,
