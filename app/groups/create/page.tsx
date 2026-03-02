@@ -1,12 +1,9 @@
+'use client';
+
 import React from 'react';
 import { CreateGroupForm } from '@/components/groups/CreateGroupForm';
 import { Box, Container, Heading, Text, VStack } from '@chakra-ui/react';
 import { redirect } from 'next/navigation';
-
-export const metadata = {
-  title: 'Create Group - Get Together',
-  description: 'Create a new group to coordinate with your friends',
-};
 
 export default function CreateGroupPage() {
   const handleGroupCreationSuccess = (groupId: string) => {

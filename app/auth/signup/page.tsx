@@ -1,12 +1,9 @@
+'use client';
+
 import React from 'react';
 import { SignupForm } from '@/components/auth/SignupForm';
 import { Box, Container, Heading, Text, VStack, Link as ChakraLink } from '@chakra-ui/react';
 import NextLink from 'next/link';
-
-export const metadata = {
-  title: 'Sign Up - Get Together',
-  description: 'Create a new Get Together account',
-};
 
 export default function SignupPage() {
   const handleSignupSuccess = (email: string) => {
