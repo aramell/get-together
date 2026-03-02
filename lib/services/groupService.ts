@@ -252,3 +252,108 @@ export async function getGroupsByUser(userId: string): Promise<{
     };
   }
 }
+
+/**
+ * Get detailed group information with member list
+ * Requires user to be authenticated and a member of the group
+ * Returns group info, member list, and user's role in the group
+ *
+ * @param groupId Group ID to fetch details for
+ * @returns GroupDetailsResponse with group, members, and currentUserRole
+ */
+export async function getGroupDetails(groupId: string): Promise<{
+  success: boolean;
+  message: string;
+  data?: {
+    group: any;
+    members: any[];
+    currentUserRole: 'admin' | 'member' | null;
+  };
+  error?: string;
+  errorCode?: string;
+}> {
+  try {
+    if (!groupId || typeof groupId !== 'string') {
+      return {
+        success: false,
+        message: 'Group ID is required',
+        error: 'INVALID_GROUP_ID',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    const response = await fetch(`/api/groups/${groupId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (response.status === 401) {
+      return {
+        success: false,
+        message: 'Authentication required',
+        error: 'UNAUTHORIZED',
+        errorCode: 'UNAUTHORIZED',
+      };
+    }
+
+    if (response.status === 403) {
+      return {
+        success: false,
+        message: 'You do not have access to this group',
+        error: 'FORBIDDEN',
+        errorCode: 'FORBIDDEN',
+      };
+    }
+
+    if (response.status === 404) {
+      return {
+        success: false,
+        message: 'Group not found',
+        error: 'NOT_FOUND',
+        errorCode: 'NOT_FOUND',
+      };
+    }
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        message: errorData.message || 'Failed to retrieve group details',
+        error: errorData.error,
+        errorCode: errorData.errorCode || 'GET_GROUP_DETAILS_ERROR',
+      };
+    }
+
+    const data = await response.json();
+
+    if (data.success) {
+      return {
+        success: true,
+        message: 'Group details retrieved successfully',
+        data: {
+          group: data.data?.group,
+          members: data.data?.members || [],
+          currentUserRole: data.data?.currentUserRole,
+        },
+      };
+    } else {
+      return {
+        success: false,
+        message: data.message || 'Failed to retrieve group details',
+        error: data.error,
+        errorCode: data.errorCode || 'GET_GROUP_DETAILS_ERROR',
+      };
+    }
+  } catch (error: any) {
+    console.error('Get group details error:', error);
+    return {
+      success: false,
+      message: 'An unexpected error occurred while retrieving group details',
+      error: error.message || 'UNKNOWN_ERROR',
+      errorCode: 'INTERNAL_ERROR',
+    };
+  }
+}
+
