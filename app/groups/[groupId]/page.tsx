@@ -24,6 +24,7 @@ import {
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { getGroupDetails } from '@/lib/services/groupService';
 import { MemberList } from '@/components/groups/MemberList';
+import { AdminGroupSettings } from '@/components/groups/AdminGroupSettings';
 
 interface GroupDetailsData {
   group: {
@@ -314,33 +315,20 @@ export default function GroupDetailsPage() {
             <>
               <Divider />
 
-              {/* Admin Section */}
-              <Box
-                borderWidth="1px"
-                borderRadius="lg"
-                p={{ base: '6', md: '8' }}
-                borderColor="red.200"
-                bg="red.50"
-              >
-                <VStack align="stretch" spacing={4}>
-                  <Box>
-                    <Heading size="md" mb={2} color="red.700">
-                      Admin Actions
-                    </Heading>
-                    <Text color="gray.600" fontSize="sm">
-                      Manage group settings and members
-                    </Text>
-                  </Box>
-                  <HStack spacing={2}>
-                    <Button colorScheme="gray" variant="outline">
-                      Edit Group
-                    </Button>
-                    <Button colorScheme="red" variant="outline">
-                      Delete Group
-                    </Button>
-                  </HStack>
-                </VStack>
-              </Box>
+              {/* Admin Settings */}
+              <AdminGroupSettings
+                groupData={group}
+                onSave={async (updatedData) => {
+                  // TODO: Implement actual API call to update group
+                  console.log('Update group:', updatedData);
+                }}
+                onDelete={async () => {
+                  // TODO: Implement actual API call to delete group
+                  console.log('Delete group:', groupId);
+                  // After deletion, redirect to groups list
+                  // router.push('/groups');
+                }}
+              />
             </>
           )}
         </VStack>
