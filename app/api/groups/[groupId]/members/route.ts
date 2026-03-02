@@ -10,10 +10,10 @@ import { getUserGroupRole } from '@/lib/db/queries';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { groupId: string } }
+  { params }: { params: Promise<{ groupId: string }> }
 ) {
   try {
-    const { groupId } = params;
+    const { groupId } = await params;
     const userId = request.headers.get('x-user-id');
 
     // Validate auth

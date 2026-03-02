@@ -3,7 +3,7 @@ import {
   revokeInvitation,
   getInvitationById,
 } from '@/lib/db/queries/invitations';
-import { getUserGroupRole } from '@/lib/db/queries/groups';
+import { getUserGroupRole } from '@/lib/db/queries';
 
 /**
  * DELETE /api/groups/{groupId}/invitations/{invitationId}
@@ -11,10 +11,10 @@ import { getUserGroupRole } from '@/lib/db/queries/groups';
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { groupId: string; invitationId: string } }
+  { params }: { params: Promise<{ groupId: string; invitationId: string }> }
 ) {
   try {
-    const { groupId, invitationId } = params;
+    const { groupId, invitationId } = await params;
     const userId = request.headers.get('x-user-id');
 
     // Validate auth

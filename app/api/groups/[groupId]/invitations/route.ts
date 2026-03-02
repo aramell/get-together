@@ -5,7 +5,7 @@ import {
   hasPendingInvitation,
   getPendingInvitationsForGroup,
 } from '@/lib/db/queries/invitations';
-import { isGroupMember, getUserGroupRole } from '@/lib/db/queries/groups';
+import { isGroupMember, getUserGroupRole } from '@/lib/db/queries';
 
 const inviteSchema = z.object({
   invitedUserId: z.string().uuid('Invalid user ID'),
@@ -17,10 +17,10 @@ const inviteSchema = z.object({
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { groupId: string } }
+  { params }: { params: Promise<{ groupId: string }> }
 ) {
   try {
-    const { groupId } = params;
+    const { groupId } = await params;
     const userId = request.headers.get('x-user-id');
 
     // Validate auth
@@ -141,10 +141,10 @@ export async function POST(
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { groupId: string } }
+  { params }: { params: Promise<{ groupId: string }> }
 ) {
   try {
-    const { groupId } = params;
+    const { groupId } = await params;
     const userId = request.headers.get('x-user-id');
 
     // Validate auth

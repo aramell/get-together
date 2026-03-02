@@ -17,10 +17,10 @@ const updateMemberSchema = z.object({
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { groupId: string; memberId: string } }
+  { params }: { params: Promise<{ groupId: string; memberId: string }> }
 ) {
   try {
-    const { groupId, memberId } = params;
+    const { groupId, memberId } = await params;
     const userId = request.headers.get('x-user-id');
 
     // Validate auth
@@ -102,10 +102,10 @@ export async function DELETE(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { groupId: string; memberId: string } }
+  { params }: { params: Promise<{ groupId: string; memberId: string }> }
 ) {
   try {
-    const { groupId, memberId } = params;
+    const { groupId, memberId } = await params;
     const userId = request.headers.get('x-user-id');
 
     // Validate auth

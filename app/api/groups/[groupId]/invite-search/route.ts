@@ -7,10 +7,10 @@ import { searchUsers } from '@/lib/db/queries/invitations';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { groupId: string } }
+  { params }: { params: Promise<{ groupId: string }> }
 ) {
   try {
-    const { groupId } = params;
+    const { groupId } = await params;
     const searchParams = request.nextUrl.searchParams;
     const q = searchParams.get('q')?.trim() || '';
     const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 50);

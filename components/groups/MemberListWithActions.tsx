@@ -47,11 +47,6 @@ const MemberListWithActions: React.FC<MemberListWithActionsProps> = ({
 }) => {
   const toast = useToast();
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
-  const { isOpen, onOpen, onClose } = useState({
-    isOpen: false,
-    onOpen: () => setShowRemoveDialog(true),
-    onClose: () => setShowRemoveDialog(false),
-  });
   const [showRemoveDialog, setShowRemoveDialog] = useState(false);
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
   const [updatingMemberId, setUpdatingMemberId] = useState<string | null>(null);

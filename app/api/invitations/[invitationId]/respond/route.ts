@@ -4,7 +4,7 @@ import {
   getInvitationById,
   updateInvitationStatus,
 } from '@/lib/db/queries/invitations';
-import { addUserToGroup } from '@/lib/db/queries/groups';
+import { addUserToGroup } from '@/lib/db/queries';
 
 const respondSchema = z.object({
   action: z.enum(['accept', 'decline']),
@@ -16,10 +16,10 @@ const respondSchema = z.object({
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { invitationId: string } }
+  { params }: { params: Promise<{ invitationId: string }> }
 ) {
   try {
-    const { invitationId } = params;
+    const { invitationId } = await params;
     const userId = request.headers.get('x-user-id');
 
     // Validate auth
