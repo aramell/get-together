@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     // Handle validation errors
     if (error instanceof ZodError) {
-      const validationErrors = error.errors.map((err) => ({
+      const validationErrors = error.issues.map((err) => ({
         field: err.path.join('.'),
         message: err.message,
       }));

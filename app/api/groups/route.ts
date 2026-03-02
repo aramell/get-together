@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     // Handle validation errors
     if (error instanceof ZodError) {
-      const validationErrors = error.errors.map((err) => ({
+      const validationErrors = error.issues.map((err) => ({
         field: err.path.join('.'),
         message: err.message,
       }));
@@ -81,12 +81,61 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * GET /api/groups/:id
- * Retrieve group details by ID
+ * GET /api/groups
+ * Two modes:
+ * 1. GET /api/groups?user_id=<id> - Retrieve all groups for a user
+ * 2. GET /api/groups/:id - Retrieve specific group by ID
  */
 export async function GET(request: NextRequest) {
   try {
-    // Extract group ID from URL path
+    // Check if user_id query parameter is present (groups list mode)
+    const userId = request.nextUrl.searchParams.get('user_id');
+
+    if (userId) {
+      // Mode 1: Get all groups for a user
+      if (!userId || typeof userId !== 'string') {
+        return NextResponse.json(
+          {
+            success: false,
+            message: 'user_id query parameter is required',
+            errorCode: 'MISSING_USER_ID',
+          },
+          { status: 400 }
+        );
+      }
+
+      // TODO: Verify user is authenticated
+      // TODO: Fetch all groups from database where user is a member
+      // TODO: Join with group_memberships to get role
+      // TODO: Count members for each group
+      // TODO: Get last_activity_date (most recent change to group or its events)
+
+      // For now, return mock groups list
+      const mockGroups = [
+        {
+          id: 'group-1',
+          name: 'Weekend Hikers',
+          member_count: 5,
+          last_activity_date: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
+          role: 'admin',
+        },
+        {
+          id: 'group-2',
+          name: 'Board Game Night',
+          member_count: 3,
+          last_activity_date: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
+          role: 'member',
+        },
+      ];
+
+      return NextResponse.json({
+        success: true,
+        message: 'Groups retrieved successfully',
+        groups: mockGroups,
+      });
+    }
+
+    // Mode 2: Get specific group by ID from URL path
     const pathSegments = request.nextUrl.pathname.split('/');
     const groupId = pathSegments[pathSegments.length - 1];
 

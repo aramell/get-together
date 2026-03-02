@@ -37,7 +37,7 @@ export default function ResetPasswordForm({ email: initialEmail, code: initialCo
 
   const validateField = (name: keyof ResetPasswordFormData, value: string) => {
     try {
-      const fieldSchema = resetPasswordSchema.pick({ [name]: true });
+      const fieldSchema = resetPasswordSchema.pick({ [name]: true } as Record<keyof ResetPasswordFormData, true>);
       fieldSchema.parse({ [name]: value });
       setErrors((prev) => {
         const newErrors = { ...prev };

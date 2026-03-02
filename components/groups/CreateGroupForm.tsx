@@ -54,7 +54,7 @@ export const CreateGroupForm: React.FC<CreateGroupFormProps> = ({ onSuccess }) =
       });
     } catch (error) {
       if (error instanceof ZodError) {
-        const fieldError = error.errors[0];
+        const fieldError = error.issues[0];
         setErrors((prev) => ({
           ...prev,
           [name]: fieldError.message,
@@ -135,7 +135,7 @@ export const CreateGroupForm: React.FC<CreateGroupFormProps> = ({ onSuccess }) =
     } catch (error) {
       if (error instanceof ZodError) {
         const newErrors: Record<string, string> = {};
-        error.errors.forEach((err) => {
+        error.issues.forEach((err) => {
           const path = err.path[0] as string;
           newErrors[path] = err.message;
         });
