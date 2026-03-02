@@ -131,6 +131,86 @@ describe('GET /api/groups/:id', () => {
 });
 
 /**
+ * GET /api/groups (with query parameter) Tests
+ * Retrieve all groups for a user
+ */
+
+describe('GET /api/groups (Groups List)', () => {
+  it('should retrieve all groups for a user', () => {
+    // Test:
+    // - GET /api/groups?user_id=user-123
+    // - Status 200 returned
+    // - Response includes array of groups with member counts
+    // - Each group has: id, name, member_count, last_activity_date, role
+  });
+
+  it('should return empty array for user with no groups', () => {
+    // Test:
+    // - GET /api/groups?user_id=user-no-groups
+    // - Status 200 returned
+    // - groups array is empty []
+  });
+
+  it('should return 400 when user_id query parameter missing', () => {
+    // Test:
+    // - GET /api/groups (no query parameter)
+    // - Status 400 returned
+    // - Error message: "user_id query parameter is required"
+  });
+
+  it('should sort groups by last_activity_date descending', () => {
+    // Test:
+    // - User belongs to 3 groups
+    // - Groups returned sorted by last_activity_date DESC
+    // - Most recently active group appears first
+  });
+
+  it('should include member count in response', () => {
+    // Test:
+    // - GET /api/groups?user_id=user-123
+    // - Each group includes member_count (integer)
+    // - member_count reflects actual membership count
+  });
+
+  it('should include user role in each group', () => {
+    // Test:
+    // - GET /api/groups?user_id=user-123
+    // - Each group includes role: "admin" or "member"
+    // - Admin role only for users who created the group
+  });
+
+  it('should return 401 for unauthorized user', () => {
+    // Test:
+    // - GET /api/groups?user_id=user-123 without authentication
+    // - Status 401 returned
+    // - Error message about authorization
+  });
+
+  it('should not return groups user is not a member of', () => {
+    // Test:
+    // - Create group A with user X
+    // - Create group B with user Y
+    // - GET /api/groups?user_id=user-Y
+    // - Response includes only group B
+    // - Group A is NOT included
+  });
+
+  it('should handle deleted groups correctly', () => {
+    // Test:
+    // - User member of group that is soft-deleted
+    // - GET /api/groups?user_id=user-123
+    // - Deleted group is NOT included in response
+  });
+
+  it('should return proper response format', () => {
+    // Test:
+    // - GET /api/groups?user_id=user-123
+    // - Response structure: { success: true, message, groups: [...] }
+    // - Content-Type: application/json
+  });
+});
+
+/**
  * Endpoint Integration Tests
  */
 

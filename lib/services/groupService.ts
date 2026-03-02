@@ -186,3 +186,69 @@ export async function getGroup(groupId: string): Promise<CreateGroupResponse> {
     };
   }
 }
+
+/**
+ * Get all groups for a user
+ * Returns groups sorted by last activity date (most recent first)
+ * Includes member count and user's role in each group
+ */
+export async function getGroupsByUser(userId: string): Promise<{
+  success: boolean;
+  message: string;
+  groups?: any[];
+  error?: string;
+  errorCode?: string;
+}> {
+  try {
+    if (!userId || typeof userId !== 'string') {
+      return {
+        success: false,
+        message: 'User ID is required',
+        error: 'INVALID_USER_ID',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    const response = await fetch(`/api/groups?user_id=${encodeURIComponent(userId)}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        message: errorData.message || 'Failed to retrieve groups',
+        error: errorData.error,
+        errorCode: errorData.errorCode || 'GET_GROUPS_ERROR',
+      };
+    }
+
+    const data = await response.json();
+
+    if (data.success) {
+      return {
+        success: true,
+        message: 'Groups retrieved successfully',
+        groups: data.groups || [],
+      };
+    } else {
+      return {
+        success: false,
+        message: data.message || 'Failed to retrieve groups',
+        error: data.error,
+        errorCode: data.errorCode || 'GET_GROUPS_ERROR',
+      };
+    }
+  } catch (error: any) {
+    console.error('Get groups error:', error);
+    return {
+      success: false,
+      message: 'An unexpected error occurred while retrieving groups',
+      error: error.message || 'UNKNOWN_ERROR',
+      errorCode: 'INTERNAL_ERROR',
+    };
+  }
+}
