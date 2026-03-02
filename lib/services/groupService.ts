@@ -470,3 +470,478 @@ export async function getGroupDetails(groupId: string): Promise<{
   }
 }
 
+/**
+ * Search users for inviting to a group
+ * Returns list of users with membership status
+ */
+export async function searchUsersForInvite(
+  groupId: string,
+  query: string
+): Promise<{
+  success: boolean;
+  users?: Array<{
+    id: string;
+    email: string;
+    username: string;
+    alreadyMember: boolean;
+    hasPendingInvite: boolean;
+  }>;
+  error?: string;
+  errorCode?: string;
+}> {
+  try {
+    if (!groupId || !query) {
+      return {
+        success: false,
+        error: 'Group ID and search query required',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    const response = await fetch(
+      `/api/groups/${groupId}/invite-search?q=${encodeURIComponent(query)}`
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        error: errorData.error || 'Search failed',
+        errorCode: errorData.errorCode || 'SEARCH_FAILED',
+      };
+    }
+
+    const data = await response.json();
+    return {
+      success: data.success,
+      users: data.users,
+    };
+  } catch (error: any) {
+    console.error('Search users error:', error);
+    return {
+      success: false,
+      error: 'Search failed',
+      errorCode: 'INTERNAL_ERROR',
+    };
+  }
+}
+
+/**
+ * Invite a user to a group
+ */
+export async function inviteUserToGroup(
+  groupId: string,
+  userId: string
+): Promise<{
+  success: boolean;
+  message?: string;
+  error?: string;
+  errorCode?: string;
+}> {
+  try {
+    if (!groupId || !userId) {
+      return {
+        success: false,
+        error: 'Group ID and user ID required',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    const response = await fetch(`/api/groups/${groupId}/invitations`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ invitedUserId: userId }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        error: errorData.error || 'Invitation failed',
+        errorCode: errorData.errorCode || 'INVITATION_FAILED',
+      };
+    }
+
+    const data = await response.json();
+    return {
+      success: data.success,
+      message: data.message,
+    };
+  } catch (error: any) {
+    console.error('Invite user error:', error);
+    return {
+      success: false,
+      error: 'Invitation failed',
+      errorCode: 'INTERNAL_ERROR',
+    };
+  }
+}
+
+/**
+ * Get pending invitations for a group (admin only)
+ */
+export async function getPendingInvitations(groupId: string): Promise<{
+  success: boolean;
+  invitations?: any[];
+  total?: number;
+  error?: string;
+  errorCode?: string;
+}> {
+  try {
+    if (!groupId) {
+      return {
+        success: false,
+        error: 'Group ID required',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    const response = await fetch(`/api/groups/${groupId}/invitations`);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        error: errorData.error || 'Failed to get invitations',
+        errorCode: errorData.errorCode || 'GET_INVITATIONS_FAILED',
+      };
+    }
+
+    const data = await response.json();
+    return {
+      success: data.success,
+      invitations: data.invitations,
+      total: data.total,
+    };
+  } catch (error: any) {
+    console.error('Get invitations error:', error);
+    return {
+      success: false,
+      error: 'Failed to get invitations',
+      errorCode: 'INTERNAL_ERROR',
+    };
+  }
+}
+
+/**
+ * Revoke an invitation
+ */
+export async function revokeInvitation(invitationId: string): Promise<{
+  success: boolean;
+  message?: string;
+  error?: string;
+  errorCode?: string;
+}> {
+  try {
+    if (!invitationId) {
+      return {
+        success: false,
+        error: 'Invitation ID required',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    const response = await fetch(`/api/invitations/${invitationId}`, {
+      method: 'DELETE',
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        error: errorData.error || 'Failed to revoke invitation',
+        errorCode: errorData.errorCode || 'REVOKE_FAILED',
+      };
+    }
+
+    const data = await response.json();
+    return {
+      success: data.success,
+      message: data.message,
+    };
+  } catch (error: any) {
+    console.error('Revoke invitation error:', error);
+    return {
+      success: false,
+      error: 'Failed to revoke invitation',
+      errorCode: 'INTERNAL_ERROR',
+    };
+  }
+}
+
+/**
+ * Get user's invitations
+ */
+export async function getUserInvitations(): Promise<{
+  success: boolean;
+  invitations?: any[];
+  total?: number;
+  error?: string;
+  errorCode?: string;
+}> {
+  try {
+    const response = await fetch('/api/user/invitations');
+
+    if (response.status === 401) {
+      return {
+        success: false,
+        error: 'Authentication required',
+        errorCode: 'UNAUTHORIZED',
+      };
+    }
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        error: errorData.error || 'Failed to get invitations',
+        errorCode: errorData.errorCode || 'GET_INVITATIONS_FAILED',
+      };
+    }
+
+    const data = await response.json();
+    return {
+      success: data.success,
+      invitations: data.invitations,
+      total: data.total,
+    };
+  } catch (error: any) {
+    console.error('Get user invitations error:', error);
+    return {
+      success: false,
+      error: 'Failed to get invitations',
+      errorCode: 'INTERNAL_ERROR',
+    };
+  }
+}
+
+/**
+ * Respond to an invitation (accept or decline)
+ */
+export async function respondToInvitation(
+  invitationId: string,
+  action: 'accept' | 'decline'
+): Promise<{
+  success: boolean;
+  message?: string;
+  groupId?: string;
+  error?: string;
+  errorCode?: string;
+}> {
+  try {
+    if (!invitationId || !action) {
+      return {
+        success: false,
+        error: 'Invitation ID and action required',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    const response = await fetch(`/api/invitations/${invitationId}/respond`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ action }),
+    });
+
+    if (response.status === 401) {
+      return {
+        success: false,
+        error: 'Authentication required',
+        errorCode: 'UNAUTHORIZED',
+      };
+    }
+
+    if (response.status === 410) {
+      return {
+        success: false,
+        error: 'Invitation has expired',
+        errorCode: 'INVITATION_EXPIRED',
+      };
+    }
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        error: errorData.error || 'Failed to respond to invitation',
+        errorCode: errorData.errorCode || 'RESPOND_FAILED',
+      };
+    }
+
+    const data = await response.json();
+    return {
+      success: data.success,
+      message: data.message,
+      groupId: data.groupId,
+    };
+  } catch (error: any) {
+    console.error('Respond to invitation error:', error);
+    return {
+      success: false,
+      error: 'Failed to respond to invitation',
+      errorCode: 'INTERNAL_ERROR',
+    };
+  }
+}
+
+/**
+ * Get all members of a group
+ */
+export async function getMembers(groupId: string, limit?: number, offset?: number): Promise<{
+  success: boolean;
+  members?: Array<{
+    id: string;
+    email: string;
+    username: string;
+    role: 'admin' | 'member';
+    joinedAt: string;
+    isCurrentUser?: boolean;
+  }>;
+  total?: number;
+  error?: string;
+  errorCode?: string;
+}> {
+  try {
+    if (!groupId) {
+      return {
+        success: false,
+        error: 'Group ID required',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    const params = new URLSearchParams();
+    if (limit) params.append('limit', limit.toString());
+    if (offset) params.append('offset', offset.toString());
+
+    const response = await fetch(`/api/groups/${groupId}/members?${params}`);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        error: errorData.error || 'Failed to get members',
+        errorCode: errorData.errorCode || 'GET_MEMBERS_FAILED',
+      };
+    }
+
+    const data = await response.json();
+    return {
+      success: data.success,
+      members: data.members,
+      total: data.total,
+    };
+  } catch (error: any) {
+    console.error('Get members error:', error);
+    return {
+      success: false,
+      error: 'Failed to get members',
+      errorCode: 'INTERNAL_ERROR',
+    };
+  }
+}
+
+/**
+ * Remove a member from a group
+ */
+export async function removeMember(groupId: string, memberId: string): Promise<{
+  success: boolean;
+  message?: string;
+  error?: string;
+  errorCode?: string;
+}> {
+  try {
+    if (!groupId || !memberId) {
+      return {
+        success: false,
+        error: 'Group ID and member ID required',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    const response = await fetch(`/api/groups/${groupId}/members/${memberId}`, {
+      method: 'DELETE',
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        error: errorData.error || 'Failed to remove member',
+        errorCode: errorData.errorCode || 'REMOVE_MEMBER_FAILED',
+      };
+    }
+
+    const data = await response.json();
+    return {
+      success: data.success,
+      message: data.message,
+    };
+  } catch (error: any) {
+    console.error('Remove member error:', error);
+    return {
+      success: false,
+      error: 'Failed to remove member',
+      errorCode: 'INTERNAL_ERROR',
+    };
+  }
+}
+
+/**
+ * Update member role
+ */
+export async function updateMemberRole(
+  groupId: string,
+  memberId: string,
+  role: 'admin' | 'member'
+): Promise<{
+  success: boolean;
+  message?: string;
+  error?: string;
+  errorCode?: string;
+}> {
+  try {
+    if (!groupId || !memberId || !role) {
+      return {
+        success: false,
+        error: 'Group ID, member ID, and role required',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    const response = await fetch(`/api/groups/${groupId}/members/${memberId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ role }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        error: errorData.error || 'Failed to update member role',
+        errorCode: errorData.errorCode || 'UPDATE_MEMBER_FAILED',
+      };
+    }
+
+    const data = await response.json();
+    return {
+      success: data.success,
+      message: data.message,
+    };
+  } catch (error: any) {
+    console.error('Update member role error:', error);
+    return {
+      success: false,
+      error: 'Failed to update member role',
+      errorCode: 'INTERNAL_ERROR',
+    };
+  }
+}
+
