@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Box,
   VStack,
@@ -19,6 +19,7 @@ import {
   AlertIcon,
   useToast,
   Heading,
+  Select,
 } from '@chakra-ui/react';
 
 export interface GroupMember {
@@ -39,6 +40,8 @@ interface MemberListProps {
   showActions?: boolean;
   maxHeight?: string;
   emptyMessage?: string;
+  itemsPerPage?: number;
+  showPagination?: boolean;
 }
 
 /**
@@ -69,9 +72,22 @@ export const MemberList: React.FC<MemberListProps> = ({
   showActions = true,
   maxHeight,
   emptyMessage = 'No members in this group',
+  itemsPerPage = 10,
+  showPagination = true,
 }) => {
   const toast = useToast();
   const isAdmin = currentUserRole === 'admin';
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Calculate pagination
+  const totalPages = Math.ceil(members.length / itemsPerPage);
+  const paginatedMembers = useMemo(() => {
+    if (!showPagination) return members;
+
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return members.slice(startIndex, endIndex);
+  }, [members, currentPage, itemsPerPage, showPagination]);
 
   const handleRemoveMember = async (userId: string) => {
     if (!onRemoveMember) return;
@@ -173,8 +189,9 @@ export const MemberList: React.FC<MemberListProps> = ({
     : {};
 
   return (
-    <VStack spacing={3} align="stretch" {...containerStyle}>
-      {members.map((member) => {
+    <VStack spacing={4} align="stretch">
+      <VStack spacing={3} align="stretch" {...containerStyle}>
+        {paginatedMembers.map((member) => {
         const isCurrentUser = member.user_id === currentUserId;
         const canManage = isAdmin && !isCurrentUser && showActions;
 
@@ -244,6 +261,44 @@ export const MemberList: React.FC<MemberListProps> = ({
           </Box>
         );
       })}
+      </VStack>
+
+      {/* Pagination Controls */}
+      {showPagination && totalPages > 1 && (
+        <HStack justify="space-between" align="center" pt={2}>
+          <Text fontSize="sm" color="gray.600">
+            Page {currentPage} of {totalPages} ({members.length} total)
+          </Text>
+          <HStack spacing={2}>
+            <Button
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              isDisabled={currentPage === 1}
+            >
+              Previous
+            </Button>
+            <Select
+              size="sm"
+              w="auto"
+              value={currentPage}
+              onChange={(e) => setCurrentPage(parseInt(e.target.value))}
+            >
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <option key={page} value={page}>
+                  {page}
+                </option>
+              ))}
+            </Select>
+            <Button
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              isDisabled={currentPage === totalPages}
+            >
+              Next
+            </Button>
+          </HStack>
+        </HStack>
+      )}
     </VStack>
   );
 };
