@@ -1,5 +1,3 @@
-'use server';
-
 import { Pool, PoolClient } from 'pg';
 
 // Create a connection pool for PostgreSQL

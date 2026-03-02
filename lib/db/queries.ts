@@ -1,5 +1,3 @@
-'use server';
-
 import { query, queryOne, getClient } from './client';
 
 /**
