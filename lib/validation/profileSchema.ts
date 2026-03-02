@@ -3,7 +3,7 @@ import { emailSchema } from './authSchema';
 
 /**
  * Profile update form validation schema
- * Handles updates to display_name and email
+ * Handles updates to display_name, email, and avatar_url
  */
 export const updateProfileSchema = z.object({
   display_name: z
@@ -12,6 +12,7 @@ export const updateProfileSchema = z.object({
     .max(255, 'Name must be 255 characters or less')
     .trim(),
   new_email: emailSchema.optional(),
+  avatar_url: z.string().url('Invalid avatar URL').optional().nullable(),
 });
 
 export type UpdateProfileFormData = z.infer<typeof updateProfileSchema>;
