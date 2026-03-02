@@ -280,3 +280,97 @@ export async function updateGroup(
 export async function deleteGroup(groupId: string): Promise<void> {
   await query(`DELETE FROM groups WHERE id = $1`, [groupId]);
 }
+
+/**
+ * Check if user is a member of a group
+ */
+export async function isGroupMember(groupId: string, userId: string): Promise<boolean> {
+  const result = await queryOne<{ id: string }>(
+    `SELECT id FROM group_memberships WHERE group_id = $1 AND user_id = $2`,
+    [groupId, userId]
+  );
+  return !!result;
+}
+
+/**
+ * Get all members of a group with pagination
+ */
+export async function getGroupMembers(
+  groupId: string,
+  limit: number = 10,
+  offset: number = 0
+): Promise<{
+  members: Array<{
+    id: string;
+    email: string;
+    username: string;
+    role: 'admin' | 'member';
+    joinedAt: string;
+  }>;
+  total: number;
+}> {
+  // Get count
+  const countResult = await queryOne<{ count: number }>(
+    `SELECT COUNT(*) as count FROM group_memberships WHERE group_id = $1`,
+    [groupId]
+  );
+  const total = countResult?.count || 0;
+
+  // Get members with user info
+  const results = await query<{
+    user_id: string;
+    email: string;
+    username: string;
+    role: 'admin' | 'member';
+    joined_at: string;
+  }>(
+    `SELECT
+       gm.user_id as user_id,
+       u.email,
+       u.username,
+       gm.role,
+       gm.joined_at
+     FROM group_memberships gm
+     JOIN users u ON gm.user_id = u.id
+     WHERE gm.group_id = $1
+     ORDER BY gm.joined_at ASC
+     LIMIT $2 OFFSET $3`,
+    [groupId, limit, offset]
+  );
+
+  return {
+    members: results.map((row) => ({
+      id: row.user_id,
+      email: row.email,
+      username: row.username,
+      role: row.role,
+      joinedAt: row.joined_at,
+    })),
+    total,
+  };
+}
+
+/**
+ * Get count of admins in a group
+ */
+export async function getAdminCount(groupId: string): Promise<number> {
+  const result = await queryOne<{ count: number }>(
+    `SELECT COUNT(*) as count FROM group_memberships WHERE group_id = $1 AND role = 'admin'`,
+    [groupId]
+  );
+  return result?.count || 0;
+}
+
+/**
+ * Update member role
+ */
+export async function updateMemberRole(
+  groupId: string,
+  userId: string,
+  role: 'admin' | 'member'
+): Promise<void> {
+  await query(
+    `UPDATE group_memberships SET role = $3 WHERE group_id = $1 AND user_id = $2`,
+    [groupId, userId, role]
+  );
+}
