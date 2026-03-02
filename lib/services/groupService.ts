@@ -254,6 +254,119 @@ export async function getGroupsByUser(userId: string): Promise<{
 }
 
 /**
+ * Join a group using an invite code
+ * Sends POST request to /api/groups/join/:inviteCode
+ *
+ * @param inviteCode 16-character hex invite code
+ * @returns JoinGroupResponse with success status and group details
+ */
+export async function joinGroup(inviteCode: string): Promise<{
+  success: boolean;
+  message: string;
+  group?: {
+    id: string;
+    name: string;
+    description: string | null;
+    created_by: string;
+    invite_code: string;
+    created_at: string;
+    updated_at: string;
+  };
+  error?: string;
+  errorCode?: string;
+}> {
+  try {
+    if (!inviteCode || typeof inviteCode !== 'string') {
+      return {
+        success: false,
+        message: 'Invite code is required',
+        error: 'INVALID_INVITE_CODE',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    // Validate invite code format (16 hex characters)
+    if (!/^[a-f0-9]{16}$/.test(inviteCode)) {
+      return {
+        success: false,
+        message: 'Invalid invite code format',
+        error: 'INVALID_INVITE_CODE',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    const response = await fetch(`/api/groups/join/${inviteCode}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (response.status === 401) {
+      return {
+        success: false,
+        message: 'Authentication required',
+        error: 'UNAUTHORIZED',
+        errorCode: 'UNAUTHORIZED',
+      };
+    }
+
+    if (response.status === 404) {
+      return {
+        success: false,
+        message: 'Invalid or expired invite code',
+        error: 'INVALID_INVITE_CODE',
+        errorCode: 'NOT_FOUND',
+      };
+    }
+
+    if (response.status === 409) {
+      return {
+        success: false,
+        message: 'You are already a member of this group',
+        error: 'ALREADY_MEMBER',
+        errorCode: 'CONFLICT',
+      };
+    }
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        message: errorData.message || 'Failed to join group',
+        error: errorData.error,
+        errorCode: errorData.errorCode || 'JOIN_GROUP_ERROR',
+      };
+    }
+
+    const data = await response.json();
+
+    if (data.success) {
+      return {
+        success: true,
+        message: data.message || 'Successfully joined group',
+        group: data.group,
+      };
+    } else {
+      return {
+        success: false,
+        message: data.message || 'Failed to join group',
+        error: data.error,
+        errorCode: data.errorCode || 'JOIN_GROUP_ERROR',
+      };
+    }
+  } catch (error: any) {
+    console.error('Join group error:', error);
+    return {
+      success: false,
+      message: 'An unexpected error occurred while joining the group',
+      error: error.message || 'UNKNOWN_ERROR',
+      errorCode: 'INTERNAL_ERROR',
+    };
+  }
+}
+
+/**
  * Get detailed group information with member list
  * Requires user to be authenticated and a member of the group
  * Returns group info, member list, and user's role in the group
