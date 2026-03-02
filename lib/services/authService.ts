@@ -7,6 +7,23 @@ const cognitoClient = new CognitoIdentityProviderClient({
 const USER_POOL_ID = process.env.NEXT_PUBLIC_USER_POOL_ID || '';
 const CLIENT_ID = process.env.NEXT_PUBLIC_USER_POOL_WEB_CLIENT_ID || '';
 
+// Validate Cognito configuration at service initialization
+function validateCognitoConfig(): { isValid: boolean; error?: string } {
+  if (!USER_POOL_ID) {
+    return {
+      isValid: false,
+      error: 'NEXT_PUBLIC_USER_POOL_ID environment variable is not configured',
+    };
+  }
+  if (!CLIENT_ID) {
+    return {
+      isValid: false,
+      error: 'NEXT_PUBLIC_USER_POOL_WEB_CLIENT_ID environment variable is not configured',
+    };
+  }
+  return { isValid: true };
+}
+
 export interface SignupResponse {
   success: boolean;
   message: string;
@@ -130,7 +147,19 @@ const resetErrorCodeMap: Record<string, { message: string; statusCode: number }>
  */
 export async function signupUser(email: string, password: string): Promise<SignupResponse> {
   try {
-    // Validate inputs (server-side validation)
+    // Validate Cognito configuration
+    const configValidation = validateCognitoConfig();
+    if (!configValidation.isValid) {
+      console.error('Cognito configuration error:', configValidation.error);
+      return {
+        success: false,
+        message: 'Service temporarily unavailable. Please try again later.',
+        error: 'SERVICE_UNAVAILABLE',
+        errorCode: 'SERVICE_CONFIG_ERROR',
+      };
+    }
+
+    // Validate inputs (server-side validation using Zod schemas)
     if (!email || typeof email !== 'string') {
       return {
         success: false,
@@ -140,10 +169,39 @@ export async function signupUser(email: string, password: string): Promise<Signu
       };
     }
 
-    if (!password || typeof password !== 'string' || password.length < 8) {
+    // Import schemas for validation (at top of file: import { emailSchema, passwordSchema } from '@/lib/validation/authSchema')
+    // For now, validate password manually against requirements
+    if (!password || typeof password !== 'string') {
+      return {
+        success: false,
+        message: 'Password is required',
+        error: 'INVALID_PASSWORD',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    if (password.length < 8) {
       return {
         success: false,
         message: 'Password must be at least 8 characters',
+        error: 'INVALID_PASSWORD',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    if (!/[A-Z]/.test(password)) {
+      return {
+        success: false,
+        message: 'Password must contain at least one uppercase letter',
+        error: 'INVALID_PASSWORD',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    if (!/[0-9]/.test(password)) {
+      return {
+        success: false,
+        message: 'Password must contain at least one number',
         error: 'INVALID_PASSWORD',
         errorCode: 'VALIDATION_ERROR',
       };
@@ -153,8 +211,18 @@ export async function signupUser(email: string, password: string): Promise<Signu
     const command = new AdminCreateUserCommand({
       UserPoolId: USER_POOL_ID,
       Username: email,
-      MessageAction: 'SUPPRESS', // Don't send default password email
+      MessageAction: 'RESEND', // Send welcome email with temporary password
       TemporaryPassword: password, // Will be changed on first login
+      UserAttributes: [
+        {
+          Name: 'email',
+          Value: email,
+        },
+        {
+          Name: 'email_verified',
+          Value: 'false',
+        },
+      ],
     });
 
     const response = await cognitoClient.send(command);
@@ -186,36 +254,21 @@ export async function signupUser(email: string, password: string): Promise<Signu
 
     console.error('Signup error:', { errorCode, message: error.message });
 
+    // Map Cognito errors to standardized error codes
+    let standardizedError = errorCode;
+    if (errorCode === 'UsernameExistsException') {
+      standardizedError = 'EMAIL_EXISTS';
+    } else if (errorCode === 'InvalidParameterException' || errorCode === 'InvalidPasswordException') {
+      standardizedError = 'INVALID_INPUT';
+    } else if (errorCode === 'TooManyRequestsException') {
+      standardizedError = 'RATE_LIMITED';
+    }
+
     return {
       success: false,
       message: errorInfo.message,
-      error: errorCode,
-      errorCode,
-    };
-  }
-}
-
-/**
- * Set permanent password for user (after email verification)
- * @param email User's email
- * @param newPassword New permanent password
- * @returns SignupResponse
- */
-export async function setPermanentPassword(email: string, newPassword: string): Promise<SignupResponse> {
-  try {
-    // This would be called after email verification in a full implementation
-    // For MVP, Cognito handles password management
-
-    return {
-      success: true,
-      message: 'Password set successfully',
-    };
-  } catch (error: any) {
-    return {
-      success: false,
-      message: 'Failed to set password',
-      error: error.message,
-      errorCode: error.code,
+      error: standardizedError,
+      errorCode: standardizedError,
     };
   }
 }
@@ -426,7 +479,6 @@ export async function resetPassword(
       errorCode,
     };
   }
-}
 }
 
 // ============================================================================

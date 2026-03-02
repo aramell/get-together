@@ -101,18 +101,48 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
       setIsLoading(true);
 
       // Call signup API
-      const response = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: validatedData.email,
-          password: validatedData.password,
-        }),
-      });
+      let response;
+      try {
+        response = await fetch('/api/auth/signup', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: validatedData.email,
+            password: validatedData.password,
+          }),
+        });
+      } catch (networkError) {
+        // Handle network errors (timeout, connection refused, etc.)
+        console.error('Network error during signup:', networkError);
+        toast({
+          title: 'Connection Error',
+          description: 'Unable to reach the server. Please check your internet connection and try again.',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+        setIsLoading(false);
+        return;
+      }
 
-      const data = await response.json();
+      // Parse response
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        console.error('Error parsing response:', parseError);
+        toast({
+          title: 'Server Error',
+          description: 'The server returned an invalid response. Please try again later.',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+        setIsLoading(false);
+        return;
+      }
 
       if (response.ok && data.success) {
         toast({
@@ -138,13 +168,24 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
         // Handle error from API
         const errorMessage = data.message || 'Signup failed. Please try again.';
 
-        toast({
-          title: 'Signup Failed',
-          description: errorMessage,
-          status: 'error',
-          duration: 5000,
-          isClosable: true,
-        });
+        // Check for rate limiting
+        if (response.status === 429 || data.errorCode === 'RATE_LIMITED') {
+          toast({
+            title: 'Too Many Attempts',
+            description: 'You have made too many signup attempts. Please wait a few minutes before trying again.',
+            status: 'warning',
+            duration: 5000,
+            isClosable: true,
+          });
+        } else {
+          toast({
+            title: 'Signup Failed',
+            description: errorMessage,
+            status: 'error',
+            duration: 5000,
+            isClosable: true,
+          });
+        }
 
         // If it's a validation error, show field-specific errors
         if (data.errorCode === 'VALIDATION_ERROR') {
@@ -162,6 +203,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
         });
         setErrors(newErrors);
       } else {
+        console.error('Unexpected error:', error);
         toast({
           title: 'Error',
           description: 'An unexpected error occurred',

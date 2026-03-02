@@ -27,6 +27,7 @@ jest.mock('next/server', () => ({
 }));
 
 const { signupUser } = require('@/lib/services/authService');
+const { POST } = require('@/app/api/auth/signup/route');
 
 // Note: For actual implementation, use proper Next.js test utilities
 // This test structure demonstrates the testing approach

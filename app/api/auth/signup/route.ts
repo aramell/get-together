@@ -76,12 +76,26 @@ export async function POST(request: NextRequest) {
  * Handle CORS preflight
  */
 export async function OPTIONS(request: NextRequest) {
+  // Get the origin from the request
+  const origin = request.headers.get('origin') || '';
+
+  // Define allowed origins (update these based on your deployment)
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    process.env.NEXT_PUBLIC_APP_URL, // Production domain from env
+  ].filter(Boolean);
+
+  // Check if request origin is allowed
+  const isOriginAllowed = allowedOrigins.includes(origin);
+
   return new NextResponse(null, {
     status: 200,
     headers: {
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': isOriginAllowed ? origin : '',
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Max-Age': '86400', // 24 hours
     },
   });
 }
