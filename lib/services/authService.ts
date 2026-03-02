@@ -427,3 +427,238 @@ export async function resetPassword(
     };
   }
 }
+}
+
+// ============================================================================
+// USER PROFILE FUNCTIONS
+// ============================================================================
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UpdateProfileResponse {
+  success: boolean;
+  message: string;
+  profile?: UserProfile;
+  error?: string;
+  errorCode?: string;
+}
+
+export interface EmailChangeResponse {
+  success: boolean;
+  message: string;
+  error?: string;
+  errorCode?: string;
+}
+
+/**
+ * Get user profile from database
+ * Fetches user data from Postgres users table via API
+ */
+export async function getUserProfile(userId: string): Promise<UpdateProfileResponse> {
+  try {
+    if (!userId) {
+      return {
+        success: false,
+        message: 'User ID is required',
+        errorCode: 'INVALID_USER_ID',
+      };
+    }
+
+    // API call to fetch profile - will be implemented in API endpoint
+    const response = await fetch('/api/users/profile', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      return {
+        success: false,
+        message: 'Failed to retrieve user profile',
+        errorCode: 'PROFILE_FETCH_ERROR',
+      };
+    }
+
+    const data = await response.json();
+    return {
+      success: true,
+      message: 'User profile retrieved',
+      profile: data.profile,
+    };
+  } catch (error: any) {
+    console.error('Get profile error:', error);
+    return {
+      success: false,
+      message: 'Failed to retrieve user profile',
+      errorCode: 'PROFILE_FETCH_ERROR',
+    };
+  }
+}
+
+/**
+ * Update user profile (display_name and/or avatar_url)
+ * Updates both Cognito and Postgres database
+ */
+export async function updateUserProfile(
+  userId: string,
+  updates: { display_name?: string; avatar_url?: string }
+): Promise<UpdateProfileResponse> {
+  try {
+    if (!userId) {
+      return {
+        success: false,
+        message: 'User ID is required',
+        errorCode: 'INVALID_USER_ID',
+      };
+    }
+
+    const response = await fetch('/api/users/profile', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(updates),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return {
+        success: false,
+        message: errorData.message || 'Failed to update profile',
+        errorCode: errorData.errorCode || 'UPDATE_PROFILE_ERROR',
+      };
+    }
+
+    const data = await response.json();
+    return {
+      success: true,
+      message: 'Profile updated successfully',
+      profile: data.profile,
+    };
+  } catch (error: any) {
+    const errorCode = error.name || error.code || 'UPDATE_PROFILE_ERROR';
+    console.error('Update profile error:', { errorCode, message: error.message });
+
+    return {
+      success: false,
+      message: 'Failed to update profile',
+      errorCode,
+    };
+  }
+}
+
+/**
+ * Request email change with confirmation
+ * Sends confirmation email to new email address
+ */
+export async function requestEmailChange(
+  userId: string,
+  newEmail: string
+): Promise<EmailChangeResponse> {
+  try {
+    if (!userId || !newEmail) {
+      return {
+        success: false,
+        message: 'User ID and new email are required',
+        errorCode: 'INVALID_INPUT',
+      };
+    }
+
+    const response = await fetch('/api/users/profile', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ new_email: newEmail }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return {
+        success: false,
+        message: errorData.message || 'Failed to process email change',
+        errorCode: errorData.errorCode || 'EMAIL_CHANGE_ERROR',
+      };
+    }
+
+    const data = await response.json();
+    return {
+      success: true,
+      message: data.message || `Confirmation email sent to ${newEmail}`,
+    };
+  } catch (error: any) {
+    const errorCode = error.name || error.code || 'EMAIL_CHANGE_ERROR';
+    console.error('Email change request error:', { errorCode, message: error.message });
+
+    return {
+      success: false,
+      message: 'Failed to process email change request',
+      errorCode,
+    };
+  }
+}
+
+/**
+ * Confirm email change with verification token
+ * Updates email in both Cognito and Postgres
+ */
+export async function confirmEmailChange(
+  token: string
+): Promise<EmailChangeResponse> {
+  try {
+    if (!token) {
+      return {
+        success: false,
+        message: 'Confirmation token is required',
+        errorCode: 'MISSING_TOKEN',
+      };
+    }
+
+    const response = await fetch('/api/users/confirm-email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ token }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      if (response.status === 400) {
+        return {
+          success: false,
+          message: 'Confirmation link has expired. Please request a new one.',
+          errorCode: 'TOKEN_EXPIRED',
+        };
+      }
+      return {
+        success: false,
+        message: errorData.message || 'Failed to confirm email change',
+        errorCode: errorData.errorCode || 'CONFIRM_EMAIL_ERROR',
+      };
+    }
+
+    const data = await response.json();
+    return {
+      success: true,
+      message: data.message || 'Email successfully updated',
+    };
+  } catch (error: any) {
+    const errorCode = error.name || error.code || 'CONFIRM_EMAIL_ERROR';
+    console.error('Email confirmation error:', { errorCode, message: error.message });
+
+    return {
+      success: false,
+      message: 'Failed to confirm email change',
+      errorCode,
+    };
+  }
+}
