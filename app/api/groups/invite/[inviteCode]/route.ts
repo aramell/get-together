@@ -1,27 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getGroupByInviteCode, addUserToGroup, getUserGroupRole } from '@/lib/db/queries';
+import { getGroupByInviteCode, getUserGroupRole } from '@/lib/db/queries';
 
 /**
- * POST /api/groups/join/:inviteCode
- * Join a group using an invite code
- * Requires user to be authenticated
+ * GET /api/groups/invite/:inviteCode
+ * Get group preview from invite code (unauthenticated)
+ * Returns group info without requiring user to be logged in
  *
  * Path parameters:
  * - inviteCode: 16-character hexadecimal invite code
  *
- * Headers:
- * - Authorization: Bearer <JWT token> or Cookie with auth token
- *
  * Response:
- * - 200: Successfully joined group
- * - 201: Already joined, redirected
+ * - 200: Group found, preview available
  * - 400: Invalid invite code format
- * - 401: User not authenticated
  * - 404: Invite code not found
- * - 409: User already a member of the group
  * - 500: Server error
  */
-export async function POST(
+export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ inviteCode: string }> }
 ) {
@@ -54,33 +48,6 @@ export async function POST(
       );
     }
 
-    // Extract userId from JWT token or headers
-    const authHeader = request.headers.get('authorization');
-    let userId: string | null = null;
-
-    if (authHeader?.startsWith('Bearer ')) {
-      // In production, verify JWT token and extract userId
-      // For now, use placeholder or header
-      userId = (request as any).userId || request.headers.get('x-user-id');
-    }
-
-    // Check if user_id is available from middleware
-    if (!userId) {
-      userId = (request as any).userId || request.headers.get('x-user-id');
-    }
-
-    if (!userId) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Authentication required',
-          error: 'UNAUTHORIZED',
-          errorCode: 'UNAUTHORIZED',
-        },
-        { status: 401 }
-      );
-    }
-
     // Fetch group by invite code
     const group = await getGroupByInviteCode(inviteCode);
 
@@ -96,52 +63,45 @@ export async function POST(
       );
     }
 
-    // Check if user is already a member
-    const existingRole = await getUserGroupRole(group.id, userId);
+    // Get current user info if authenticated
+    let userIsMember = null;
+    const authHeader = request.headers.get('authorization');
+    let userId: string | null = null;
 
-    if (existingRole) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'You are already a member of this group',
-          error: 'ALREADY_MEMBER',
-          errorCode: 'CONFLICT',
+    if (authHeader?.startsWith('Bearer ')) {
+      userId = (request as any).userId || request.headers.get('x-user-id');
+      if (userId) {
+        const role = await getUserGroupRole(group.id, userId);
+        userIsMember = !!role;
+      }
+    }
+
+    // Return group preview (do NOT include invite_code in response)
+    return NextResponse.json(
+      {
+        success: true,
+        message: 'Group preview retrieved successfully',
+        data: {
           group: {
             id: group.id,
             name: group.name,
             description: group.description,
+            member_count: 1, // Will be updated to actual count when member list is queried
+            created_at: group.created_at,
           },
-        },
-        { status: 409 }
-      );
-    }
-
-    // Add user to group with member role
-    await addUserToGroup(group.id, userId, 'member');
-
-    // Return success response with group details (do NOT return invite_code)
-    return NextResponse.json(
-      {
-        success: true,
-        message: 'Successfully joined group',
-        group: {
-          id: group.id,
-          name: group.name,
-          description: group.description,
-          created_by: group.created_by,
-          created_at: group.created_at,
-          updated_at: group.updated_at,
+          inviteValid: true,
+          userIsMember,
         },
       },
       { status: 200 }
     );
   } catch (error) {
-    console.error('Join group API error:', error);
+    console.error('Get invite preview API error:', error);
 
     return NextResponse.json(
       {
         success: false,
-        message: 'An unexpected error occurred while joining the group',
+        message: 'An unexpected error occurred while retrieving group preview',
         error: (error as any)?.message || 'UNKNOWN_ERROR',
         errorCode: 'INTERNAL_ERROR',
       },
@@ -151,7 +111,7 @@ export async function POST(
 }
 
 /**
- * OPTIONS /api/groups/join/:inviteCode
+ * OPTIONS /api/groups/invite/:inviteCode
  * Handle CORS preflight
  */
 export async function OPTIONS(request: NextRequest) {
@@ -169,7 +129,7 @@ export async function OPTIONS(request: NextRequest) {
     status: 200,
     headers: {
       'Access-Control-Allow-Origin': isOriginAllowed ? origin : '',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       'Access-Control-Max-Age': '86400',
     },

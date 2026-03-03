@@ -22,14 +22,14 @@ import {
   useToast,
 } from '@chakra-ui/react';
 import { useAuth } from '@/lib/contexts/AuthContext';
-import { joinGroup } from '@/lib/services/groupService';
+import { joinGroup, getGroupPreview } from '@/lib/services/groupService';
 
 interface GroupPreviewData {
   id: string;
   name: string;
   description: string | null;
-  member_count?: number;
-  created_at?: string;
+  member_count: number;
+  created_at: string;
 }
 
 export default function JoinGroupPage() {
@@ -54,22 +54,41 @@ export default function JoinGroupPage() {
     }
   }, [isAuthenticated, inviteCode, loading, router]);
 
-  // Validate invite code format on load
+  // Fetch group preview on load
   useEffect(() => {
-    if (!inviteCode) {
-      setError('Invalid invite code');
-      setLoading(false);
-      return;
-    }
+    const fetchGroupPreview = async () => {
+      if (!inviteCode) {
+        setError('Invalid invite code');
+        setLoading(false);
+        return;
+      }
 
-    // Validate invite code format (16 hex characters)
-    if (!/^[a-f0-9]{16}$/.test(inviteCode)) {
-      setError('Invalid invite code format');
-      setLoading(false);
-      return;
-    }
+      // Validate invite code format (16 hex characters)
+      if (!/^[a-f0-9]{16}$/.test(inviteCode)) {
+        setError('Invalid invite code format');
+        setLoading(false);
+        return;
+      }
 
-    setLoading(false);
+      try {
+        const result = await getGroupPreview(inviteCode);
+
+        if (result.success && result.data?.group) {
+          setGroupData(result.data.group);
+        } else if (result.errorCode === 'NOT_FOUND') {
+          setError('Invalid or expired invite code. Please check the link and try again.');
+        } else {
+          setError(result.message || 'Failed to load group information');
+        }
+      } catch (err) {
+        console.error('Error fetching group preview:', err);
+        setError('An unexpected error occurred while loading the group');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchGroupPreview();
   }, [inviteCode]);
 
   const handleJoinGroup = async () => {
@@ -213,86 +232,86 @@ export default function JoinGroupPage() {
           </Box>
 
           {/* Group Preview Card */}
-          <Card borderWidth="2px" borderColor="blue.200" bg="blue.50">
-            <CardBody>
-              <VStack spacing={6} align="stretch">
-                {/* Group Header */}
-                <VStack spacing={3} align="flex-start">
-                  <Badge colorScheme="blue" fontSize="md" px={3} py={1}>
-                    Group Invitation
-                  </Badge>
-                  <VStack spacing={2} align="flex-start" w="full">
-                    <Heading size="xl">{groupData?.name || 'Loading...'}</Heading>
-                    {groupData?.description && (
-                      <Text color="gray.600" fontSize="md">
-                        {groupData.description}
-                      </Text>
-                    )}
+          {groupData && (
+            <Card borderWidth="2px" borderColor="blue.200" bg="blue.50">
+              <CardBody>
+                <VStack spacing={6} align="stretch">
+                  {/* Group Header */}
+                  <VStack spacing={3} align="flex-start">
+                    <Badge colorScheme="blue" fontSize="md" px={3} py={1}>
+                      Group Invitation
+                    </Badge>
+                    <VStack spacing={2} align="flex-start" w="full">
+                      <Heading size="xl">{groupData.name}</Heading>
+                      {groupData.description && (
+                        <Text color="gray.600" fontSize="md">
+                          {groupData.description}
+                        </Text>
+                      )}
+                    </VStack>
                   </VStack>
+
+                  {/* Group Stats */}
+                  <SimpleGrid columns={2} spacing={4}>
+                    <Box>
+                      <Text fontSize="sm" color="gray.500" fontWeight="semibold" mb={1}>
+                        Members
+                      </Text>
+                      <Text fontSize="2xl" fontWeight="bold">
+                        {groupData.member_count}
+                      </Text>
+                    </Box>
+                    <Box>
+                      <Text fontSize="sm" color="gray.500" fontWeight="semibold" mb={1}>
+                        Created
+                      </Text>
+                      <Text fontSize="md" fontWeight="semibold">
+                        {new Date(groupData.created_at).toLocaleDateString()}
+                      </Text>
+                    </Box>
+                  </SimpleGrid>
+
+                  {/* Member Avatars */}
+                  <Box>
+                    <Text fontSize="sm" color="gray.500" fontWeight="semibold" mb={2}>
+                      Group Members
+                    </Text>
+                    <AvatarGroup size="md" max={5}>
+                      {Array.from({ length: Math.min(5, groupData.member_count) }).map(
+                        (_, i) => (
+                          <Avatar key={i} name={`Member ${i + 1}`} />
+                        )
+                      )}
+                    </AvatarGroup>
+                  </Box>
+
+                  {/* Join Button */}
+                  <Button
+                    colorScheme="blue"
+                    size="lg"
+                    width="100%"
+                    isLoading={isJoining}
+                    loadingText="Joining..."
+                    onClick={handleJoinGroup}
+                    isDisabled={isJoining}
+                  >
+                    Join Group
+                  </Button>
+
+                  {/* Decline Button */}
+                  <Button
+                    colorScheme="gray"
+                    variant="outline"
+                    width="100%"
+                    onClick={() => router.push('/groups')}
+                    isDisabled={isJoining}
+                  >
+                    Maybe Later
+                  </Button>
                 </VStack>
-
-                {/* Group Stats */}
-                <SimpleGrid columns={2} spacing={4}>
-                  <Box>
-                    <Text fontSize="sm" color="gray.500" fontWeight="semibold" mb={1}>
-                      Members
-                    </Text>
-                    <Text fontSize="2xl" fontWeight="bold">
-                      {groupData?.member_count || 0}
-                    </Text>
-                  </Box>
-                  <Box>
-                    <Text fontSize="sm" color="gray.500" fontWeight="semibold" mb={1}>
-                      Created
-                    </Text>
-                    <Text fontSize="md" fontWeight="semibold">
-                      {groupData?.created_at
-                        ? new Date(groupData.created_at).toLocaleDateString()
-                        : 'N/A'}
-                    </Text>
-                  </Box>
-                </SimpleGrid>
-
-                {/* Member Avatars */}
-                <Box>
-                  <Text fontSize="sm" color="gray.500" fontWeight="semibold" mb={2}>
-                    Group Members
-                  </Text>
-                  <AvatarGroup size="md" max={5}>
-                    {Array.from({ length: Math.min(5, groupData?.member_count || 0) }).map(
-                      (_, i) => (
-                        <Avatar key={i} name={`Member ${i + 1}`} />
-                      )
-                    )}
-                  </AvatarGroup>
-                </Box>
-
-                {/* Join Button */}
-                <Button
-                  colorScheme="blue"
-                  size="lg"
-                  width="100%"
-                  isLoading={isJoining}
-                  loadingText="Joining..."
-                  onClick={handleJoinGroup}
-                  isDisabled={isJoining}
-                >
-                  Join Group
-                </Button>
-
-                {/* Decline Button */}
-                <Button
-                  colorScheme="gray"
-                  variant="outline"
-                  width="100%"
-                  onClick={() => router.push('/groups')}
-                  isDisabled={isJoining}
-                >
-                  Maybe Later
-                </Button>
-              </VStack>
-            </CardBody>
-          </Card>
+              </CardBody>
+            </Card>
+          )}
 
           {/* Info Box */}
           <Alert status="info" borderRadius="md" bg="blue.50" borderColor="blue.200">

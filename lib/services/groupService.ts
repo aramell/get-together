@@ -254,6 +254,93 @@ export async function getGroupsByUser(userId: string): Promise<{
 }
 
 /**
+ * Get group preview from invite code
+ * Fetches group information without requiring authentication
+ *
+ * @param inviteCode 16-character hex invite code
+ * @returns Group preview data
+ */
+export async function getGroupPreview(inviteCode: string): Promise<{
+  success: boolean;
+  message: string;
+  data?: {
+    group: {
+      id: string;
+      name: string;
+      description: string | null;
+      member_count: number;
+      created_at: string;
+    };
+    inviteValid: boolean;
+    userIsMember: boolean | null;
+  };
+  error?: string;
+  errorCode?: string;
+}> {
+  try {
+    if (!inviteCode || typeof inviteCode !== 'string') {
+      return {
+        success: false,
+        message: 'Invite code is required',
+        error: 'INVALID_INVITE_CODE',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    // Validate invite code format (16 hex characters)
+    if (!/^[a-f0-9]{16}$/.test(inviteCode)) {
+      return {
+        success: false,
+        message: 'Invalid invite code format',
+        error: 'INVALID_INVITE_CODE',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    const response = await fetch(`/api/groups/invite/${inviteCode}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (response.status === 404) {
+      return {
+        success: false,
+        message: 'Invalid or expired invite code',
+        error: 'INVALID_INVITE_CODE',
+        errorCode: 'NOT_FOUND',
+      };
+    }
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        message: errorData.message || 'Failed to get group preview',
+        error: errorData.error,
+        errorCode: errorData.errorCode || 'GET_PREVIEW_ERROR',
+      };
+    }
+
+    const data = await response.json();
+    return {
+      success: true,
+      message: 'Group preview retrieved successfully',
+      data: data.data,
+    };
+  } catch (error: any) {
+    console.error('Get group preview error:', error);
+    return {
+      success: false,
+      message: 'An unexpected error occurred while retrieving group preview',
+      error: error.message || 'UNKNOWN_ERROR',
+      errorCode: 'INTERNAL_ERROR',
+    };
+  }
+}
+
+/**
  * Join a group using an invite code
  * Sends POST request to /api/groups/join/:inviteCode
  *
