@@ -945,3 +945,61 @@ export async function updateMemberRole(
   }
 }
 
+/**
+ * Update group settings (name and description)
+ */
+export async function updateGroupSettings(
+  groupId: string,
+  data: {
+    name?: string;
+    description?: string | null;
+  }
+): Promise<{
+  success: boolean;
+  message?: string;
+  group?: any;
+  error?: string;
+  errorCode?: string;
+}> {
+  try {
+    if (!groupId) {
+      return {
+        success: false,
+        error: 'Group ID required',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    const response = await fetch(`/api/groups/${groupId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        error: errorData.message || errorData.error || 'Failed to update group',
+        errorCode: errorData.errorCode || 'UPDATE_GROUP_FAILED',
+      };
+    }
+
+    const responseData = await response.json();
+    return {
+      success: responseData.success,
+      message: responseData.message,
+      group: responseData.group,
+    };
+  } catch (error: any) {
+    console.error('Update group settings error:', error);
+    return {
+      success: false,
+      error: 'Failed to update group settings',
+      errorCode: 'INTERNAL_ERROR',
+    };
+  }
+}
+

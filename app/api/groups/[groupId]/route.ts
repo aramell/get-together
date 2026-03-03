@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { getGroupDetailsFromDb } from '@/lib/services/groupServerService';
+import { updateGroup, getUserGroupRole, getGroupById } from '@/lib/db/queries';
 
 /**
  * GET /api/groups/:groupId
@@ -118,12 +120,17 @@ export async function GET(
   }
 }
 
+const updateGroupSchema = z.object({
+  name: z.string().min(1).max(100).trim().optional(),
+  description: z.string().max(500).trim().nullable().optional(),
+});
+
 /**
- * PUT /api/groups/:groupId
+ * PATCH /api/groups/:groupId
  * Update group information (admin only)
  * Requires user to be authenticated and an admin of the group
  */
-export async function PUT(
+export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ groupId: string }> }
 ) {
@@ -158,21 +165,95 @@ export async function PUT(
       );
     }
 
-    // TODO: Implement group update functionality
-    // 1. Verify user is admin of the group
-    // 2. Parse and validate request body (name, description)
-    // 3. Update group in database
-    // 4. Return updated group details
+    // Check if group exists
+    const group = await getGroupById(groupId);
+    if (!group) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Group not found',
+          error: 'NOT_FOUND',
+          errorCode: 'GROUP_NOT_FOUND',
+        },
+        { status: 404 }
+      );
+    }
+
+    // Check if user is admin of the group
+    const userRole = await getUserGroupRole(groupId, userId);
+    if (userRole !== 'admin') {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Not authorized',
+          error: 'FORBIDDEN',
+          errorCode: 'NOT_GROUP_ADMIN',
+        },
+        { status: 403 }
+      );
+    }
+
+    // Parse and validate request body
+    const body = await request.json();
+    const { name, description } = updateGroupSchema.parse(body);
+
+    // At least one field must be provided
+    if (name === undefined && description === undefined) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'No fields to update',
+          error: 'VALIDATION_ERROR',
+          errorCode: 'VALIDATION_ERROR',
+        },
+        { status: 400 }
+      );
+    }
+
+    // Update group
+    const updateData: { name?: string; description?: string | null } = {};
+    if (name !== undefined) updateData.name = name;
+    if (description !== undefined) updateData.description = description;
+
+    const updatedGroup = await updateGroup(groupId, updateData);
+
+    if (!updatedGroup) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Failed to update group',
+          error: 'UPDATE_FAILED',
+          errorCode: 'UPDATE_GROUP_FAILED',
+        },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json(
       {
-        success: false,
-        message: 'Group update is not yet implemented',
-        errorCode: 'NOT_IMPLEMENTED',
+        success: true,
+        message: 'Group updated successfully',
+        group: updatedGroup,
       },
-      { status: 501 }
+      { status: 200 }
     );
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Validation error',
+          error: 'VALIDATION_ERROR',
+          errorCode: 'VALIDATION_ERROR',
+          details: error.issues.map((issue) => ({
+            field: issue.path.join('.'),
+            message: issue.message,
+          })),
+        },
+        { status: 400 }
+      );
+    }
+
     console.error('Update group API error:', error);
 
     return NextResponse.json(
