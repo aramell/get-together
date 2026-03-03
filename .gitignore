@@ -41,7 +41,6 @@ yarn-error.log*
 next-env.d.ts
 
 # Amplify
-amplify_outputs.json
 amplify/.env*
 amplify/dist/
 amplify/node_modules/
