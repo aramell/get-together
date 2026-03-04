@@ -167,7 +167,7 @@ export async function getGroupsByUserId(userId: string): Promise<Array<{
      FROM groups g
      INNER JOIN group_memberships gm ON g.id = gm.group_id
      WHERE gm.user_id = $1 AND g.deleted_at IS NULL
-     GROUP BY g.id, gm.role
+     GROUP BY g.id, g.name, g.description, g.created_by, g.created_at, g.updated_at, gm.role
      ORDER BY g.updated_at DESC`,
     [userId]
   );

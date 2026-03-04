@@ -323,7 +323,7 @@ export async function DELETE(
       );
     }
 
-    // Delete group from database (cascade will delete memberships)
+    // Soft delete group by setting deleted_at timestamp (GDPR compliant)
     await deleteGroupFromDb(groupId);
 
     return NextResponse.json(
