@@ -6,6 +6,18 @@ import * as serviceModule from '@/lib/services/availabilityService';
 jest.mock('@/lib/db/queries');
 jest.mock('@/lib/services/availabilityService');
 
+// Helper to create mock requests with proper Headers
+function createMockRequest(
+  headerEntries: [string, string][] = [],
+  json: any = null
+): Partial<NextRequest> {
+  const headers = new Headers(headerEntries);
+  return {
+    headers,
+    json: json ? async () => json : async () => ({}),
+  } as unknown as Partial<NextRequest>;
+}
+
 describe('POST /api/groups/[groupId]/availabilities', () => {
   const mockUserId = '550e8400-e29b-41d4-a716-446655440000';
   const mockGroupId = '550e8400-e29b-41d4-a716-446655440001';
@@ -15,14 +27,11 @@ describe('POST /api/groups/[groupId]/availabilities', () => {
   });
 
   it('should return 401 if user is not authenticated', async () => {
-    const mockRequest = {
-      headers: new Map([]),
-      json: async () => ({
-        start_time: '2026-03-05T10:00:00Z',
-        end_time: '2026-03-05T11:00:00Z',
-        status: 'free',
-      }),
-    } as unknown as NextRequest;
+    const mockRequest = createMockRequest([], {
+      start_time: '2026-03-05T10:00:00Z',
+      end_time: '2026-03-05T11:00:00Z',
+      status: 'free',
+    }) as NextRequest;
 
     const response = await POST(mockRequest, {
       params: Promise.resolve({ groupId: mockGroupId }),
@@ -35,7 +44,7 @@ describe('POST /api/groups/[groupId]/availabilities', () => {
 
   it('should return 400 if groupId is invalid UUID format', async () => {
     const mockRequest = {
-      headers: new Map([['x-user-id', mockUserId]]),
+      headers: new Headers([['x-user-id', mockUserId]]),
       json: async () => ({
         start_time: '2026-03-05T10:00:00Z',
         end_time: '2026-03-05T11:00:00Z',
@@ -56,7 +65,7 @@ describe('POST /api/groups/[groupId]/availabilities', () => {
     (queriesModule.getGroupById as jest.Mock).mockResolvedValue(null);
 
     const mockRequest = {
-      headers: new Map([['x-user-id', mockUserId]]),
+      headers: new Headers([['x-user-id', mockUserId]]),
       json: async () => ({
         start_time: '2026-03-05T10:00:00Z',
         end_time: '2026-03-05T11:00:00Z',
@@ -87,7 +96,7 @@ describe('POST /api/groups/[groupId]/availabilities', () => {
     (queriesModule.getUserGroupRole as jest.Mock).mockResolvedValue(null);
 
     const mockRequest = {
-      headers: new Map([['x-user-id', mockUserId]]),
+      headers: new Headers([['x-user-id', mockUserId]]),
       json: async () => ({
         start_time: '2026-03-05T10:00:00Z',
         end_time: '2026-03-05T11:00:00Z',
@@ -118,7 +127,7 @@ describe('POST /api/groups/[groupId]/availabilities', () => {
     (queriesModule.getUserGroupRole as jest.Mock).mockResolvedValue('member');
 
     const mockRequest = {
-      headers: new Map([['x-user-id', mockUserId]]),
+      headers: new Headers([['x-user-id', mockUserId]]),
       json: async () => ({
         start_time: 'invalid-date',
         end_time: '2026-03-05T11:00:00Z',
@@ -159,7 +168,7 @@ describe('POST /api/groups/[groupId]/availabilities', () => {
     });
 
     const mockRequest = {
-      headers: new Map([['x-user-id', mockUserId]]),
+      headers: new Headers([['x-user-id', mockUserId]]),
       json: async () => ({
         start_time: '2026-03-05T10:00:00Z',
         end_time: '2026-03-05T11:00:00Z',
@@ -203,7 +212,7 @@ describe('POST /api/groups/[groupId]/availabilities', () => {
     });
 
     const mockRequest = {
-      headers: new Map([['x-user-id', mockUserId]]),
+      headers: new Headers([['x-user-id', mockUserId]]),
       json: async () => ({
         start_time: '2026-03-05T10:00:00Z',
         end_time: '2026-03-05T11:00:00Z',
@@ -232,7 +241,7 @@ describe('GET /api/groups/[groupId]/availabilities', () => {
 
   it('should return 401 if user is not authenticated', async () => {
     const mockRequest = {
-      headers: new Map([]),
+      headers: new Headers([]),
       nextUrl: new URL('http://localhost/api/groups/123/availabilities?startDate=2026-03-01&endDate=2026-03-31'),
     } as unknown as NextRequest;
 
@@ -247,7 +256,7 @@ describe('GET /api/groups/[groupId]/availabilities', () => {
 
   it('should return 400 if date parameters are missing', async () => {
     const mockRequest = {
-      headers: new Map([['x-user-id', mockUserId]]),
+      headers: new Headers([['x-user-id', mockUserId]]),
       nextUrl: new URL('http://localhost/api/groups/123/availabilities'),
     } as unknown as NextRequest;
 
@@ -269,7 +278,7 @@ describe('GET /api/groups/[groupId]/availabilities', () => {
 
   it('should return 400 if date format is invalid', async () => {
     const mockRequest = {
-      headers: new Map([['x-user-id', mockUserId]]),
+      headers: new Headers([['x-user-id', mockUserId]]),
       nextUrl: new URL(
         'http://localhost/api/groups/123/availabilities?startDate=invalid&endDate=2026-03-31'
       ),
@@ -322,7 +331,7 @@ describe('GET /api/groups/[groupId]/availabilities', () => {
     });
 
     const mockRequest = {
-      headers: new Map([['x-user-id', mockUserId]]),
+      headers: new Headers([['x-user-id', mockUserId]]),
       nextUrl: new URL(
         'http://localhost/api/groups/123/availabilities?startDate=2026-03-01T00:00:00Z&endDate=2026-03-31T23:59:59Z'
       ),

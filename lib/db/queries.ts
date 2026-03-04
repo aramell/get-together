@@ -418,7 +418,8 @@ export async function createAvailability(
 }
 
 /**
- * Check for duplicate availability (same user/group/time)
+ * Check for duplicate/overlapping availability (same user/group/time)
+ * Detects range overlaps: NEW.start < EXISTING.end AND NEW.end > EXISTING.start
  */
 export async function checkDuplicateAvailability(
   userId: string,
@@ -436,7 +437,8 @@ export async function checkDuplicateAvailability(
   return queryOne(
     `SELECT id, user_id, group_id, start_time, end_time, status
      FROM availabilities
-     WHERE user_id = $1 AND group_id = $2 AND start_time = $3 AND end_time = $4`,
+     WHERE user_id = $1 AND group_id = $2
+       AND start_time < $4 AND end_time > $3`,
     [userId, groupId, startTime, endTime]
   );
 }
@@ -466,7 +468,7 @@ export async function getGroupAvailabilities(
             u.name as user_name, u.email as user_email
      FROM availabilities a
      JOIN users u ON a.user_id = u.id
-     WHERE a.group_id = $1 AND a.start_time >= $2 AND a.end_time <= $3
+     WHERE a.group_id = $1 AND a.start_time >= $2 AND a.end_time <= $3 AND u.deleted_at IS NULL
      ORDER BY a.start_time ASC`,
     [groupId, startDate, endDate]
   );

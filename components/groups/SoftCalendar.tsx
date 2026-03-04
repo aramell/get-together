@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   Box,
   Button,
@@ -12,13 +12,6 @@ import {
   Badge,
   Spinner,
   useToast,
-  Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalCloseButton,
-  ModalBody,
-  ModalFooter,
 } from '@chakra-ui/react';
 import { ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons';
 import MarkAvailabilityModal from './MarkAvailabilityModal';
@@ -54,7 +47,7 @@ export default function SoftCalendar({
   const toast = useToast();
 
   // Fetch availabilities for current month
-  const fetchAvailabilities = async () => {
+  const fetchAvailabilities = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -102,18 +95,20 @@ export default function SoftCalendar({
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentDate, groupId]);
 
   // Fetch availabilities on mount and when month changes
   useEffect(() => {
     fetchAvailabilities();
-  }, [currentDate, groupId]);
+  }, [fetchAvailabilities]);
 
   // Set up polling (5-second interval for MVP real-time)
   useEffect(() => {
     const interval = setInterval(fetchAvailabilities, 5000);
-    return () => clearInterval(interval);
-  }, [currentDate, groupId]);
+    return () => {
+      clearInterval(interval);
+    };
+  }, [fetchAvailabilities]);
 
   const handlePrevMonth = () => {
     setCurrentDate(

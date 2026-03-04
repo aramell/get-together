@@ -230,7 +230,20 @@ export async function GET(
       );
     }
 
-    // Validate date format (ISO 8601)
+    // Validate date format (ISO 8601: YYYY-MM-DDTHH:mm:ssZ)
+    const iso8601Regex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z?$/;
+    if (!iso8601Regex.test(startDate) || !iso8601Regex.test(endDate)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Invalid date format. Use ISO 8601 format (e.g., 2026-03-04T00:00:00Z)',
+          errorCode: 'INVALID_DATE_FORMAT',
+        },
+        { status: 400 }
+      );
+    }
+
+    // Validate dates are parseable
     try {
       new Date(startDate).toISOString();
       new Date(endDate).toISOString();

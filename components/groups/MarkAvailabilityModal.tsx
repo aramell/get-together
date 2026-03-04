@@ -21,6 +21,7 @@ import {
 } from '@chakra-ui/react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useAuth } from '@/lib/contexts/AuthContext';
 import { availabilityInputSchema } from '@/lib/validation/availabilitySchema';
 
 interface MarkAvailabilityModalProps {
@@ -44,6 +45,7 @@ export default function MarkAvailabilityModal({
 }: MarkAvailabilityModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const toast = useToast();
+  const { userId } = useAuth();
   const {
     register,
     handleSubmit,
@@ -78,6 +80,7 @@ export default function MarkAvailabilityModal({
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'x-user-id': userId || '',
           },
           body: JSON.stringify({
             start_time: startTimeIso,
@@ -146,12 +149,26 @@ export default function MarkAvailabilityModal({
       const start = new Date(startTime);
       const end = new Date(endTime);
       const diffMinutes = (end.getTime() - start.getTime()) / (1000 * 60);
+
+      // Handle zero or negative duration
+      if (diffMinutes <= 0) {
+        return 'End time must be after start time';
+      }
+
+      // Less than 1 minute
+      if (diffMinutes < 1) {
+        return 'Less than 1 minute';
+      }
+
+      // Less than 1 hour - show minutes only
       if (diffMinutes < 60) {
         return `${Math.round(diffMinutes)} minutes`;
       }
+
+      // 1+ hours - show hours and minutes
       const hours = Math.floor(diffMinutes / 60);
-      const minutes = diffMinutes % 60;
-      return `${hours}h ${minutes > 0 ? `${Math.round(minutes)}m` : ''}`.trim();
+      const minutes = Math.round(diffMinutes % 60);
+      return `${hours}h ${minutes > 0 ? `${minutes}m` : ''}`.trim();
     } catch {
       return '';
     }
