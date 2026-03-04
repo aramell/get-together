@@ -35,6 +35,8 @@ interface FormData {
   start_time: string;
   end_time: string;
   status: 'free' | 'busy';
+  recurring_pattern?: 'daily' | 'weekly' | null;
+  recurring_end_date?: string;
 }
 
 export default function MarkAvailabilityModal({
@@ -60,11 +62,16 @@ export default function MarkAvailabilityModal({
         .toISOString()
         .slice(0, 16),
       status: 'free',
+      recurring_pattern: null,
+      recurring_end_date: '',
     },
   });
 
   const startTime = watch('start_time');
   const endTime = watch('end_time');
+  const status = watch('status');
+  const recurringPattern = watch('recurring_pattern');
+  const recurringEndDate = watch('recurring_end_date');
 
   const onSubmit = async (data: FormData) => {
     try {
@@ -74,6 +81,19 @@ export default function MarkAvailabilityModal({
       const startTimeIso = new Date(data.start_time).toISOString();
       const endTimeIso = new Date(data.end_time).toISOString();
 
+      // Build request body
+      const requestBody: any = {
+        start_time: startTimeIso,
+        end_time: endTimeIso,
+        status: data.status,
+      };
+
+      // Add recurring parameters if applicable
+      if (data.recurring_pattern && data.recurring_end_date) {
+        requestBody.recurring_pattern = data.recurring_pattern;
+        requestBody.recurring_end_date = new Date(data.recurring_end_date).toISOString();
+      }
+
       const response = await fetch(
         `/api/groups/${groupId}/availabilities`,
         {
@@ -82,11 +102,7 @@ export default function MarkAvailabilityModal({
             'Content-Type': 'application/json',
             'x-user-id': userId || '',
           },
-          body: JSON.stringify({
-            start_time: startTimeIso,
-            end_time: endTimeIso,
-            status: data.status,
-          }),
+          body: JSON.stringify(requestBody),
         }
       );
 
@@ -174,6 +190,43 @@ export default function MarkAvailabilityModal({
     }
   };
 
+  // Calculate number of recurring occurrences
+  const calculateOccurrences = () => {
+    if (!recurringPattern || !recurringEndDate || !startTime) return 0;
+    try {
+      const start = new Date(startTime);
+      const end = new Date(recurringEndDate);
+      if (end <= start) return 0;
+
+      let count = 0;
+      let current = new Date(start);
+      while (current <= end) {
+        count++;
+        if (recurringPattern === 'daily') {
+          current.setDate(current.getDate() + 1);
+        } else if (recurringPattern === 'weekly') {
+          current.setDate(current.getDate() + 7);
+        }
+      }
+      return count;
+    } catch {
+      return 0;
+    }
+  };
+
+  // Check if duration exceeds 12 hours
+  const isDurationTooLong = () => {
+    if (!startTime || !endTime) return false;
+    try {
+      const start = new Date(startTime);
+      const end = new Date(endTime);
+      const diffHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+      return diffHours > 12;
+    } catch {
+      return false;
+    }
+  };
+
   return (
     <Modal isOpen={isOpen} onClose={handleClose} size="lg">
       <ModalOverlay />
@@ -256,6 +309,68 @@ export default function MarkAvailabilityModal({
                 </Text>
               )}
             </FormControl>
+
+            {/* Recurring pattern selector - only show for busy status */}
+            {status === 'busy' && (
+              <FormControl>
+                <FormLabel fontSize="sm" fontWeight="600">
+                  Repeat
+                </FormLabel>
+                <Select
+                  {...register('recurring_pattern')}
+                  isDisabled={isSubmitting || isDurationTooLong()}
+                  placeholder="Once"
+                >
+                  <option value="">Once</option>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                </Select>
+                {isDurationTooLong() && (
+                  <Text color="orange.500" fontSize="xs" mt={1}>
+                    ⚠️ Duration exceeds 12 hours - recurring option disabled
+                  </Text>
+                )}
+              </FormControl>
+            )}
+
+            {/* End date picker - only show when recurring pattern selected */}
+            {status === 'busy' && recurringPattern && (
+              <FormControl>
+                <FormLabel fontSize="sm" fontWeight="600">
+                  Repeat Until
+                </FormLabel>
+                <Input
+                  type="datetime-local"
+                  {...register('recurring_end_date')}
+                  isDisabled={isSubmitting}
+                  defaultValue={
+                    startTime
+                      ? new Date(new Date(startTime).getTime() + 7 * 24 * 60 * 60 * 1000)
+                          .toISOString()
+                          .slice(0, 16)
+                      : ''
+                  }
+                />
+              </FormControl>
+            )}
+
+            {/* Occurrence preview - show when recurring pattern and end date selected */}
+            {status === 'busy' && recurringPattern && recurringEndDate && (
+              <HStack
+                spacing={2}
+                justify="space-between"
+                bg="green.50"
+                p={3}
+                borderRadius="md"
+              >
+                <Text fontSize="sm" fontWeight="600">
+                  Preview:
+                </Text>
+                <Text fontSize="sm">
+                  This will create {calculateOccurrences()} {recurringPattern} blocks
+                </Text>
+              </HStack>
+            )}
 
             <Text fontSize="xs" color="gray.500">
               <strong>Note:</strong> Use 'Free' to indicate you're available during this time, and 'Busy' to indicate

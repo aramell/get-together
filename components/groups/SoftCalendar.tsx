@@ -198,6 +198,19 @@ export default function SoftCalendar({
     });
   }
 
+  // Get background color for day cell based on availability status
+  const getDayCellBackgroundColor = (dayAvailabilities: AvailabilityData[]) => {
+    if (dayAvailabilities.length === 0) {
+      return 'gray.100'; // Unspecified
+    }
+    const allFree = dayAvailabilities.every((a) => a.status === 'free');
+    const allBusy = dayAvailabilities.every((a) => a.status === 'busy');
+
+    if (allFree) return 'green.50'; // All free
+    if (allBusy) return 'red.50'; // All busy
+    return 'yellow.50'; // Mixed
+  };
+
   if (loading && availabilities.length === 0) {
     return (
       <Box textAlign="center" py={10}>
@@ -269,7 +282,8 @@ export default function SoftCalendar({
                 border="1px solid"
                 borderColor={item.currentMonth ? 'gray.200' : 'gray.100'}
                 p={2}
-                bg={item.currentMonth ? 'white' : 'gray.50'}
+                bg={getDayCellBackgroundColor(dateAvails)}
+                opacity={item.currentMonth ? 1 : 0.5}
                 borderRadius="md"
                 minH="100px"
               >
@@ -289,7 +303,7 @@ export default function SoftCalendar({
                         key={avail.id}
                         colorScheme={avail.status === 'free' ? 'green' : 'red'}
                         fontSize="xs"
-                        title={`${avail.user_name}: ${new Date(avail.start_time).toLocaleTimeString()}`}
+                        title={`${avail.user_name} - ${avail.status === 'free' ? 'Available' : 'Busy'}`}
                       >
                         {avail.status === 'free' ? '✓' : '✗'}
                         {' '}
