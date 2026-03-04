@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 
 interface AuthContextType {
   isAuthenticated: boolean;
+  isLoading: boolean;
   accessToken: string | null;
   idToken: string | null;
   userId: string | null;
@@ -18,6 +19,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [idToken, setIdToken] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -107,6 +109,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsAuthenticated(true);
       }
     }
+
+    // Done loading
+    setIsLoading(false);
   }, [logout]);
 
   /**
@@ -141,6 +146,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const value: AuthContextType = {
     isAuthenticated,
+    isLoading,
     accessToken,
     idToken,
     userId,
