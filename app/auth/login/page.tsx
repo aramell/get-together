@@ -2,11 +2,20 @@
 
 import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Box, Container, Heading, Text, Stack, VStack } from '@chakra-ui/react';
+import { Box, Container, Heading, Text, Stack, VStack, Spinner } from '@chakra-ui/react';
+import { useAuth } from '@/lib/contexts/AuthContext';
 import LoginForm from '@/components/auth/LoginForm';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { isAuthenticated } = useAuth();
+
+  // Auto-redirect if already logged in
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push('/groups');
+    }
+  }, [isAuthenticated, router]);
 
   const handleLoginSuccess = (tokens: { accessToken: string; idToken: string }) => {
     // Store tokens in localStorage (in addition to HTTP-only cookies)
@@ -14,9 +23,21 @@ export default function LoginPage() {
     localStorage.setItem('accessToken', tokens.accessToken);
     localStorage.setItem('idToken', tokens.idToken);
 
-    // Redirect to dashboard/groups page
-    router.push('/dashboard');
+    // Redirect to groups page
+    router.push('/groups');
   };
+
+  // Show loading spinner while checking auth status
+  if (isAuthenticated) {
+    return (
+      <Container maxW="md" py={{ base: '12', md: '24' }}>
+        <VStack spacing={4} justify="center" minH="400px">
+          <Spinner size="lg" color="blue.500" />
+          <Text>Redirecting to your groups...</Text>
+        </VStack>
+      </Container>
+    );
+  }
 
   return (
     <Container maxW="md" py={{ base: '12', md: '24' }}>

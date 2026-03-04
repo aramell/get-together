@@ -1,16 +1,40 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { SignupForm } from '@/components/auth/SignupForm';
-import { Box, Container, Heading, Text, VStack, Link as ChakraLink } from '@chakra-ui/react';
+import { Box, Container, Heading, Text, VStack, Link as ChakraLink, Spinner } from '@chakra-ui/react';
 import NextLink from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/lib/contexts/AuthContext';
 
 export default function SignupPage() {
+  const router = useRouter();
+  const { isAuthenticated } = useAuth();
+
+  // Auto-redirect if already logged in
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push('/groups');
+    }
+  }, [isAuthenticated, router]);
+
   const handleSignupSuccess = (email: string) => {
     console.log('Signup successful for:', email);
     // In a real app, you might redirect to email verification page
     // router.push(`/auth/verify-email?email=${email}`);
   };
+
+  // Show loading spinner while checking auth status
+  if (isAuthenticated) {
+    return (
+      <Container maxW="md" py={{ base: '12', md: '24' }}>
+        <VStack spacing={4} justify="center" minH="400px">
+          <Spinner size="lg" color="blue.500" />
+          <Text>Redirecting to your groups...</Text>
+        </VStack>
+      </Container>
+    );
+  }
 
   return (
     <Box bg="gray.50" minH="100vh">
