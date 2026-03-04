@@ -230,12 +230,26 @@ export default function MarkAvailabilityModal({
 
             <FormControl isInvalid={!!errors.status}>
               <FormLabel fontSize="sm" fontWeight="600">
-                Status
+                Availability Status
               </FormLabel>
-              <Select {...register('status')} isDisabled={isSubmitting}>
-                <option value="free">Available (Free)</option>
-                <option value="busy">Not Available (Busy)</option>
-              </Select>
+              <HStack spacing={3} align="flex-start">
+                <Select {...register('status')} isDisabled={isSubmitting} flex={1}>
+                  <option value="free">Available (Free)</option>
+                  <option value="busy">Not Available (Busy)</option>
+                </Select>
+                {/* Color indicator based on selected status */}
+                <div
+                  style={{
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '4px',
+                    backgroundColor:
+                      watch('status') === 'free' ? '#48bb78' : '#f56565',
+                    marginTop: '8px',
+                  }}
+                  title={watch('status') === 'free' ? 'Available - Green' : 'Busy - Red'}
+                />
+              </HStack>
               {errors.status && (
                 <Text color="red.500" fontSize="xs" mt={1}>
                   {errors.status.message}

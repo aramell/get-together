@@ -389,6 +389,21 @@ export async function updateMemberRole(
 }
 
 /**
+ * AVAILABILITIES TABLE STRUCTURE:
+ * id (UUID) - Primary key
+ * user_id (UUID) - FK to users, cascades on delete
+ * group_id (UUID) - FK to groups, cascades on delete
+ * start_time (TIMESTAMPTZ) - Start of availability block
+ * end_time (TIMESTAMPTZ) - End of availability block
+ * status (VARCHAR 20) - 'free' or 'busy'
+ * version (INTEGER) - Optimistic locking version
+ * recurring_pattern (VARCHAR 20) - 'daily', 'weekly', or NULL for one-time entries
+ * recurring_end_date (TIMESTAMPTZ) - Last date for recurring entries, NULL for one-time
+ * created_at (TIMESTAMPTZ) - Record creation timestamp
+ * updated_at (TIMESTAMPTZ) - Record update timestamp
+ */
+
+/**
  * Create an availability entry (free/busy time block)
  */
 export async function createAvailability(

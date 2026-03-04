@@ -6,6 +6,7 @@ import {
 } from '@/lib/db/queries';
 import {
   createAvailability,
+  createRecurringAvailability,
   getGroupAvailabilities,
 } from '@/lib/services/availabilityService';
 import { availabilityInputSchema } from '@/lib/validation/availabilitySchema';
@@ -94,8 +95,39 @@ export async function POST(
       );
     }
 
+    // Check for recurring parameters
+    const recurringPattern = body.recurring_pattern as string | undefined;
+    const recurringEndDate = body.recurring_end_date as string | undefined;
+
+    // Validate recurring parameters if provided
+    if (recurringPattern && !['daily', 'weekly'].includes(recurringPattern)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Invalid recurring pattern',
+          errorCode: 'VALIDATION_ERROR',
+        },
+        { status: 400 }
+      );
+    }
+
     // Create availability using service layer
-    const result = await createAvailability(userId, groupId, validationResult.data);
+    let result;
+    if (recurringPattern && recurringEndDate) {
+      // Create recurring availability
+      result = await createRecurringAvailability(
+        userId,
+        groupId,
+        validationResult.data.start_time,
+        validationResult.data.end_time,
+        validationResult.data.status,
+        recurringPattern as 'daily' | 'weekly',
+        recurringEndDate
+      );
+    } else {
+      // Create single availability
+      result = await createAvailability(userId, groupId, validationResult.data);
+    }
 
     if (!result.success) {
       if (result.errorCode === 'CONFLICT') {
