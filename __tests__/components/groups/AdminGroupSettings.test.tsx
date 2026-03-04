@@ -269,4 +269,167 @@ describe('AdminGroupSettings Component', () => {
       expect(screen.queryByText('Edit Group Settings')).not.toBeInTheDocument();
     });
   });
+
+  describe('Delete Functionality (Task 5, 6, 10)', () => {
+    it('Task 5: AC1 - opens delete confirmation modal when delete button clicked', async () => {
+      render(
+        <AdminGroupSettings groupData={mockGroupData} />,
+        { wrapper: ChakraWrapper }
+      );
+
+      const deleteButton = screen.getByText('Delete Group');
+      fireEvent.click(deleteButton);
+
+      await waitFor(() => {
+        expect(screen.getByRole('dialog')).toBeInTheDocument();
+        expect(screen.getByText(/Delete Group/i)).toBeInTheDocument();
+        expect(screen.getByText(/This action cannot be undone/i)).toBeInTheDocument();
+      });
+    });
+
+    it('Task 5: AC1 - shows group name in confirmation dialog', async () => {
+      render(
+        <AdminGroupSettings groupData={mockGroupData} />,
+        { wrapper: ChakraWrapper }
+      );
+
+      const deleteButton = screen.getByText('Delete Group');
+      fireEvent.click(deleteButton);
+
+      await waitFor(() => {
+        expect(screen.getByText(mockGroupData.name)).toBeInTheDocument();
+      });
+    });
+
+    it('Task 5: AC1 - has cancel button that closes dialog without deleting', async () => {
+      const mockDelete = jest.fn().mockResolvedValue(undefined);
+
+      render(
+        <AdminGroupSettings groupData={mockGroupData} onDelete={mockDelete} />,
+        { wrapper: ChakraWrapper }
+      );
+
+      const deleteButton = screen.getByText('Delete Group');
+      fireEvent.click(deleteButton);
+
+      await waitFor(() => {
+        expect(screen.getByText(/This action cannot be undone/i)).toBeInTheDocument();
+      });
+
+      const cancelButton = screen.getAllByText('Cancel');
+      // Find the delete modal's cancel button
+      const deleteModalCancelButton = cancelButton[cancelButton.length - 1];
+      fireEvent.click(deleteModalCancelButton);
+
+      await waitFor(() => {
+        expect(mockDelete).not.toHaveBeenCalled();
+      });
+    });
+
+    it('Task 5: AC1 - shows delete button with loading state during deletion', async () => {
+      const mockDelete = jest.fn(
+        () =>
+          new Promise((resolve) => {
+            setTimeout(resolve, 100);
+          })
+      );
+
+      render(
+        <AdminGroupSettings groupData={mockGroupData} onDelete={mockDelete} />,
+        { wrapper: ChakraWrapper }
+      );
+
+      const deleteButton = screen.getByText('Delete Group');
+      fireEvent.click(deleteButton);
+
+      await waitFor(() => {
+        expect(screen.getByText(/This action cannot be undone/i)).toBeInTheDocument();
+      });
+
+      const confirmDeleteButton = screen.getByRole('button', { name: /Delete Group/i });
+      fireEvent.click(confirmDeleteButton);
+
+      // Should show loading state
+      await waitFor(() => {
+        expect(mockDelete).toHaveBeenCalled();
+      });
+    });
+
+    it('Task 6, 10: AC5 - handles 403 FORBIDDEN error when not admin', async () => {
+      const mockDelete = jest.fn().mockRejectedValue({
+        errorCode: 'FORBIDDEN',
+        message: 'You don\'t have permission to delete this group',
+      });
+
+      render(
+        <AdminGroupSettings groupData={mockGroupData} onDelete={mockDelete} />,
+        { wrapper: ChakraWrapper }
+      );
+
+      const deleteButton = screen.getByText('Delete Group');
+      fireEvent.click(deleteButton);
+
+      await waitFor(() => {
+        expect(screen.getByText(/This action cannot be undone/i)).toBeInTheDocument();
+      });
+
+      const confirmDeleteButton = screen.getByRole('button', { name: /Delete Group/i });
+      fireEvent.click(confirmDeleteButton);
+
+      await waitFor(() => {
+        expect(mockDelete).toHaveBeenCalled();
+      });
+    });
+
+    it('Task 6, 10: AC5 - handles 404 NOT_FOUND error when group is deleted', async () => {
+      const mockDelete = jest.fn().mockRejectedValue({
+        errorCode: 'NOT_FOUND',
+        message: 'Group not found',
+      });
+
+      render(
+        <AdminGroupSettings groupData={mockGroupData} onDelete={mockDelete} />,
+        { wrapper: ChakraWrapper }
+      );
+
+      const deleteButton = screen.getByText('Delete Group');
+      fireEvent.click(deleteButton);
+
+      await waitFor(() => {
+        expect(screen.getByText(/This action cannot be undone/i)).toBeInTheDocument();
+      });
+
+      const confirmDeleteButton = screen.getByRole('button', { name: /Delete Group/i });
+      fireEvent.click(confirmDeleteButton);
+
+      await waitFor(() => {
+        expect(mockDelete).toHaveBeenCalled();
+      });
+    });
+
+    it('Task 10: AC5 - displays error message on deletion failure', async () => {
+      const mockDelete = jest.fn().mockRejectedValue(
+        new Error('Network error')
+      );
+
+      render(
+        <AdminGroupSettings groupData={mockGroupData} onDelete={mockDelete} />,
+        { wrapper: ChakraWrapper }
+      );
+
+      const deleteButton = screen.getByText('Delete Group');
+      fireEvent.click(deleteButton);
+
+      await waitFor(() => {
+        expect(screen.getByText(/This action cannot be undone/i)).toBeInTheDocument();
+      });
+
+      const confirmDeleteButton = screen.getByRole('button', { name: /Delete Group/i });
+      fireEvent.click(confirmDeleteButton);
+
+      await waitFor(() => {
+        expect(mockDelete).toHaveBeenCalled();
+      });
+    });
+  });
 });

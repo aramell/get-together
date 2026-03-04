@@ -43,7 +43,7 @@ export async function createGroupWithMembership(
 }
 
 /**
- * Get group by ID with full details
+ * Get group by ID with full details (excludes soft-deleted groups)
  */
 export async function getGroupById(groupId: string): Promise<{
   id: string;
@@ -57,13 +57,13 @@ export async function getGroupById(groupId: string): Promise<{
   return queryOne(
     `SELECT id, name, description, created_by, invite_code, created_at, updated_at
      FROM groups
-     WHERE id = $1`,
+     WHERE id = $1 AND deleted_at IS NULL`,
     [groupId]
   );
 }
 
 /**
- * Get group details with member list and current user's role
+ * Get group details with member list and current user's role (excludes soft-deleted groups)
  */
 export async function getGroupDetailsWithMembers(
   groupId: string,
@@ -93,7 +93,7 @@ export async function getGroupDetailsWithMembers(
     const groupResult = await client.query(
       `SELECT id, name, description, created_by, invite_code, created_at, updated_at
        FROM groups
-       WHERE id = $1`,
+       WHERE id = $1 AND deleted_at IS NULL`,
       [groupId]
     );
 
@@ -142,7 +142,7 @@ export async function getGroupDetailsWithMembers(
 }
 
 /**
- * Get all groups for a user, sorted by last activity
+ * Get all groups for a user, sorted by last activity (excludes soft-deleted groups)
  */
 export async function getGroupsByUserId(userId: string): Promise<Array<{
   id: string;
@@ -166,7 +166,7 @@ export async function getGroupsByUserId(userId: string): Promise<Array<{
        g.updated_at
      FROM groups g
      INNER JOIN group_memberships gm ON g.id = gm.group_id
-     WHERE gm.user_id = $1
+     WHERE gm.user_id = $1 AND g.deleted_at IS NULL
      GROUP BY g.id, gm.role
      ORDER BY g.updated_at DESC`,
     [userId]
@@ -188,7 +188,7 @@ export async function getUserGroupRole(
 }
 
 /**
- * Get group by invite code
+ * Get group by invite code (excludes soft-deleted groups)
  */
 export async function getGroupByInviteCode(inviteCode: string): Promise<{
   id: string;
@@ -202,7 +202,7 @@ export async function getGroupByInviteCode(inviteCode: string): Promise<{
   return queryOne(
     `SELECT id, name, description, created_by, invite_code, created_at, updated_at
      FROM groups
-     WHERE invite_code = $1`,
+     WHERE invite_code = $1 AND deleted_at IS NULL`,
     [inviteCode]
   );
 }
@@ -284,10 +284,14 @@ export async function updateGroup(
 }
 
 /**
- * Delete group (cascade will delete memberships)
+ * Soft delete group by setting deleted_at timestamp
+ * GDPR compliant: preserves data for retention period before hard deletion
  */
 export async function deleteGroup(groupId: string): Promise<void> {
-  await query(`DELETE FROM groups WHERE id = $1`, [groupId]);
+  await query(
+    `UPDATE groups SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1 AND deleted_at IS NULL`,
+    [groupId]
+  );
 }
 
 /**
