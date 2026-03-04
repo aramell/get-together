@@ -16,6 +16,7 @@
     "@chakra-ui/react": "^2.10.9",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
+    "@hookform/resolvers": "^5.2.2",
     "aws-amplify": "^6.16.2",
     "framer-motion": "^12.34.4",
     "graphql": "^16.13.0",

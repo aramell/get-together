@@ -89,7 +89,6 @@ export async function POST(
           success: false,
           error: 'Invalid request body',
           errorCode: 'VALIDATION_ERROR',
-          details: validationResult.error.errors,
         },
         { status: 422 }
       );
