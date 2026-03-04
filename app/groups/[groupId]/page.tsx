@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   Box,
@@ -20,6 +20,13 @@ import {
   Card,
   CardBody,
   useToast,
+  useDisclosure,
+  AlertDialog,
+  AlertDialogOverlay,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogBody,
+  AlertDialogFooter,
 } from '@chakra-ui/react';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { getGroupDetails, deleteGroup, removeMember } from '@/lib/services/groupService';
@@ -58,6 +65,10 @@ export default function GroupDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [isRemoving, setIsRemoving] = useState(false);
+  const [pendingMemberId, setPendingMemberId] = useState<string | null>(null);
+  const { isOpen, onOpen, onClose } = useDisclosure();
+  const cancelRef = useRef(null);
   useEffect(() => {
     const loadGroupDetails = async () => {
       try {
@@ -163,15 +174,22 @@ export default function GroupDetailsPage() {
     }
   };
 
-  const handleRemoveMember = async (memberId: string) => {
-    const member = data?.members.find(m => m.user_id === memberId);
-    const memberName = member?.name || 'member';
 
-    if (!confirm(`Remove ${memberName} from this group?`)) {
-      return;
-    }
+  const handleRemoveMemberClick = async (memberId: string) => {
+    setPendingMemberId(memberId);
+    onOpen();
+  };
+
+  const confirmRemoval = async () => {
+    if (!pendingMemberId) return;
+
+    setIsRemoving(true);
+    const memberId = pendingMemberId;
 
     try {
+      const member = data?.members.find(m => m.user_id === memberId);
+      const memberName = member?.name || 'member';
+
       const result = await removeMember(groupId, memberId);
 
       if (result.success) {
@@ -216,6 +234,10 @@ export default function GroupDetailsPage() {
         duration: 5000,
         isClosable: true,
       });
+    } finally {
+      setIsRemoving(false);
+      onClose();
+      setPendingMemberId(null);
     }
   };
 
@@ -416,7 +438,7 @@ export default function GroupDetailsPage() {
               currentUserId={userId}
               showActions={true}
               emptyMessage="No members in this group yet"
-              onRemoveMember={handleRemoveMember}
+              onRemoveMember={handleRemoveMemberClick}
             />
           </Box>
 
@@ -436,6 +458,44 @@ export default function GroupDetailsPage() {
             </>
           )}
         </VStack>
+
+      {/* Remove Member Confirmation Dialog */}
+      <AlertDialog
+        isOpen={isOpen}
+        leastDestructiveRef={cancelRef}
+        onClose={onClose}
+        isCentered
+      >
+        <AlertDialogOverlay>
+          <AlertDialogContent>
+            <AlertDialogHeader fontSize="lg" fontWeight="bold">
+              Remove Member
+            </AlertDialogHeader>
+            <AlertDialogBody>
+              {pendingMemberId && data?.members.find(m => m.user_id === pendingMemberId) && (
+                <Text>
+                  Are you sure you want to remove{' '}
+                  <strong>{data?.members.find(m => m.user_id === pendingMemberId)?.name}</strong> from this group? They can rejoin with an invite link.
+                </Text>
+              )}
+            </AlertDialogBody>
+            <AlertDialogFooter>
+              <Button ref={cancelRef} onClick={onClose} isDisabled={isRemoving}>
+                Cancel
+              </Button>
+              <Button
+                colorScheme="red"
+                onClick={confirmRemoval}
+                ml={3}
+                isLoading={isRemoving}
+                loadingText="Removing..."
+              >
+                Remove
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
       </Container>
     </Box>
   );
