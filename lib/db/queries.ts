@@ -387,3 +387,87 @@ export async function updateMemberRole(
     [groupId, userId, role]
   );
 }
+
+/**
+ * Create an availability entry (free/busy time block)
+ */
+export async function createAvailability(
+  userId: string,
+  groupId: string,
+  startTime: string,
+  endTime: string,
+  status: 'free' | 'busy'
+): Promise<{
+  id: string;
+  user_id: string;
+  group_id: string;
+  start_time: string;
+  end_time: string;
+  status: 'free' | 'busy';
+  version: number;
+  created_at: string;
+  updated_at: string;
+}> {
+  const result = await queryOne(
+    `INSERT INTO availabilities (user_id, group_id, start_time, end_time, status, version)
+     VALUES ($1, $2, $3, $4, $5, 1)
+     RETURNING id, user_id, group_id, start_time, end_time, status, version, created_at, updated_at`,
+    [userId, groupId, startTime, endTime, status]
+  );
+  return result!;
+}
+
+/**
+ * Check for duplicate availability (same user/group/time)
+ */
+export async function checkDuplicateAvailability(
+  userId: string,
+  groupId: string,
+  startTime: string,
+  endTime: string
+): Promise<{
+  id: string;
+  user_id: string;
+  group_id: string;
+  start_time: string;
+  end_time: string;
+  status: 'free' | 'busy';
+} | null> {
+  return queryOne(
+    `SELECT id, user_id, group_id, start_time, end_time, status
+     FROM availabilities
+     WHERE user_id = $1 AND group_id = $2 AND start_time = $3 AND end_time = $4`,
+    [userId, groupId, startTime, endTime]
+  );
+}
+
+/**
+ * Get all availabilities for a group within a date range
+ */
+export async function getGroupAvailabilities(
+  groupId: string,
+  startDate: string,
+  endDate: string
+): Promise<Array<{
+  id: string;
+  user_id: string;
+  group_id: string;
+  start_time: string;
+  end_time: string;
+  status: 'free' | 'busy';
+  version: number;
+  created_at: string;
+  updated_at: string;
+  user_name: string;
+  user_email: string;
+}>> {
+  return query(
+    `SELECT a.id, a.user_id, a.group_id, a.start_time, a.end_time, a.status, a.version, a.created_at, a.updated_at,
+            u.name as user_name, u.email as user_email
+     FROM availabilities a
+     JOIN users u ON a.user_id = u.id
+     WHERE a.group_id = $1 AND a.start_time >= $2 AND a.end_time <= $3
+     ORDER BY a.start_time ASC`,
+    [groupId, startDate, endDate]
+  );
+}

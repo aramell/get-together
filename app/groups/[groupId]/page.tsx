@@ -32,6 +32,7 @@ import { useAuth } from '@/lib/contexts/AuthContext';
 import { getGroupDetails, deleteGroup, removeMember } from '@/lib/services/groupService';
 import { MemberList } from '@/components/groups/MemberList';
 import { AdminGroupSettings } from '@/components/groups/AdminGroupSettings';
+import SoftCalendar from '@/components/groups/SoftCalendar';
 
 interface GroupDetailsData {
   group: {
@@ -440,6 +441,16 @@ export default function GroupDetailsPage() {
               emptyMessage="No members in this group yet"
               onRemoveMember={handleRemoveMemberClick}
             />
+          </Box>
+
+          <Divider />
+
+          {/* Soft Calendar - Availability Marking */}
+          <Box>
+            <Heading size="lg" mb={6}>
+              Availability Calendar
+            </Heading>
+            <SoftCalendar groupId={groupId} isGroupMember={currentUserRole !== null} />
           </Box>
 
           {isAdmin && (
