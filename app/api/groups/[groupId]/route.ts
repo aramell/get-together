@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getGroupDetailsFromDb } from '@/lib/services/groupServerService';
-import { updateGroup, getUserGroupRole, getGroupById } from '@/lib/db/queries';
+import { updateGroup, getUserGroupRole, getGroupById, deleteGroup as deleteGroupFromDb } from '@/lib/db/queries';
 
 /**
  * GET /api/groups/:groupId
@@ -308,18 +308,30 @@ export async function DELETE(
       );
     }
 
-    // TODO: Implement group deletion
-    // 1. Verify user is admin of the group
-    // 2. Delete group from database (cascade will delete memberships)
-    // 3. Return success response
+    // Verify user is admin of the group
+    const userRole = await getUserGroupRole(groupId, userId);
+
+    if (userRole !== 'admin') {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Only group admins can delete groups',
+          error: 'FORBIDDEN',
+          errorCode: 'FORBIDDEN',
+        },
+        { status: 403 }
+      );
+    }
+
+    // Delete group from database (cascade will delete memberships)
+    await deleteGroupFromDb(groupId);
 
     return NextResponse.json(
       {
-        success: false,
-        message: 'Group deletion is not yet implemented',
-        errorCode: 'NOT_IMPLEMENTED',
+        success: true,
+        message: 'Group deleted successfully',
       },
-      { status: 501 }
+      { status: 200 }
     );
   } catch (error) {
     console.error('Delete group API error:', error);

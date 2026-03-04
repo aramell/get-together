@@ -7,16 +7,22 @@ import { MemberList, GroupMember } from '@/components/groups/MemberList';
 const mockMembers: GroupMember[] = [
   {
     user_id: 'user-1',
+    name: 'Alice Johnson',
+    email: 'alice@example.com',
     role: 'admin',
     joined_at: '2024-01-01T00:00:00Z',
   },
   {
     user_id: 'user-2',
+    name: 'Bob Smith',
+    email: 'bob@example.com',
     role: 'member',
     joined_at: '2024-01-15T00:00:00Z',
   },
   {
     user_id: 'user-3',
+    name: 'Carol White',
+    email: 'carol@example.com',
     role: 'member',
     joined_at: '2024-02-01T00:00:00Z',
   },
@@ -38,9 +44,9 @@ describe('MemberList Component', () => {
       { wrapper: ChakraWrapper }
     );
 
-    expect(screen.getByText('user-1')).toBeInTheDocument();
-    expect(screen.getByText('user-2')).toBeInTheDocument();
-    expect(screen.getByText('user-3')).toBeInTheDocument();
+    expect(screen.getByText('Alice Johnson')).toBeInTheDocument();
+    expect(screen.getByText('Bob Smith')).toBeInTheDocument();
+    expect(screen.getByText('Carol White')).toBeInTheDocument();
   });
 
   it('displays role badges correctly', () => {

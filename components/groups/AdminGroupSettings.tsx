@@ -32,6 +32,7 @@ export interface GroupData {
   id: string;
   name: string;
   description: string | null;
+  invite_code?: string;
 }
 
 interface AdminGroupSettingsProps {
@@ -62,6 +63,7 @@ export const AdminGroupSettings: React.FC<AdminGroupSettingsProps> = ({
   const toast = useToast();
   const deleteModal = useDisclosure();
   const editModal = useDisclosure();
+  const regenerateModal = useDisclosure();
 
   const [editData, setEditData] = useState({
     name: groupData.name,
@@ -71,6 +73,8 @@ export const AdminGroupSettings: React.FC<AdminGroupSettingsProps> = ({
   const [editErrors, setEditErrors] = useState<{ name?: string; description?: string }>({});
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [currentInviteUrl, setCurrentInviteUrl] = useState<string | null>(null);
 
   const validateEditForm = () => {
     const newErrors: { name?: string; description?: string } = {};
@@ -151,6 +155,65 @@ export const AdminGroupSettings: React.FC<AdminGroupSettingsProps> = ({
     }
   };
 
+  const handleRegenerateInviteLink = async () => {
+    setIsRegenerating(true);
+    try {
+      const response = await fetch(`/api/groups/${groupData.id}/regenerate-invite`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to regenerate invite link');
+      }
+
+      const data = await response.json();
+
+      if (data.success && data.data?.inviteUrl) {
+        setCurrentInviteUrl(data.data.inviteUrl);
+
+        toast({
+          title: 'Success',
+          description: 'Invite link regenerated successfully',
+          status: 'success',
+          duration: 2000,
+          isClosable: true,
+        });
+
+        // Copy new link to clipboard automatically
+        try {
+          await navigator.clipboard.writeText(data.data.inviteUrl);
+          toast({
+            title: 'Copied!',
+            description: 'New invite link copied to clipboard',
+            status: 'success',
+            duration: 2000,
+            isClosable: true,
+          });
+        } catch (err) {
+          // Clipboard not available, just show the link
+        }
+      } else {
+        throw new Error(data.message || 'Failed to regenerate invite link');
+      }
+
+      regenerateModal.onClose();
+    } catch (err: any) {
+      toast({
+        title: 'Error',
+        description: err.message || 'Failed to regenerate invite link',
+        status: 'error',
+        duration: 2000,
+        isClosable: true,
+      });
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
+
   const handleEditCancel = () => {
     setEditData({
       name: groupData.name,
@@ -187,19 +250,29 @@ export const AdminGroupSettings: React.FC<AdminGroupSettingsProps> = ({
           </Alert>
         )}
 
-        {/* Edit Group Button */}
+        {/* Group Settings */}
         <Box>
           <Heading size="sm" mb={3}>
             Group Settings
           </Heading>
-          <Button
-            colorScheme="blue"
-            variant="outline"
-            onClick={editModal.onOpen}
-            isDisabled={isLoading}
-          >
-            Edit Group
-          </Button>
+          <VStack spacing={2} align="flex-start">
+            <Button
+              colorScheme="blue"
+              variant="outline"
+              onClick={editModal.onOpen}
+              isDisabled={isLoading}
+            >
+              Edit Group
+            </Button>
+            <Button
+              colorScheme="teal"
+              variant="outline"
+              onClick={regenerateModal.onOpen}
+              isDisabled={isLoading}
+            >
+              Regenerate Invite Link
+            </Button>
+          </VStack>
         </Box>
 
         <Divider />
@@ -332,6 +405,57 @@ export const AdminGroupSettings: React.FC<AdminGroupSettingsProps> = ({
                 loadingText="Deleting..."
               >
                 Delete Group
+              </Button>
+            </HStack>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Regenerate Invite Link Modal */}
+      <Modal isOpen={regenerateModal.isOpen} onClose={() => regenerateModal.onClose()}>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader color="teal.600">Regenerate Invite Link</ModalHeader>
+          <ModalCloseButton isDisabled={isRegenerating} />
+          <ModalBody>
+            <VStack spacing={4}>
+              <Alert status="warning" borderRadius="md">
+                <AlertIcon />
+                <Box>
+                  <Text fontWeight="bold">Generate a new invite link?</Text>
+                  <Text fontSize="sm">
+                    The old invite link will become inactive. Existing members will not be affected.
+                  </Text>
+                </Box>
+              </Alert>
+              {currentInviteUrl && (
+                <Box p={3} bg="blue.50" borderRadius="md" w="100%">
+                  <Text fontSize="sm" color="gray.600" mb={2}>
+                    New invite link (copied to clipboard):
+                  </Text>
+                  <Text fontFamily="monospace" fontSize="xs" wordBreak="break-all">
+                    {currentInviteUrl}
+                  </Text>
+                </Box>
+              )}
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <HStack spacing={2}>
+              <Button
+                variant="ghost"
+                onClick={() => regenerateModal.onClose()}
+                isDisabled={isRegenerating}
+              >
+                Cancel
+              </Button>
+              <Button
+                colorScheme="teal"
+                onClick={handleRegenerateInviteLink}
+                isLoading={isRegenerating}
+                loadingText="Regenerating..."
+              >
+                Generate New Link
               </Button>
             </HStack>
           </ModalFooter>

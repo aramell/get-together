@@ -80,6 +80,8 @@ export async function getGroupDetailsWithMembers(
   };
   members: Array<{
     user_id: string;
+    name: string;
+    email: string;
     role: 'admin' | 'member';
     joined_at: string;
   }>;
@@ -101,12 +103,13 @@ export async function getGroupDetailsWithMembers(
 
     const group = groupResult.rows[0];
 
-    // Get all members
+    // Get all members with user info (name, email)
     const membersResult = await client.query(
-      `SELECT user_id, role, joined_at
-       FROM group_memberships
-       WHERE group_id = $1
-       ORDER BY joined_at ASC`,
+      `SELECT gm.user_id, u.name, u.email, gm.role, gm.joined_at
+       FROM group_memberships gm
+       JOIN users u ON gm.user_id = u.id
+       WHERE gm.group_id = $1
+       ORDER BY gm.joined_at ASC`,
       [groupId]
     );
 
@@ -124,7 +127,13 @@ export async function getGroupDetailsWithMembers(
 
     return {
       group,
-      members: membersResult.rows,
+      members: membersResult.rows.map((row) => ({
+        user_id: row.user_id,
+        name: row.name,
+        email: row.email,
+        role: row.role,
+        joined_at: row.joined_at,
+      })),
       currentUserRole,
     };
   } finally {

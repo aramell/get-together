@@ -73,6 +73,22 @@ export async function DELETE(
       );
     }
 
+    // Prevent removing last admin
+    if (memberRole === 'admin') {
+      const adminCount = await getAdminCount(groupId);
+      if (adminCount <= 1) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Cannot remove the last admin from the group',
+            errorCode: 'CONFLICT',
+            message: 'Please promote another member to admin first',
+          },
+          { status: 409 }
+        );
+      }
+    }
+
     // Remove member
     await removeUserFromGroup(groupId, memberId);
 

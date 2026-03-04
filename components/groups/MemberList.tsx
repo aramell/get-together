@@ -24,6 +24,8 @@ import {
 
 export interface GroupMember {
   user_id: string;
+  name: string;
+  email: string;
   role: 'admin' | 'member';
   joined_at: string;
 }
@@ -209,10 +211,10 @@ export const MemberList: React.FC<MemberListProps> = ({
             <HStack justify="space-between" align="center">
               {/* Member Info */}
               <HStack spacing={3} flex={1}>
-                <Avatar name={member.user_id} size="md" />
+                <Avatar name={member.name} size="md" />
                 <VStack align="flex-start" spacing={0} flex={1}>
                   <HStack spacing={2}>
-                    <Text fontWeight="semibold">{member.user_id}</Text>
+                    <Text fontWeight="semibold">{member.name}</Text>
                     {isCurrentUser && (
                       <Badge colorScheme="green" fontSize="xs">
                         You
@@ -220,7 +222,7 @@ export const MemberList: React.FC<MemberListProps> = ({
                     )}
                   </HStack>
                   <Text fontSize="sm" color="gray.500">
-                    Joined {new Date(member.joined_at).toLocaleDateString()}
+                    {member.email}
                   </Text>
                 </VStack>
               </HStack>

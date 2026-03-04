@@ -1090,3 +1090,220 @@ export async function updateGroupSettings(
   }
 }
 
+/**
+ * Regenerate invite code for a group
+ * Only group admins can regenerate invite codes
+ * Old invite code becomes inactive immediately
+ * Existing members retain access (tracked separately in group_memberships)
+ *
+ * @param groupId Group ID to regenerate code for
+ * @param userId User ID requesting regeneration (must be admin)
+ * @returns Response with new invite code and URL
+ */
+export async function regenerateInviteCode(
+  groupId: string,
+  userId: string
+): Promise<{
+  success: boolean;
+  message: string;
+  data?: {
+    inviteCode: string;
+    inviteUrl: string;
+    oldCodeInvalidated?: boolean;
+    existingMembersPreserved?: boolean;
+  };
+  error?: string;
+  errorCode?: string;
+}> {
+  try {
+    if (!groupId || typeof groupId !== 'string') {
+      return {
+        success: false,
+        message: 'Group ID is required',
+        error: 'INVALID_GROUP_ID',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    if (!userId || typeof userId !== 'string') {
+      return {
+        success: false,
+        message: 'User ID is required for authorization',
+        error: 'INVALID_USER_ID',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    // Call API endpoint to regenerate invite code
+    const response = await fetch(`/api/groups/${groupId}/regenerate-invite`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ userId }),
+    });
+
+    if (response.status === 401) {
+      return {
+        success: false,
+        message: 'Authentication required',
+        error: 'UNAUTHORIZED',
+        errorCode: 'UNAUTHORIZED',
+      };
+    }
+
+    if (response.status === 403) {
+      return {
+        success: false,
+        message: 'Only group admins can regenerate invite links',
+        error: 'FORBIDDEN',
+        errorCode: 'FORBIDDEN',
+      };
+    }
+
+    if (response.status === 404) {
+      return {
+        success: false,
+        message: 'Group not found',
+        error: 'NOT_FOUND',
+        errorCode: 'NOT_FOUND',
+      };
+    }
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        message: errorData.message || 'Failed to regenerate invite code',
+        error: errorData.error,
+        errorCode: errorData.errorCode || 'REGENERATE_FAILED',
+      };
+    }
+
+    const data = await response.json();
+
+    if (data.success) {
+      return {
+        success: true,
+        message: 'Invite code regenerated successfully',
+        data: {
+          inviteCode: data.data?.inviteCode,
+          inviteUrl: data.data?.inviteUrl,
+          oldCodeInvalidated: true,
+          existingMembersPreserved: true,
+        },
+      };
+    } else {
+      return {
+        success: false,
+        message: data.message || 'Failed to regenerate invite code',
+        error: data.error,
+        errorCode: data.errorCode || 'REGENERATE_FAILED',
+      };
+    }
+  } catch (error: any) {
+    console.error('Regenerate invite code error:', error);
+    return {
+      success: false,
+      message: 'An unexpected error occurred while regenerating invite code',
+      error: error.message || 'UNKNOWN_ERROR',
+      errorCode: 'INTERNAL_ERROR',
+    };
+  }
+}
+
+/**
+ * Delete a group
+ * Only group admins can delete their groups
+ *
+ * @param groupId Group ID to delete
+ * @returns DeleteGroupResponse with success status
+ */
+export async function deleteGroup(
+  groupId: string
+): Promise<{
+  success: boolean;
+  message: string;
+  error?: string;
+  errorCode?: string;
+}> {
+  try {
+    if (!groupId || typeof groupId !== 'string') {
+      return {
+        success: false,
+        message: 'Group ID is required',
+        error: 'INVALID_GROUP_ID',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    const response = await fetch(`/api/groups/${groupId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (response.status === 401) {
+      return {
+        success: false,
+        message: 'Authentication required',
+        error: 'UNAUTHORIZED',
+        errorCode: 'UNAUTHORIZED',
+      };
+    }
+
+    if (response.status === 403) {
+      return {
+        success: false,
+        message: 'Only group admins can delete groups',
+        error: 'FORBIDDEN',
+        errorCode: 'FORBIDDEN',
+      };
+    }
+
+    if (response.status === 404) {
+      return {
+        success: false,
+        message: 'Group not found',
+        error: 'NOT_FOUND',
+        errorCode: 'NOT_FOUND',
+      };
+    }
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        message: errorData.message || 'Failed to delete group',
+        error: errorData.error,
+        errorCode: errorData.errorCode || 'DELETE_GROUP_ERROR',
+      };
+    }
+
+    const data = await response.json();
+
+    if (data.success) {
+      return {
+        success: true,
+        message: 'Group deleted successfully',
+      };
+    } else {
+      return {
+        success: false,
+        message: data.message || 'Failed to delete group',
+        error: data.error,
+        errorCode: data.errorCode || 'DELETE_GROUP_ERROR',
+      };
+    }
+  } catch (error: any) {
+    console.error('Delete group error:', error);
+    return {
+      success: false,
+      message: 'An unexpected error occurred while deleting the group',
+      error: error.message || 'UNKNOWN_ERROR',
+      errorCode: 'INTERNAL_ERROR',
+    };
+  }
+}
+

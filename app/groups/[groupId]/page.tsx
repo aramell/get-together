@@ -22,7 +22,7 @@ import {
   useToast,
 } from '@chakra-ui/react';
 import { useAuth } from '@/lib/contexts/AuthContext';
-import { getGroupDetails } from '@/lib/services/groupService';
+import { getGroupDetails, deleteGroup, removeMember } from '@/lib/services/groupService';
 import { MemberList } from '@/components/groups/MemberList';
 import { AdminGroupSettings } from '@/components/groups/AdminGroupSettings';
 
@@ -38,6 +38,8 @@ interface GroupDetailsData {
   };
   members: Array<{
     user_id: string;
+    name: string;
+    email: string;
     role: 'admin' | 'member';
     joined_at: string;
   }>;
@@ -138,7 +140,102 @@ export default function GroupDetailsPage() {
     });
   };
 
-  if (!isAuthenticated || loading) {
+  const handleDeleteGroup = async () => {
+    const result = await deleteGroup(groupId);
+    if (result.success) {
+      toast({
+        title: 'Success',
+        description: 'Group deleted successfully',
+        status: 'success',
+        duration: 2000,
+        isClosable: true,
+      });
+      // Redirect to groups list after successful deletion
+      router.push('/groups');
+    } else {
+      toast({
+        title: 'Error',
+        description: result.message || 'Failed to delete group',
+        status: 'error',
+        duration: 2000,
+        isClosable: true,
+      });
+    }
+  };
+
+  const handleRemoveMember = async (memberId: string) => {
+    const member = data?.members.find(m => m.user_id === memberId);
+    const memberName = member?.name || 'member';
+
+    if (!confirm(`Remove ${memberName} from this group?`)) {
+      return;
+    }
+
+    try {
+      const result = await removeMember(groupId, memberId);
+
+      if (result.success) {
+        setData(prev => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            members: prev.members.filter(m => m.user_id !== memberId),
+          };
+        });
+
+        toast({
+          title: 'Success',
+          description: `${memberName} has been removed from the group`,
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        });
+      } else if (result.errorCode === 'CONFLICT') {
+        toast({
+          title: 'Cannot Remove Admin',
+          description: result.message || 'Cannot remove the last admin from the group. Please promote another member to admin first.',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+      } else {
+        toast({
+          title: 'Error',
+          description: result.error || 'Failed to remove member',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+      }
+    } catch (err) {
+      console.error('Error removing member:', err);
+      toast({
+        title: 'Error',
+        description: 'An unexpected error occurred',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    }
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <Container maxW="4xl" py={{ base: '12', md: '24' }}>
+        <VStack spacing={6}>
+          <Alert status="warning" borderRadius="md">
+            <AlertIcon />
+            <Text>You must be logged in to view this group</Text>
+          </Alert>
+          <Button colorScheme="blue" onClick={() => router.push('/auth/login')}>
+            Go to Login
+          </Button>
+        </VStack>
+      </Container>
+    );
+  }
+
+  if (loading) {
     return (
       <Container maxW="4xl" py={{ base: '12', md: '24' }}>
         <VStack spacing={8} align="center" justify="center" minH="400px">
@@ -185,6 +282,17 @@ export default function GroupDetailsPage() {
     <Box bg="gray.50" minH="100vh">
       <Container maxW="4xl" py={{ base: '12', md: '24' }}>
         <VStack spacing={{ base: '8', md: '12' }} align="stretch">
+          {/* Navigation */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push('/groups')}
+            alignSelf="flex-start"
+            mb={4}
+          >
+            ← Back to Groups
+          </Button>
+
           {/* Header Section */}
           <Box>
             <HStack justify="space-between" align="flex-start" mb={6}>
@@ -308,6 +416,7 @@ export default function GroupDetailsPage() {
               currentUserId={userId}
               showActions={true}
               emptyMessage="No members in this group yet"
+              onRemoveMember={handleRemoveMember}
             />
           </Box>
 
@@ -322,12 +431,7 @@ export default function GroupDetailsPage() {
                   // TODO: Implement actual API call to update group
                   console.log('Update group:', updatedData);
                 }}
-                onDelete={async () => {
-                  // TODO: Implement actual API call to delete group
-                  console.log('Delete group:', groupId);
-                  // After deletion, redirect to groups list
-                  // router.push('/groups');
-                }}
+                onDelete={handleDeleteGroup}
               />
             </>
           )}
