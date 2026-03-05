@@ -574,8 +574,13 @@ export async function getGroupAvailabilitiesWithRecurring(
         occurrenceEnd.setHours(availEnd.getHours(), availEnd.getMinutes(), availEnd.getSeconds());
 
         if (occurrenceEnd >= startDateTime && occurrenceStart <= endDateTime) {
+          // Generate stable synthetic ID using hash of original ID + date to ensure uniqueness
+          // Format: {original-id}#{date-index} where date-index is days since pattern start
+          const daysFromStart = Math.floor((currentDate.getTime() - availStart.getTime()) / (1000 * 60 * 60 * 24));
+          const syntheticId = `${avail.id}#${daysFromStart}`;
+
           result.push({
-            id: `${avail.id}-${currentDate.toISOString().split('T')[0]}`, // Synthetic ID
+            id: syntheticId,
             user_id: avail.user_id,
             group_id: avail.group_id,
             start_time: occurrenceStart.toISOString(),

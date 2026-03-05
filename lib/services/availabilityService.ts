@@ -3,6 +3,7 @@ import {
   createAvailability as createAvailabilityDb,
   checkDuplicateAvailability,
   getGroupAvailabilities as getGroupAvailabilitiesDb,
+  getGroupAvailabilitiesWithRecurring,
 } from '@/lib/db/queries';
 
 /**
@@ -157,7 +158,7 @@ export async function createRecurringAvailability(
     if (repeatUntil <= startDate) {
       return {
         success: false,
-        message: 'Recurring end date must be after start time',
+        message: 'Recurring end date must be after the start time of the first occurrence',
         error: 'INVALID_RECURRING_END_DATE',
         errorCode: 'VALIDATION_ERROR',
       };
@@ -268,6 +269,7 @@ export async function createRecurringAvailability(
 
 /**
  * Get all availabilities for a group within a date range
+ * Includes recurring availability expansion for calendar display
  */
 export async function getGroupAvailabilities(
   groupId: string,
@@ -290,7 +292,8 @@ export async function getGroupAvailabilities(
       };
     }
 
-    const availabilities = await getGroupAvailabilitiesDb(groupId, startDate, endDate);
+    // Get availabilities with recurring expansion for calendar display
+    const availabilities = await getGroupAvailabilitiesWithRecurring(groupId, startDate, endDate);
 
     return {
       success: true,
