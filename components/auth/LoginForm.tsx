@@ -20,7 +20,6 @@ import {
 } from '@chakra-ui/react';
 import NextLink from 'next/link';
 import { loginSchema, type LoginFormData } from '@/lib/validation/authSchema';
-import { loginUser } from '@/lib/services/authService';
 import { ZodError } from 'zod';
 
 interface LoginFormProps {
@@ -93,7 +92,15 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
     setAlert(null);
 
     try {
-      const result = await loginUser(formData.email, formData.password);
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const result = await response.json();
 
       if (result.success && result.accessToken && result.idToken) {
         setAlert({
