@@ -2,6 +2,7 @@
 
 import { ReactNode, useEffect } from 'react'
 import { Amplify } from 'aws-amplify'
+import { AuthProvider } from '@/lib/contexts/AuthContext'
 
 export function AmplifyProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
@@ -28,5 +29,5 @@ export function AmplifyProvider({ children }: { children: ReactNode }) {
     configureAmplify()
   }, [])
 
-  return <>{children}</>
+  return <AuthProvider>{children}</AuthProvider>
 }
