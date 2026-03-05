@@ -194,6 +194,16 @@ describe('API: Availability - Recurring Support (Story 3.2 Task 11)', () => {
         // ASSERT:
         // - Response status: 201 Created
         expect(response.status).toBe(201);
+        // - Service was called with correct parameters
+        expect(availabilityService.createRecurringAvailability).toHaveBeenCalledWith(
+          mockUserId,
+          mockGroupId,
+          testData.start_time,
+          testData.end_time,
+          'busy',
+          'daily',
+          testData.recurring_end_date
+        );
         // - Response includes array of created availabilities
         expect(Array.isArray(body.data)).toBe(true);
         // - Should create 3 entries (Mar 5, 6, 7)
@@ -230,6 +240,16 @@ describe('API: Availability - Recurring Support (Story 3.2 Task 11)', () => {
 
         // ASSERT: Verify 4 weekly occurrences created
         expect(response.status).toBe(201);
+        // Verify service was called with weekly pattern
+        expect(availabilityService.createRecurringAvailability).toHaveBeenCalledWith(
+          mockUserId,
+          mockGroupId,
+          testData.start_time,
+          testData.end_time,
+          'busy',
+          'weekly',
+          testData.recurring_end_date
+        );
         expect(body.data).toHaveLength(4);
         // Verify entries are 7 days apart
         const date1 = new Date(body.data[0].date).getTime();

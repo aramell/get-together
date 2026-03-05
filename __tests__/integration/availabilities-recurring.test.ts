@@ -7,9 +7,18 @@
  * - Recurring busy times appear correctly
  * - Privacy is preserved
  * - Color coding works across views
+ *
+ * NOTE: These tests use fetch() mocking and require proper test environment setup.
+ * In production test runs, ensure fetch is properly mocked or use MSW (Mock Service Worker).
  */
 
+// Mock fetch globally for all integration tests
+global.fetch = jest.fn();
+
 describe('Integration: Recurring Availability Workflows', () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
   /**
    * TEST GROUP 1: Single Busy Availability Flow
    * User marks a 1-hour busy block → appears red on calendar
@@ -65,6 +74,25 @@ describe('Integration: Recurring Availability Workflows', () => {
       };
 
       // ACT & ASSERT: User1 marks busy
+      const mockCreateResponse = {
+        ok: true,
+        status: 201,
+        json: async () => ({
+          success: true,
+          message: 'Availability created',
+          data: {
+            id: 'avail-123',
+            user_id: user1.id,
+            group_id: testGroup.id,
+            start_time: busyBlockData.start_time,
+            end_time: busyBlockData.end_time,
+            status: 'busy',
+          },
+        }),
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce(mockCreateResponse);
+
       const createResponse = await fetch(
         `/api/groups/${testGroup.id}/availabilities`,
         {
@@ -80,6 +108,24 @@ describe('Integration: Recurring Availability Workflows', () => {
       expect(createResult.data.status).toBe('busy');
 
       // ASSERT: Calendar shows red block for User1
+      const mockCalendarResponse = {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          success: true,
+          data: [
+            {
+              user_id: user1.id,
+              status: 'busy',
+              start_time: busyBlockData.start_time,
+              end_time: busyBlockData.end_time,
+            },
+          ],
+        }),
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce(mockCalendarResponse);
+
       const calendarResponse = await fetch(
         `/api/groups/${testGroup.id}/availabilities?startDate=2026-03-05T00:00:00Z&endDate=2026-03-05T23:59:59Z`,
         {
@@ -96,6 +142,24 @@ describe('Integration: Recurring Availability Workflows', () => {
       expect(user1Busy.start_time).toBe(busyBlockData.start_time);
 
       // ASSERT: User2 also sees User1's busy block
+      const mockUser2Response = {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          success: true,
+          data: [
+            {
+              user_id: user1.id,
+              status: 'busy',
+              start_time: busyBlockData.start_time,
+              end_time: busyBlockData.end_time,
+            },
+          ],
+        }),
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce(mockUser2Response);
+
       const user2CalendarResponse = await fetch(
         `/api/groups/${testGroup.id}/availabilities?startDate=2026-03-05T00:00:00Z&endDate=2026-03-05T23:59:59Z`,
         {

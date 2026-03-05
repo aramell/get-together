@@ -17,6 +17,11 @@ import userEvent from '@testing-library/user-event';
 import MarkAvailabilityModal from '@/components/groups/MarkAvailabilityModal';
 import { ChakraProvider } from '@chakra-ui/react';
 
+// Mock AuthContext
+jest.mock('@/lib/contexts/AuthContext', () => ({
+  useAuth: () => ({ userId: 'test-user-123' }),
+}));
+
 // Wrapper component for tests
 const TestWrapper = ({ children }: { children: React.ReactNode }) => (
   <ChakraProvider>{children}</ChakraProvider>
@@ -28,6 +33,28 @@ const mockProps = {
   onClose: jest.fn(),
   onSuccess: jest.fn(),
 };
+
+/**
+ * Helper function to calculate color contrast ratio (WCAG AA standard: 4.5:1 for text)
+ */
+function getContrastRatio(rgb1: string, rgb2: string): number {
+  const getLuminance = (rgb: string) => {
+    const match = rgb.match(/\d+/g);
+    if (!match || match.length < 3) return 0;
+    const [r, g, b] = match.map(Number);
+    const [rs, gs, bs] = [r, g, b].map((x) => {
+      x = x / 255;
+      return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
+  };
+
+  const lum1 = getLuminance(rgb1);
+  const lum2 = getLuminance(rgb2);
+  const lighter = Math.max(lum1, lum2);
+  const darker = Math.min(lum1, lum2);
+  return (lighter + 0.05) / (darker + 0.05);
+}
 
 describe('MarkAvailabilityModal - Recurring Features', () => {
   /**
@@ -87,6 +114,33 @@ describe('MarkAvailabilityModal - Recurring Features', () => {
       await waitFor(() => {
         const colorIndicator = document.querySelector('[data-testid="color-indicator"]');
         expect(colorIndicator).toHaveStyle('backgroundColor: #f56565');
+      });
+    });
+
+    it('TC-1.4: Color indicators meet WCAG AA contrast standards', async () => {
+      // ARRANGE: Render modal with both statuses
+      const { rerender } = render(
+        <TestWrapper>
+          <MarkAvailabilityModal {...mockProps} />
+        </TestWrapper>
+      );
+
+      // ACT: Check green (#48bb78) contrast against white background
+      let colorIndicator = screen.getByTestId('color-indicator') as HTMLElement;
+      const greenContrast = getContrastRatio('rgb(72, 187, 120)', 'rgb(255, 255, 255)');
+
+      // ASSERT: Green meets WCAG AA (4.5:1 for text, 3:1 for graphics)
+      expect(greenContrast).toBeGreaterThanOrEqual(3);
+
+      // ACT: Switch to busy and check red (#f56565) contrast
+      const statusSelect = screen.getByDisplayValue('Available (Free)');
+      await userEvent.selectOption(statusSelect, 'busy');
+
+      await waitFor(() => {
+        colorIndicator = screen.getByTestId('color-indicator') as HTMLElement;
+        const redContrast = getContrastRatio('rgb(245, 101, 101)', 'rgb(255, 255, 255)');
+        // ASSERT: Red meets WCAG AA
+        expect(redContrast).toBeGreaterThanOrEqual(3);
       });
     });
   });

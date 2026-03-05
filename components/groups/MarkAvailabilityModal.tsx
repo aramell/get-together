@@ -292,6 +292,7 @@ export default function MarkAvailabilityModal({
                 </Select>
                 {/* Color indicator based on selected status */}
                 <div
+                  data-testid="color-indicator"
                   style={{
                     width: '24px',
                     height: '24px',
@@ -357,6 +358,7 @@ export default function MarkAvailabilityModal({
             {/* Occurrence preview - show when recurring pattern and end date selected */}
             {status === 'busy' && recurringPattern && recurringEndDate && (
               <HStack
+                data-testid="occurrence-preview"
                 spacing={2}
                 justify="space-between"
                 bg="green.50"
