@@ -610,3 +610,81 @@ export async function getGroupAvailabilitiesWithRecurring(
     throw error;
   }
 }
+
+/**
+ * Get group availabilities organized by member for calendar view
+ * Returns all group members with their availability entries
+ * Useful for displaying a multi-member calendar grid
+ */
+export async function getGroupAvailabilitiesForCalendar(
+  groupId: string,
+  startDate: string,
+  endDate: string
+): Promise<Array<{
+  user_id: string;
+  user_name: string;
+  availabilities: Array<{
+    id: string;
+    user_id: string;
+    group_id: string;
+    start_time: string;
+    end_time: string;
+    status: 'free' | 'busy';
+    version: number;
+    created_at: string;
+    updated_at: string;
+  }>;
+}>> {
+  try {
+    // Get all group members (excludes deleted users)
+    const membersResult = await query<{
+      user_id: string;
+      name: string;
+    }>(
+      `SELECT DISTINCT gm.user_id, u.name
+       FROM group_memberships gm
+       JOIN users u ON gm.user_id = u.id
+       WHERE gm.group_id = $1 AND u.deleted_at IS NULL
+       ORDER BY u.name ASC`,
+      [groupId]
+    );
+
+    if (membersResult.length === 0) {
+      return [];
+    }
+
+    // Get all availabilities with recurring expanded
+    const availabilities = await getGroupAvailabilitiesWithRecurring(groupId, startDate, endDate);
+
+    // Group availabilities by user_id
+    const availabilityByUser = new Map<string, typeof availabilities>();
+    for (const avail of availabilities) {
+      if (!availabilityByUser.has(avail.user_id)) {
+        availabilityByUser.set(avail.user_id, []);
+      }
+      availabilityByUser.get(avail.user_id)!.push(avail);
+    }
+
+    // Build result: each member with their availabilities (or empty if no entries)
+    const result = membersResult.map((member) => ({
+      user_id: member.user_id,
+      user_name: member.name,
+      availabilities: (availabilityByUser.get(member.user_id) || []).map((avail) => ({
+        id: avail.id,
+        user_id: avail.user_id,
+        group_id: avail.group_id,
+        start_time: avail.start_time,
+        end_time: avail.end_time,
+        status: avail.status,
+        version: avail.version,
+        created_at: avail.created_at,
+        updated_at: avail.updated_at,
+      })),
+    }));
+
+    return result;
+  } catch (error) {
+    console.error('Error fetching group availabilities for calendar:', error);
+    throw error;
+  }
+}

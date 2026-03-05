@@ -11,7 +11,9 @@ import {
   GridItem,
   Badge,
   Spinner,
-  useToast,
+  Tooltip,
+  Alert,
+  AlertIcon,
 } from '@chakra-ui/react';
 import { ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons';
 import MarkAvailabilityModal from './MarkAvailabilityModal';
@@ -25,8 +27,7 @@ interface SoftCalendarProps {
 interface AvailabilityData {
   id: string;
   user_id: string;
-  user_name: string;
-  user_email: string;
+  group_id: string;
   start_time: string;
   end_time: string;
   status: 'free' | 'busy';
@@ -35,19 +36,24 @@ interface AvailabilityData {
   updated_at: string;
 }
 
+interface MemberAvailabilities {
+  user_id: string;
+  user_name: string;
+  availabilities: AvailabilityData[];
+}
+
 export default function SoftCalendar({
   groupId,
   isGroupMember,
 }: SoftCalendarProps) {
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
-  const [availabilities, setAvailabilities] = useState<AvailabilityData[]>([]);
+  const [members, setMembers] = useState<MemberAvailabilities[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showMarkModal, setShowMarkModal] = useState(false);
-  const toast = useToast();
 
-  // Fetch availabilities for current month
-  const fetchAvailabilities = useCallback(async () => {
+  // Fetch calendar data for current month
+  const fetchCalendarData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -68,47 +74,40 @@ export default function SoftCalendar({
       const endDate = new Date(monthEnd.getTime() + 24 * 60 * 60 * 1000).toISOString();
 
       const response = await fetch(
-        `/api/groups/${groupId}/availabilities?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`
+        `/api/groups/${groupId}/calendar?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`
       );
 
       if (!response.ok) {
-        throw new Error('Failed to fetch availabilities');
+        throw new Error('Failed to fetch calendar data');
       }
 
       const data = await response.json();
       if (data.success) {
-        setAvailabilities(data.data || []);
+        setMembers(data.data?.members || []);
       } else {
-        throw new Error(data.error || 'Failed to fetch availabilities');
+        throw new Error(data.errorCode || 'Failed to fetch calendar data');
       }
     } catch (err) {
       const errorMessage =
-        err instanceof Error ? err.message : 'Failed to fetch availabilities';
+        err instanceof Error ? err.message : 'Failed to fetch calendar data';
       setError(errorMessage);
-      toast({
-        title: 'Error',
-        description: errorMessage,
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
     } finally {
       setLoading(false);
     }
   }, [currentDate, groupId]);
 
-  // Fetch availabilities on mount and when month changes
+  // Fetch calendar data on mount and when month changes
   useEffect(() => {
-    fetchAvailabilities();
-  }, [fetchAvailabilities]);
+    fetchCalendarData();
+  }, [fetchCalendarData]);
 
-  // Set up polling (5-second interval for MVP real-time)
+  // Set up polling (5-second interval for real-time MVP)
   useEffect(() => {
-    const interval = setInterval(fetchAvailabilities, 5000);
+    const interval = setInterval(fetchCalendarData, 5000);
     return () => {
       clearInterval(interval);
     };
-  }, [fetchAvailabilities]);
+  }, [fetchCalendarData]);
 
   const handlePrevMonth = () => {
     setCurrentDate(
@@ -124,25 +123,18 @@ export default function SoftCalendar({
 
   const handleMarkAvailabilitySuccess = () => {
     setShowMarkModal(false);
-    fetchAvailabilities();
-    toast({
-      title: 'Success',
-      description: 'Availability marked successfully',
-      status: 'success',
-      duration: 2000,
-      isClosable: true,
-    });
+    fetchCalendarData();
   };
 
-  // Get availabilities for a specific date
-  const getDateAvailabilities = (date: Date): AvailabilityData[] => {
+  // Get availabilities for a specific date and member
+  const getMemberDateAvailabilities = (member: MemberAvailabilities, date: Date): AvailabilityData[] => {
     const dateStr = date.toISOString().split('T')[0];
-    return availabilities.filter((avail) =>
+    return member.availabilities.filter((avail) =>
       avail.start_time.startsWith(dateStr)
     );
   };
 
-  // Render calendar days
+  // Generate days of current month for display
   const monthStart = new Date(
     currentDate.getFullYear(),
     currentDate.getMonth(),
@@ -153,65 +145,19 @@ export default function SoftCalendar({
     currentDate.getMonth() + 1,
     0
   );
-  const prevMonthEnd = new Date(
-    currentDate.getFullYear(),
-    currentDate.getMonth(),
-    0
-  );
-
-  const startingDayOfWeek = monthStart.getDay();
   const daysInMonth = monthEnd.getDate();
-  const daysInPrevMonth = prevMonthEnd.getDate();
 
-  const calendarDays = [];
-
-  // Previous month's days
-  for (let i = startingDayOfWeek - 1; i >= 0; i--) {
-    calendarDays.push({
-      date: new Date(
-        currentDate.getFullYear(),
-        currentDate.getMonth() - 1,
-        daysInPrevMonth - i
-      ),
-      currentMonth: false,
-    });
-  }
-
-  // Current month's days
+  const daysOfMonth: Date[] = [];
   for (let i = 1; i <= daysInMonth; i++) {
-    calendarDays.push({
-      date: new Date(currentDate.getFullYear(), currentDate.getMonth(), i),
-      currentMonth: true,
-    });
+    daysOfMonth.push(new Date(currentDate.getFullYear(), currentDate.getMonth(), i));
   }
 
-  // Next month's days
-  const remainingDays = 42 - calendarDays.length; // 6 weeks * 7 days
-  for (let i = 1; i <= remainingDays; i++) {
-    calendarDays.push({
-      date: new Date(
-        currentDate.getFullYear(),
-        currentDate.getMonth() + 1,
-        i
-      ),
-      currentMonth: false,
-    });
-  }
-
-  // Get background color for day cell based on availability status
-  const getDayCellBackgroundColor = (dayAvailabilities: AvailabilityData[]) => {
-    if (dayAvailabilities.length === 0) {
-      return 'gray.100'; // Unspecified
-    }
-    const allFree = dayAvailabilities.every((a) => a.status === 'free');
-    const allBusy = dayAvailabilities.every((a) => a.status === 'busy');
-
-    if (allFree) return 'green.50'; // All free
-    if (allBusy) return 'red.50'; // All busy
-    return 'yellow.50'; // Mixed
+  // Get color for a single availability status
+  const getAvailabilityColor = (status: 'free' | 'busy'): string => {
+    return status === 'free' ? 'green.100' : 'red.100';
   };
 
-  if (loading && availabilities.length === 0) {
+  if (loading && members.length === 0) {
     return (
       <Box textAlign="center" py={10}>
         <Spinner size="lg" color="blue.500" />
@@ -259,75 +205,91 @@ export default function SoftCalendar({
         </Button>
       )}
 
-      {/* Calendar Grid */}
-      <Box border="1px solid" borderColor="gray.200" borderRadius="lg" p={4}>
+      {/* Multi-Member Calendar View */}
+      <Box border="1px solid" borderColor="gray.200" borderRadius="lg" p={4} overflowX="auto">
         {/* Day headers */}
-        <Grid templateColumns="repeat(7, 1fr)" gap={2} mb={4}>
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-            <GridItem key={day} textAlign="center" fontWeight="bold">
-              {day}
-            </GridItem>
-          ))}
-        </Grid>
-
-        {/* Calendar days */}
-        <Grid templateColumns="repeat(7, 1fr)" gap={2} autoRows="minmax(100px, auto)">
-          {calendarDays.map((item, idx) => {
-            const dateAvails = getDateAvailabilities(item.date);
-            const hasAvailabilities = dateAvails.length > 0;
-
-            return (
-              <GridItem
-                key={idx}
-                border="1px solid"
-                borderColor={item.currentMonth ? 'gray.200' : 'gray.100'}
-                p={2}
-                bg={getDayCellBackgroundColor(dateAvails)}
-                opacity={item.currentMonth ? 1 : 0.5}
-                borderRadius="md"
-                minH="100px"
+        <HStack spacing={2} mb={4} minW="100%">
+          <Box minW="150px" fontWeight="bold" fontSize="sm">
+            Member
+          </Box>
+          {daysOfMonth.map((day) => (
+            <Tooltip key={day.toISOString()} label={day.toLocaleDateString()}>
+              <Box
+                minW="40px"
+                textAlign="center"
+                fontWeight="bold"
+                fontSize="xs"
               >
-                <Text
-                  fontSize="sm"
-                  fontWeight="bold"
-                  color={item.currentMonth ? 'black' : 'gray.400'}
-                  mb={2}
-                >
-                  {item.date.getDate()}
-                </Text>
+                {day.getDate()}
+              </Box>
+            </Tooltip>
+          ))}
+        </HStack>
 
-                {hasAvailabilities && (
-                  <VStack spacing={1} align="start">
-                    {dateAvails.slice(0, 2).map((avail) => (
-                      <Badge
-                        key={avail.id}
-                        colorScheme={avail.status === 'free' ? 'green' : 'red'}
-                        fontSize="xs"
-                        title={`${avail.user_name} - ${avail.status === 'free' ? 'Available' : 'Busy'}`}
-                      >
-                        {avail.status === 'free' ? '✓' : '✗'}
-                        {' '}
-                        {avail.user_name.split(' ')[0]}
-                      </Badge>
-                    ))}
-                    {dateAvails.length > 2 && (
-                      <Text fontSize="xs" color="gray.500">
-                        +{dateAvails.length - 2} more
-                      </Text>
-                    )}
-                  </VStack>
-                )}
-              </GridItem>
-            );
-          })}
-        </Grid>
+        {/* Member rows */}
+        {members.length === 0 ? (
+          <Text color="gray.500" textAlign="center" py={6}>
+            No members in this group
+          </Text>
+        ) : (
+          members.map((member) => (
+            <HStack key={member.user_id} spacing={2} mb={3} align="flex-start">
+              <Box minW="150px" fontSize="sm" fontWeight="500" isTruncated>
+                {member.user_name}
+              </Box>
+              {daysOfMonth.map((day) => {
+                const dayAvailabilities = getMemberDateAvailabilities(member, day);
+                const hasAvailability = dayAvailabilities.length > 0;
+                const status = dayAvailabilities[0]?.status || 'unspecified';
+
+                return (
+                  <Tooltip
+                    key={`${member.user_id}-${day.toISOString()}`}
+                    label={
+                      dayAvailabilities.length === 0
+                        ? 'No availability set'
+                        : `${member.user_name} - ${status === 'free' ? 'Available ✓' : 'Busy ✗'}`
+                    }
+                  >
+                    <Box
+                      minW="40px"
+                      h="30px"
+                      borderRadius="md"
+                      border="1px solid"
+                      borderColor="gray.300"
+                      bg={
+                        status === 'free'
+                          ? 'green.100'
+                          : status === 'busy'
+                          ? 'red.100'
+                          : 'gray.100'
+                      }
+                      display="flex"
+                      alignItems="center"
+                      justifyContent="center"
+                      fontSize="xs"
+                      fontWeight="bold"
+                      cursor="pointer"
+                    >
+                      {status === 'free' ? '✓' : status === 'busy' ? '✗' : '?'}
+                    </Box>
+                  </Tooltip>
+                );
+              })}
+            </HStack>
+          ))
+        )}
       </Box>
 
       {/* Error state */}
       {error && (
-        <Box bg="red.50" border="1px solid red.200" borderRadius="md" p={4}>
-          <Text color="red.800">Error: {error}</Text>
-        </Box>
+        <Alert status="error" borderRadius="md">
+          <AlertIcon />
+          <Box>
+            <Text fontWeight="bold">Error Loading Calendar</Text>
+            <Text fontSize="sm">{error}</Text>
+          </Box>
+        </Alert>
       )}
 
       {/* Mark Availability Modal */}
