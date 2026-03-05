@@ -6,6 +6,7 @@ import { AuthProvider } from '@/lib/contexts/AuthContext'
 
 export function AmplifyProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
+    console.log('🔵 AmplifyProvider mounted - setting up AuthProvider context')
     // Configure Amplify on client side after mount
     // amplify_outputs.json should be in the public directory or root
     // See AMPLIFY_DEPLOYMENT.md for setup instructions
@@ -29,5 +30,6 @@ export function AmplifyProvider({ children }: { children: ReactNode }) {
     configureAmplify()
   }, [])
 
+  console.log('🔵 AmplifyProvider rendering with AuthProvider')
   return <AuthProvider>{children}</AuthProvider>
 }
