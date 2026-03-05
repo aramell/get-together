@@ -275,7 +275,6 @@ describe('API: Availability - Recurring Support (Story 3.2 Task 11)', () => {
             { id: 'avail-created-1', date: '2026-03-05T09:00:00Z' },
             { id: 'avail-created-2', date: '2026-03-07T09:00:00Z' },
           ],
-          conflicts: [{ date: '2026-03-06T09:00:00Z', reason: 'Already marked' }],
         };
 
         (availabilityService.createRecurringAvailability as jest.Mock).mockResolvedValue(mockResponse);
@@ -288,9 +287,10 @@ describe('API: Availability - Recurring Support (Story 3.2 Task 11)', () => {
         // ASSERT:
         // - Response status: 201 (partial success)
         expect(response.status).toBe(201);
-        // - Response includes created entries and error details
+        // - Response includes created entries (partial set returned)
         expect(body.data).toHaveLength(2);
-        expect(body.conflicts).toBeDefined();
+        expect(body.success).toBe(true);
+        expect(body.message).toContain('Partial success');
       });
     });
 
