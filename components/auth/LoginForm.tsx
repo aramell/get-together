@@ -11,8 +11,12 @@ import {
   Stack,
   Text,
   Link as ChakraLink,
-  useToast,
   Spinner,
+  Alert,
+  AlertIcon,
+  AlertTitle,
+  AlertDescription,
+  CloseButton,
 } from '@chakra-ui/react';
 import NextLink from 'next/link';
 import { loginSchema, type LoginFormData } from '@/lib/validation/authSchema';
@@ -30,7 +34,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   });
   const [errors, setErrors] = useState<Partial<Record<keyof LoginFormData, string>>>({});
   const [isLoading, setIsLoading] = useState(false);
-  const toast = useToast();
+  const [alert, setAlert] = useState<{ status: 'success' | 'error'; title: string; description: string } | null>(null);
 
   // Validate individual field
   const validateField = (name: keyof LoginFormData, value: string) => {
@@ -77,28 +81,25 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
     e.preventDefault();
 
     if (!isFormValid()) {
-      toast({
+      setAlert({
+        status: 'error',
         title: 'Invalid form',
         description: 'Please fix the errors before submitting',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
       });
       return;
     }
 
     setIsLoading(true);
+    setAlert(null);
 
     try {
       const result = await loginUser(formData.email, formData.password);
 
       if (result.success && result.accessToken && result.idToken) {
-        toast({
+        setAlert({
+          status: 'success',
           title: 'Login successful!',
           description: 'Redirecting to your groups...',
-          status: 'success',
-          duration: 2000,
-          isClosable: true,
         });
 
         // Call success callback
@@ -111,22 +112,18 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
 
         // Redirect handled by parent component
       } else {
-        toast({
+        setAlert({
+          status: 'error',
           title: 'Login failed',
           description: result.message || 'An unexpected error occurred',
-          status: 'error',
-          duration: 4000,
-          isClosable: true,
         });
       }
     } catch (error) {
       console.error('Login error:', error);
-      toast({
+      setAlert({
+        status: 'error',
         title: 'Error',
         description: 'An unexpected error occurred. Please try again.',
-        status: 'error',
-        duration: 4000,
-        isClosable: true,
       });
     } finally {
       setIsLoading(false);
@@ -136,6 +133,22 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   return (
     <Box as="form" onSubmit={handleSubmit} w="100%" maxW="400px" mx="auto">
       <Stack spacing={4}>
+        {/* Alert Messages */}
+        {alert && (
+          <Alert status={alert.status} borderRadius="md">
+            <AlertIcon />
+            <Box>
+              <AlertTitle>{alert.title}</AlertTitle>
+              <AlertDescription>{alert.description}</AlertDescription>
+            </Box>
+            <CloseButton
+              position="absolute"
+              right="8px"
+              top="8px"
+              onClick={() => setAlert(null)}
+            />
+          </Alert>
+        )}
         {/* Email Field */}
         <FormControl isInvalid={!!errors.email}>
           <FormLabel htmlFor="email">Email Address</FormLabel>
