@@ -488,3 +488,120 @@ export async function getGroupAvailabilities(
     [groupId, startDate, endDate]
   );
 }
+
+/**
+ * Get all availabilities for a group with recurring entries expanded
+ * Returns both non-recurring and materialized recurring entries
+ */
+export async function getGroupAvailabilitiesWithRecurring(
+  groupId: string,
+  startDate: string,
+  endDate: string
+): Promise<Array<{
+  id: string;
+  user_id: string;
+  group_id: string;
+  start_time: string;
+  end_time: string;
+  status: 'free' | 'busy';
+  version: number;
+  created_at: string;
+  updated_at: string;
+  user_name: string;
+  user_email: string;
+  is_recurring: boolean;
+}>> {
+  try {
+    // Get all availabilities (recurring and non-recurring)
+    const allAvailabilities = await query<{
+      id: string;
+      user_id: string;
+      group_id: string;
+      start_time: string;
+      end_time: string;
+      status: 'free' | 'busy';
+      version: number;
+      created_at: string;
+      updated_at: string;
+      user_name: string;
+      user_email: string;
+      recurring_pattern: string | null;
+      recurring_end_date: string | null;
+    }>(
+      `SELECT a.id, a.user_id, a.group_id, a.start_time, a.end_time, a.status, a.version,
+              a.created_at, a.updated_at, a.recurring_pattern, a.recurring_end_date,
+              u.name as user_name, u.email as user_email
+       FROM availabilities a
+       JOIN users u ON a.user_id = u.id
+       WHERE a.group_id = $1 AND u.deleted_at IS NULL
+       ORDER BY a.start_time ASC`,
+      [groupId]
+    );
+
+    const startDateTime = new Date(startDate);
+    const endDateTime = new Date(endDate);
+    const result: Array<any> = [];
+
+    // Process each availability
+    for (const avail of allAvailabilities) {
+      const availStart = new Date(avail.start_time);
+      const availEnd = new Date(avail.end_time);
+
+      // Skip if outside date range
+      if (availEnd < startDateTime || availStart > endDateTime) {
+        continue;
+      }
+
+      // Non-recurring entry - add as-is
+      if (!avail.recurring_pattern || !avail.recurring_end_date) {
+        result.push({
+          ...avail,
+          is_recurring: false,
+        });
+        continue;
+      }
+
+      // Recurring entry - expand and add occurrences
+      const recurringEnd = new Date(avail.recurring_end_date);
+      let currentDate = new Date(availStart);
+
+      while (currentDate <= recurringEnd && currentDate <= endDateTime) {
+        // Check if this occurrence is within the requested range
+        const occurrenceStart = new Date(currentDate);
+        const occurrenceEnd = new Date(currentDate);
+
+        occurrenceStart.setHours(availStart.getHours(), availStart.getMinutes(), availStart.getSeconds());
+        occurrenceEnd.setHours(availEnd.getHours(), availEnd.getMinutes(), availEnd.getSeconds());
+
+        if (occurrenceEnd >= startDateTime && occurrenceStart <= endDateTime) {
+          result.push({
+            id: `${avail.id}-${currentDate.toISOString().split('T')[0]}`, // Synthetic ID
+            user_id: avail.user_id,
+            group_id: avail.group_id,
+            start_time: occurrenceStart.toISOString(),
+            end_time: occurrenceEnd.toISOString(),
+            status: avail.status,
+            version: avail.version,
+            created_at: avail.created_at,
+            updated_at: avail.updated_at,
+            user_name: avail.user_name,
+            user_email: avail.user_email,
+            is_recurring: true,
+          });
+        }
+
+        // Move to next occurrence
+        if (avail.recurring_pattern === 'daily') {
+          currentDate.setDate(currentDate.getDate() + 1);
+        } else if (avail.recurring_pattern === 'weekly') {
+          currentDate.setDate(currentDate.getDate() + 7);
+        }
+      }
+    }
+
+    return result.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+  } catch (error) {
+    console.error('Error fetching availabilities with recurring:', error);
+    throw error;
+  }
+}
