@@ -26,9 +26,9 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/auth/login', request.url));
   }
 
-  // If accessing auth routes while authenticated, redirect to dashboard
+  // If accessing auth routes while authenticated, redirect to groups
   if (isAuthRoute && isAuthenticated) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    return NextResponse.redirect(new URL('/groups', request.url));
   }
 
   return NextResponse.next();
