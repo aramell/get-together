@@ -23,8 +23,10 @@ export default function LoginPage() {
     localStorage.setItem('accessToken', tokens.accessToken);
     localStorage.setItem('idToken', tokens.idToken);
 
-    // Redirect to groups page
-    router.push('/groups');
+    // Redirect to groups page after a brief delay to ensure tokens are synced
+    setTimeout(() => {
+      router.push('/groups');
+    }, 100);
   };
 
   // Show loading spinner while checking auth status
