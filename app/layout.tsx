@@ -1,8 +1,6 @@
 'use client'
 
 import { Geist, Geist_Mono } from "next/font/google";
-import { Authenticator } from "@aws-amplify/ui-react";
-import "@aws-amplify/ui-react/styles.css";
 import "./globals.css";
 import { AmplifyProvider } from "./amplify-provider";
 
@@ -27,13 +25,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <AmplifyProvider>
-          <Authenticator>
-            {({ signOut, user }) => (
-              <div>
-                {children}
-              </div>
-            )}
-          </Authenticator>
+          {children}
         </AmplifyProvider>
       </body>
     </html>
