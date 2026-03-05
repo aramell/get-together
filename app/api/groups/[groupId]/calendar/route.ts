@@ -21,6 +21,19 @@ export async function GET(
   try {
     const { groupId } = await params;
 
+    // Get user ID from header (check auth first)
+    const userId = request.headers.get('x-user-id');
+    if (!userId) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Not authenticated',
+          errorCode: 'NOT_AUTHENTICATED',
+        },
+        { status: 401 }
+      );
+    }
+
     // Extract and validate query parameters
     const searchParams = request.nextUrl.searchParams;
     const startDate = searchParams.get('startDate');
@@ -41,19 +54,6 @@ export async function GET(
     }
 
     const { startDate: validStartDate, endDate: validEndDate } = validation.data;
-
-    // Get user ID from header
-    const userId = request.headers.get('x-user-id');
-    if (!userId) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Not authenticated',
-          errorCode: 'NOT_AUTHENTICATED',
-        },
-        { status: 401 }
-      );
-    }
 
     // TODO: Verify user is member of the group
     // For MVP, skip authorization check (trust header)

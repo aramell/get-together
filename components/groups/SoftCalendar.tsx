@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   Box,
   Button,
@@ -14,6 +14,7 @@ import {
   Tooltip,
   Alert,
   AlertIcon,
+  VisuallyHidden,
 } from '@chakra-ui/react';
 import { ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons';
 import MarkAvailabilityModal from './MarkAvailabilityModal';
@@ -51,6 +52,7 @@ export default function SoftCalendar({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showMarkModal, setShowMarkModal] = useState(false);
+  const [liveRegionMessage, setLiveRegionMessage] = useState<string>('');
 
   // Fetch calendar data for current month
   const fetchCalendarData = useCallback(async () => {
@@ -110,15 +112,17 @@ export default function SoftCalendar({
   }, [fetchCalendarData]);
 
   const handlePrevMonth = () => {
-    setCurrentDate(
-      new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)
-    );
+    const newDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
+    setCurrentDate(newDate);
+    const monthYear = newDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+    setLiveRegionMessage(`Navigated to ${monthYear}`);
   };
 
   const handleNextMonth = () => {
-    setCurrentDate(
-      new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1)
-    );
+    const newDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
+    setCurrentDate(newDate);
+    const monthYear = newDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+    setLiveRegionMessage(`Navigated to ${monthYear}`);
   };
 
   const handleMarkAvailabilitySuccess = () => {
@@ -167,18 +171,37 @@ export default function SoftCalendar({
   }
 
   return (
-    <VStack spacing={6} align="stretch">
+    <VStack spacing={6} align="stretch" role="main" aria-label="Group soft calendar view">
+      {/* Live region for screen reader announcements */}
+      <Box
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        aria-label="Calendar navigation updates"
+      >
+        <VisuallyHidden>{liveRegionMessage}</VisuallyHidden>
+      </Box>
+
       {/* Header with month navigation */}
       <HStack justify="space-between" align="center">
         <Button
           leftIcon={<ChevronLeftIcon />}
           onClick={handlePrevMonth}
           variant="outline"
+          aria-label={`View previous month`}
+          title="View previous month"
         >
           Previous
         </Button>
 
-        <Text fontSize="2xl" fontWeight="bold">
+        <Text
+          fontSize="2xl"
+          fontWeight="bold"
+          aria-label={`Current month: ${currentDate.toLocaleString('default', {
+            month: 'long',
+            year: 'numeric',
+          })}`}
+        >
           {currentDate.toLocaleString('default', {
             month: 'long',
             year: 'numeric',
@@ -189,6 +212,8 @@ export default function SoftCalendar({
           rightIcon={<ChevronRightIcon />}
           onClick={handleNextMonth}
           variant="outline"
+          aria-label={`View next month`}
+          title="View next month"
         >
           Next
         </Button>
@@ -200,16 +225,30 @@ export default function SoftCalendar({
           colorScheme="blue"
           onClick={() => setShowMarkModal(true)}
           width="full"
+          aria-label="Open form to mark your availability for this group"
+          title="Mark your availability for this group"
         >
           Mark Your Availability
         </Button>
       )}
 
       {/* Multi-Member Calendar View */}
-      <Box border="1px solid" borderColor="gray.200" borderRadius="lg" p={4} overflowX="auto">
+      <Box
+        border="1px solid"
+        borderColor="gray.200"
+        borderRadius="lg"
+        p={4}
+        overflowX="auto"
+        role="table"
+        aria-label="Group members' availability calendar"
+        aria-describedby="calendar-description"
+      >
+        <VisuallyHidden id="calendar-description">
+          Calendar showing availability for all group members. Green indicates free, red indicates busy, gray indicates unspecified. Each row is a member, each column is a day of the month.
+        </VisuallyHidden>
         {/* Day headers */}
-        <HStack spacing={2} mb={4} minW="100%">
-          <Box minW="150px" fontWeight="bold" fontSize="sm">
+        <HStack spacing={2} mb={4} minW="100%" role="row">
+          <Box minW="150px" fontWeight="bold" fontSize="sm" role="columnheader">
             Member
           </Box>
           {daysOfMonth.map((day) => (
@@ -219,6 +258,12 @@ export default function SoftCalendar({
                 textAlign="center"
                 fontWeight="bold"
                 fontSize="xs"
+                role="columnheader"
+                aria-label={`Day ${day.getDate()}, ${day.toLocaleDateString('default', {
+                  weekday: 'short',
+                  month: 'short',
+                  day: 'numeric',
+                })}`}
               >
                 {day.getDate()}
               </Box>
@@ -228,19 +273,40 @@ export default function SoftCalendar({
 
         {/* Member rows */}
         {members.length === 0 ? (
-          <Text color="gray.500" textAlign="center" py={6}>
+          <Text color="gray.500" textAlign="center" py={6} role="status">
             No members in this group
           </Text>
         ) : (
           members.map((member) => (
-            <HStack key={member.user_id} spacing={2} mb={3} align="flex-start">
-              <Box minW="150px" fontSize="sm" fontWeight="500" isTruncated>
+            <HStack
+              key={member.user_id}
+              spacing={2}
+              mb={3}
+              align="flex-start"
+              role="row"
+              aria-label={`${member.user_name} availability row`}
+            >
+              <Box
+                minW="150px"
+                fontSize="sm"
+                fontWeight="500"
+                isTruncated
+                role="rowheader"
+                aria-label={member.user_name}
+                title={member.user_name}
+              >
                 {member.user_name}
               </Box>
               {daysOfMonth.map((day) => {
                 const dayAvailabilities = getMemberDateAvailabilities(member, day);
                 const hasAvailability = dayAvailabilities.length > 0;
                 const status = dayAvailabilities[0]?.status || 'unspecified';
+                const statusLabel =
+                  status === 'free'
+                    ? 'available'
+                    : status === 'busy'
+                    ? 'busy'
+                    : 'not specified';
 
                 return (
                   <Tooltip
@@ -270,6 +336,22 @@ export default function SoftCalendar({
                       fontSize="xs"
                       fontWeight="bold"
                       cursor="pointer"
+                      role="gridcell"
+                      aria-label={`${member.user_name}, ${day.toLocaleDateString('default', {
+                        weekday: 'short',
+                        month: 'short',
+                        day: 'numeric',
+                      })}, ${statusLabel}`}
+                      _focus={{
+                        outline: '2px solid',
+                        outlineColor: 'blue.500',
+                      }}
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          // Could trigger a detail view or edit here
+                        }
+                      }}
                     >
                       {status === 'free' ? '✓' : status === 'busy' ? '✗' : '?'}
                     </Box>

@@ -1,18 +1,22 @@
+/**
+ * @jest-environment node
+ */
 import { GET } from '@/app/api/groups/[groupId]/calendar/route';
-import { NextRequest } from 'next/server';
 import * as queriesModule from '@/lib/db/queries';
 
 jest.mock('@/lib/db/queries');
 
 // Helper to create mock requests
-function createMockRequest(params: [string, string][] = []): Partial<NextRequest> {
-  const headers = new Headers(params);
+function createMockRequest(
+  params: [string, string][] = [],
+  searchParams: [string, string][] = []
+) {
   return {
-    headers,
+    headers: new Headers(params),
     nextUrl: {
-      searchParams: new URLSearchParams(),
+      searchParams: new URLSearchParams(searchParams),
     },
-  } as unknown as Partial<NextRequest>;
+  } as any;
 }
 
 describe('GET /api/groups/:groupId/calendar', () => {
@@ -62,7 +66,7 @@ describe('GET /api/groups/:groupId/calendar', () => {
 
   // Test: Missing authentication header
   it('should return 401 if x-user-id header is missing', async () => {
-    const mockRequest = createMockRequest([]) as NextRequest;
+    const mockRequest = createMockRequest([]);
 
     const response = await GET(mockRequest, {
       params: Promise.resolve({ groupId: mockGroupId }),
@@ -76,12 +80,10 @@ describe('GET /api/groups/:groupId/calendar', () => {
 
   // Test: Invalid date format
   it('should return 400 if dates are invalid', async () => {
-    const mockRequest = {
-      headers: new Headers([['x-user-id', mockUserId]]),
-      nextUrl: {
-        searchParams: new URLSearchParams([['startDate', 'invalid']]),
-      },
-    } as unknown as NextRequest;
+    const mockRequest = createMockRequest(
+      [['x-user-id', mockUserId]],
+      [['startDate', 'invalid']]
+    );
 
     const response = await GET(mockRequest, {
       params: Promise.resolve({ groupId: mockGroupId }),
@@ -98,15 +100,13 @@ describe('GET /api/groups/:groupId/calendar', () => {
       mockMemberData
     );
 
-    const mockRequest = {
-      headers: new Headers([['x-user-id', mockUserId]]),
-      nextUrl: {
-        searchParams: new URLSearchParams([
-          ['startDate', '2026-03-01T00:00:00Z'],
-          ['endDate', '2026-03-31T23:59:59Z'],
-        ]),
-      },
-    } as unknown as NextRequest;
+    const mockRequest = createMockRequest(
+      [['x-user-id', mockUserId]],
+      [
+        ['startDate', '2026-03-01T00:00:00Z'],
+        ['endDate', '2026-03-31T23:59:59Z'],
+      ]
+    );
 
     const response = await GET(mockRequest, {
       params: Promise.resolve({ groupId: mockGroupId }),
@@ -123,15 +123,13 @@ describe('GET /api/groups/:groupId/calendar', () => {
   it('should return empty members array', async () => {
     (queriesModule.getGroupAvailabilitiesForCalendar as jest.Mock).mockResolvedValue([]);
 
-    const mockRequest = {
-      headers: new Headers([['x-user-id', mockUserId]]),
-      nextUrl: {
-        searchParams: new URLSearchParams([
-          ['startDate', '2026-03-01T00:00:00Z'],
-          ['endDate', '2026-03-31T23:59:59Z'],
-        ]),
-      },
-    } as unknown as NextRequest;
+    const mockRequest = createMockRequest(
+      [['x-user-id', mockUserId]],
+      [
+        ['startDate', '2026-03-01T00:00:00Z'],
+        ['endDate', '2026-03-31T23:59:59Z'],
+      ]
+    );
 
     const response = await GET(mockRequest, {
       params: Promise.resolve({ groupId: mockGroupId }),
@@ -148,15 +146,13 @@ describe('GET /api/groups/:groupId/calendar', () => {
       new Error('Database error')
     );
 
-    const mockRequest = {
-      headers: new Headers([['x-user-id', mockUserId]]),
-      nextUrl: {
-        searchParams: new URLSearchParams([
-          ['startDate', '2026-03-01T00:00:00Z'],
-          ['endDate', '2026-03-31T23:59:59Z'],
-        ]),
-      },
-    } as unknown as NextRequest;
+    const mockRequest = createMockRequest(
+      [['x-user-id', mockUserId]],
+      [
+        ['startDate', '2026-03-01T00:00:00Z'],
+        ['endDate', '2026-03-31T23:59:59Z'],
+      ]
+    );
 
     const response = await GET(mockRequest, {
       params: Promise.resolve({ groupId: mockGroupId }),

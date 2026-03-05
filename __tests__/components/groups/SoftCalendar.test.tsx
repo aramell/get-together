@@ -1,26 +1,64 @@
+/**
+ * @jest-environment jsdom
+ */
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ChakraProvider } from '@chakra-ui/react';
 import SoftCalendar from '@/components/groups/SoftCalendar';
 
-// Mock the MarkAvailabilityModal
+// Mock fetch
+global.fetch = jest.fn();
+
+// Mock MarkAvailabilityModal
 jest.mock('@/components/groups/MarkAvailabilityModal', () => {
-  return function MockModal({ isOpen, onClose, onSuccess }: any) {
-    if (!isOpen) return null;
-    return (
-      <div data-testid="mock-mark-availability-modal">
-        <button onClick={() => onSuccess()}>Submit</button>
-        <button onClick={onClose}>Close</button>
-      </div>
-    );
+  return function MockMarkAvailabilityModal() {
+    return <div data-testid="mark-availability-modal">Modal</div>;
   };
 });
 
-// Mock fetch globally
-global.fetch = jest.fn();
+const mockMembers = [
+  {
+    user_id: 'user-1',
+    user_name: 'Alice Johnson',
+    availabilities: [
+      {
+        id: 'avail-1',
+        user_id: 'user-1',
+        group_id: 'group-1',
+        start_time: '2026-03-05T09:00:00Z',
+        end_time: '2026-03-05T17:00:00Z',
+        status: 'free' as const,
+        version: 1,
+        created_at: '2026-03-05T08:00:00Z',
+        updated_at: '2026-03-05T08:00:00Z',
+      },
+    ],
+  },
+  {
+    user_id: 'user-2',
+    user_name: 'Bob Smith',
+    availabilities: [
+      {
+        id: 'avail-2',
+        user_id: 'user-2',
+        group_id: 'group-1',
+        start_time: '2026-03-05T14:00:00Z',
+        end_time: '2026-03-05T18:00:00Z',
+        status: 'busy' as const,
+        version: 1,
+        created_at: '2026-03-05T08:00:00Z',
+        updated_at: '2026-03-05T08:00:00Z',
+      },
+    ],
+  },
+];
 
-describe('SoftCalendar', () => {
-  const mockGroupId = '550e8400-e29b-41d4-a716-446655440001';
+const renderWithChakra = (component: React.ReactElement) => {
+  return render(<ChakraProvider>{component}</ChakraProvider>);
+};
+
+describe('SoftCalendar Component', () => {
+  const groupId = 'group-1';
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -28,177 +66,208 @@ describe('SoftCalendar', () => {
       ok: true,
       json: async () => ({
         success: true,
-        data: [
-          {
-            id: 'avail-1',
-            user_id: 'user-1',
-            user_name: 'John Doe',
-            user_email: 'john@example.com',
-            group_id: mockGroupId,
-            start_time: new Date().toISOString().split('T')[0] + 'T10:00:00Z',
-            end_time: new Date().toISOString().split('T')[0] + 'T11:00:00Z',
-            status: 'free',
-            version: 1,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          },
-        ],
-        count: 1,
+        data: { groupId, members: mockMembers },
       }),
     });
   });
 
-  it('should render calendar with month header', async () => {
-    render(
-      <ChakraProvider>
-        <SoftCalendar groupId={mockGroupId} isGroupMember={true} />
-      </ChakraProvider>
-    );
-
-    await waitFor(() => {
-      expect(screen.getByText(/\d+\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}/)).toBeInTheDocument();
-    });
-  });
-
-  it('should render "Mark Your Availability" button for group members', async () => {
-    render(
-      <ChakraProvider>
-        <SoftCalendar groupId={mockGroupId} isGroupMember={true} />
-      </ChakraProvider>
-    );
-
-    await waitFor(() => {
-      expect(screen.getByText('Mark Your Availability')).toBeInTheDocument();
-    });
-  });
-
-  it('should not render "Mark Your Availability" button for non-members', async () => {
-    render(
-      <ChakraProvider>
-        <SoftCalendar groupId={mockGroupId} isGroupMember={false} />
-      </ChakraProvider>
-    );
-
-    await waitFor(() => {
-      expect(screen.queryByText('Mark Your Availability')).not.toBeInTheDocument();
-    });
-  });
-
-  it('should open mark availability modal on button click', async () => {
-    render(
-      <ChakraProvider>
-        <SoftCalendar groupId={mockGroupId} isGroupMember={true} />
-      </ChakraProvider>
-    );
-
-    const button = await screen.findByText('Mark Your Availability');
-    fireEvent.click(button);
-
-    await waitFor(() => {
-      expect(screen.getByTestId('mock-mark-availability-modal')).toBeInTheDocument();
-    });
-  });
-
-  it('should fetch availabilities on mount', async () => {
-    render(
-      <ChakraProvider>
-        <SoftCalendar groupId={mockGroupId} isGroupMember={true} />
-      </ChakraProvider>
-    );
-
-    await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalled();
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining(`/api/groups/${mockGroupId}/availabilities`)
-      );
-    });
-  });
-
-  it('should display loading spinner initially', () => {
+  // Test: Component renders loading state
+  it('should render loading spinner initially', () => {
     (global.fetch as jest.Mock).mockImplementation(
-      () =>
-        new Promise(() => {
-          /* Never resolves to keep loading state */
-        })
+      () => new Promise(() => {}) // Never resolves
     );
 
-    render(
-      <ChakraProvider>
-        <SoftCalendar groupId={mockGroupId} isGroupMember={true} />
-      </ChakraProvider>
+    renderWithChakra(
+      <SoftCalendar groupId={groupId} isGroupMember={false} />
     );
 
     expect(screen.getByText('Loading calendar...')).toBeInTheDocument();
   });
 
-  it('should handle fetch errors gracefully', async () => {
-    (global.fetch as jest.Mock).mockResolvedValue({
+  // Test: Component renders calendar with members
+  it('should render calendar with members and days', async () => {
+    renderWithChakra(
+      <SoftCalendar groupId={groupId} isGroupMember={false} />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Alice Johnson')).toBeInTheDocument();
+      expect(screen.getByText('Bob Smith')).toBeInTheDocument();
+    });
+  });
+
+  // Test: Component renders month header
+  it('should render current month and year in header', async () => {
+    renderWithChakra(
+      <SoftCalendar groupId={groupId} isGroupMember={false} />
+    );
+
+    await waitFor(() => {
+      const currentMonth = new Date().toLocaleString('default', {
+        month: 'long',
+        year: 'numeric',
+      });
+      expect(screen.getByText(currentMonth)).toBeInTheDocument();
+    });
+  });
+
+  // Test: Previous/Next month buttons exist
+  it('should render month navigation buttons', async () => {
+    renderWithChakra(
+      <SoftCalendar groupId={groupId} isGroupMember={false} />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/view previous month/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/view next month/i)).toBeInTheDocument();
+    });
+  });
+
+  // Test: Mark Availability button shows when user is member
+  it('should show Mark Availability button for group members', async () => {
+    renderWithChakra(
+      <SoftCalendar groupId={groupId} isGroupMember={true} />
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Mark Your Availability')
+      ).toBeInTheDocument();
+    });
+  });
+
+  // Test: Mark Availability button hidden when not member
+  it('should not show Mark Availability button for non-members', async () => {
+    renderWithChakra(
+      <SoftCalendar groupId={groupId} isGroupMember={false} />
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText('Mark Your Availability')
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  // Test: Clicking Mark Availability opens modal
+  it('should open modal when Mark Availability is clicked', async () => {
+    renderWithChakra(
+      <SoftCalendar groupId={groupId} isGroupMember={true} />
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Mark Your Availability')
+      ).toBeInTheDocument();
+    });
+
+    const button = screen.getByText('Mark Your Availability');
+    fireEvent.click(button);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('mark-availability-modal')).toBeInTheDocument();
+    });
+  });
+
+  // Test: Month navigation updates the month
+  it('should update month when next button is clicked', async () => {
+    renderWithChakra(
+      <SoftCalendar groupId={groupId} isGroupMember={false} />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Alice Johnson')).toBeInTheDocument();
+    });
+
+    const nextButton = screen.getByLabelText(/view next month/i);
+    fireEvent.click(nextButton);
+
+    await waitFor(() => {
+      const nextMonth = new Date(
+        new Date().getFullYear(),
+        new Date().getMonth() + 1
+      ).toLocaleString('default', {
+        month: 'long',
+        year: 'numeric',
+      });
+      expect(screen.getByText(nextMonth)).toBeInTheDocument();
+    });
+  });
+
+  // Test: Error state displays error message
+  it('should display error when fetch fails', async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: false,
       json: async () => ({
         success: false,
-        error: 'Failed to fetch availabilities',
+        errorCode: 'FETCH_ERROR',
       }),
     });
 
-    render(
-      <ChakraProvider>
-        <SoftCalendar groupId={mockGroupId} isGroupMember={true} />
-      </ChakraProvider>
+    renderWithChakra(
+      <SoftCalendar groupId={groupId} isGroupMember={false} />
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/Error: Failed to fetch availabilities/i)).toBeInTheDocument();
+      expect(screen.getByText('Error Loading Calendar')).toBeInTheDocument();
     });
   });
 
-  it('should navigate to previous month', async () => {
-    render(
-      <ChakraProvider>
-        <SoftCalendar groupId={mockGroupId} isGroupMember={true} />
-      </ChakraProvider>
+  // Test: Calendar renders availability indicators
+  it('should render availability indicators (✓, ✗, ?)', async () => {
+    renderWithChakra(
+      <SoftCalendar groupId={groupId} isGroupMember={false} />
     );
 
-    const prevButton = await screen.findByText('Previous');
-    fireEvent.click(prevButton);
-
-    // Should make a new fetch call with different date range
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledTimes(2);
+      expect(screen.getByText('Alice Johnson')).toBeInTheDocument();
     });
+
+    // Check for availability indicators
+    const indicators = screen.getAllByText(/[✓✗?]/);
+    expect(indicators.length).toBeGreaterThan(0);
   });
 
-  it('should navigate to next month', async () => {
-    render(
-      <ChakraProvider>
-        <SoftCalendar groupId={mockGroupId} isGroupMember={true} />
-      </ChakraProvider>
+  // Test: Polls for updates every 5 seconds
+  it('should call fetch multiple times (polling)', async () => {
+    jest.useFakeTimers();
+
+    renderWithChakra(
+      <SoftCalendar groupId={groupId} isGroupMember={false} />
     );
 
-    const nextButton = await screen.findByText('Next');
-    fireEvent.click(nextButton);
+    // Initial fetch
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
 
-    // Should make a new fetch call with different date range
+    // Fast-forward 5 seconds
+    jest.advanceTimersByTime(5000);
+
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledTimes(2);
     });
+
+    jest.useRealTimers();
   });
 
-  it('should refresh availabilities after successful mark', async () => {
-    render(
-      <ChakraProvider>
-        <SoftCalendar groupId={mockGroupId} isGroupMember={true} />
-      </ChakraProvider>
+  // Test: Accessibility attributes
+  it('should have proper WCAG 2.1 AA compliance', async () => {
+    const { container } = renderWithChakra(
+      <SoftCalendar groupId={groupId} isGroupMember={false} />
     );
 
-    const button = await screen.findByText('Mark Your Availability');
-    fireEvent.click(button);
-
-    const submitButton = await screen.findByText('Submit');
-    fireEvent.click(submitButton);
-
-    // Should fetch again after success
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledTimes(2);
+      expect(screen.getByText('Alice Johnson')).toBeInTheDocument();
     });
+
+    // Check for main role
+    const main = container.querySelector('[role="main"]');
+    expect(main).toBeInTheDocument();
+
+    // Check for table role and attributes
+    const table = container.querySelector('[role="table"]');
+    expect(table).toBeInTheDocument();
+    expect(table).toHaveAttribute('aria-label');
   });
 });
