@@ -6,6 +6,9 @@ import * as queriesModule from '@/lib/db/queries';
 
 jest.mock('@/lib/db/queries');
 
+// Mock getUserGroupRole for authorization tests
+const mockGetUserGroupRole = require('@/lib/db/queries').getUserGroupRole;
+
 // Helper to create mock requests
 function createMockRequest(
   params: [string, string][] = [],
@@ -62,6 +65,8 @@ describe('GET /api/groups/:groupId/calendar', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // Mock user as group member by default (for authorization tests)
+    (queriesModule.getUserGroupRole as jest.Mock).mockResolvedValue('member');
   });
 
   // Test: Missing authentication header
@@ -161,5 +166,26 @@ describe('GET /api/groups/:groupId/calendar', () => {
     expect(response.status).toBe(500);
     const data = await response.json();
     expect(data.errorCode).toBe('INTERNAL_SERVER_ERROR');
+  });
+
+  // Test: User not member of group
+  it('should return 403 if user is not member of group', async () => {
+    (queriesModule.getUserGroupRole as jest.Mock).mockResolvedValue(null);
+
+    const mockRequest = createMockRequest(
+      [['x-user-id', mockUserId]],
+      [
+        ['startDate', '2026-03-01T00:00:00Z'],
+        ['endDate', '2026-03-31T23:59:59Z'],
+      ]
+    );
+
+    const response = await GET(mockRequest, {
+      params: Promise.resolve({ groupId: mockGroupId }),
+    });
+
+    expect(response.status).toBe(403);
+    const data = await response.json();
+    expect(data.errorCode).toBe('FORBIDDEN');
   });
 });

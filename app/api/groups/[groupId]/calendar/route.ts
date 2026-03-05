@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getGroupAvailabilitiesForCalendar } from '@/lib/db/queries';
+import { getGroupAvailabilitiesForCalendar, getUserGroupRole } from '@/lib/db/queries';
 
 // Validation schema for calendar query parameters
 const CalendarQuerySchema = z.object({
@@ -55,9 +55,18 @@ export async function GET(
 
     const { startDate: validStartDate, endDate: validEndDate } = validation.data;
 
-    // TODO: Verify user is member of the group
-    // For MVP, skip authorization check (trust header)
-    // In production, query: SELECT * FROM group_memberships WHERE group_id=$1 AND user_id=$2
+    // Verify user is member of the group
+    const userRole = await getUserGroupRole(groupId, userId);
+    if (!userRole) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'You are not a member of this group',
+          errorCode: 'FORBIDDEN',
+        },
+        { status: 403 }
+      );
+    }
 
     // Fetch calendar data
     const calendarData = await getGroupAvailabilitiesForCalendar(groupId, validStartDate, validEndDate);

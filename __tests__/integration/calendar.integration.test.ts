@@ -6,6 +6,9 @@ import * as queriesModule from '@/lib/db/queries';
 
 jest.mock('@/lib/db/queries');
 
+// Mock getUserGroupRole for authorization
+const mockGetUserGroupRole = require('@/lib/db/queries').getUserGroupRole;
+
 describe('Calendar Feature - Integration Tests', () => {
   const groupId = 'group-1';
   const userId = 'user-1';
@@ -60,6 +63,8 @@ describe('Calendar Feature - Integration Tests', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // Mock user as group member by default
+    (queriesModule.getUserGroupRole as jest.Mock).mockResolvedValue('member');
   });
 
   // Integration test 1: User views calendar and sees all members

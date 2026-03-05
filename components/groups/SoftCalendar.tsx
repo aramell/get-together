@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, TouchEvent } from 'react';
 import {
   Box,
   Button,
@@ -50,14 +50,23 @@ export default function SoftCalendar({
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [members, setMembers] = useState<MemberAvailabilities[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showMarkModal, setShowMarkModal] = useState(false);
   const [liveRegionMessage, setLiveRegionMessage] = useState<string>('');
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
   // Fetch calendar data for current month
   const fetchCalendarData = useCallback(async () => {
     try {
-      setLoading(true);
+      // Set loading only if this is the initial load
+      if (members.length === 0) {
+        setLoading(true);
+      } else {
+        // For polling updates, just set refreshing state
+        setIsRefreshing(true);
+      }
       setError(null);
 
       // Get month start and end dates
@@ -95,8 +104,9 @@ export default function SoftCalendar({
       setError(errorMessage);
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
-  }, [currentDate, groupId]);
+  }, [currentDate, groupId, members.length]);
 
   // Fetch calendar data on mount and when month changes
   useEffect(() => {
@@ -123,6 +133,31 @@ export default function SoftCalendar({
     setCurrentDate(newDate);
     const monthYear = newDate.toLocaleString('default', { month: 'long', year: 'numeric' });
     setLiveRegionMessage(`Navigated to ${monthYear}`);
+  };
+
+  // Handle swipe gestures for mobile month navigation
+  const handleTouchStart = (e: TouchEvent<HTMLDivElement>) => {
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = (e: TouchEvent<HTMLDivElement>) => {
+    setTouchEnd(e.changedTouches[0].clientX);
+    if (touchStart !== null && e.changedTouches[0].clientX !== null) {
+      const distance = touchStart - e.changedTouches[0].clientX;
+      const minSwipeDistance = 50; // Require at least 50px swipe
+
+      if (Math.abs(distance) > minSwipeDistance) {
+        if (distance > 0) {
+          // Swiped left → go to next month
+          handleNextMonth();
+        } else {
+          // Swiped right → go to previous month
+          handlePrevMonth();
+        }
+      }
+    }
+    setTouchStart(null);
+    setTouchEnd(null);
   };
 
   const handleMarkAvailabilitySuccess = () => {
@@ -171,7 +206,14 @@ export default function SoftCalendar({
   }
 
   return (
-    <VStack spacing={6} align="stretch" role="main" aria-label="Group soft calendar view">
+    <VStack
+      spacing={6}
+      align="stretch"
+      role="main"
+      aria-label="Group soft calendar view"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       {/* Live region for screen reader announcements */}
       <Box
         role="status"
@@ -181,6 +223,14 @@ export default function SoftCalendar({
       >
         <VisuallyHidden>{liveRegionMessage}</VisuallyHidden>
       </Box>
+
+      {/* Refreshing indicator */}
+      {isRefreshing && (
+        <Box fontSize="sm" color="gray.500" textAlign="center">
+          <Spinner size="sm" mr={2} display="inline" color="blue.500" />
+          Updating...
+        </Box>
+      )}
 
       {/* Header with month navigation */}
       <HStack justify="space-between" align="center">
