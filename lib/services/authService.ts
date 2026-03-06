@@ -233,7 +233,7 @@ export async function signupUser(email: string, password: string): Promise<Signu
     const command = new AdminCreateUserCommand({
       UserPoolId: USER_POOL_ID,
       Username: email,
-      MessageAction: 'RESEND', // Send welcome email with temporary password
+      MessageAction: 'SUPPRESS', // Don't send welcome message (we'll handle in app)
       TemporaryPassword: password, // Will be changed on first login
       UserAttributes: [
         {
