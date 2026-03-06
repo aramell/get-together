@@ -1,7 +1,13 @@
 import { CognitoIdentityProviderClient, AdminCreateUserCommand, AdminInitiateAuthCommand, ForgotPasswordCommand, ConfirmForgotPasswordCommand } from '@aws-sdk/client-cognito-identity-provider';
 
+// Create Cognito client with credentials from environment variables
+// Note: Amplify doesn't allow AWS_ prefix, so we use ACCESS_KEY_ID and SECRET_ACCESS_KEY
 const cognitoClient = new CognitoIdentityProviderClient({
   region: process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-1',
+  credentials: process.env.ACCESS_KEY_ID && process.env.SECRET_ACCESS_KEY ? {
+    accessKeyId: process.env.ACCESS_KEY_ID,
+    secretAccessKey: process.env.SECRET_ACCESS_KEY,
+  } : undefined,
 });
 
 const USER_POOL_ID = process.env.NEXT_PUBLIC_USER_POOL_ID || '';
