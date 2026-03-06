@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { signupUser } from '@/lib/services/authService';
-import { signupSchema } from '@/lib/validation/authSchema';
+import { signupApiSchema } from '@/lib/validation/authSchema';
 import { ZodError } from 'zod';
 
 /**
@@ -12,9 +12,8 @@ export async function POST(request: NextRequest) {
     // Parse request body
     const body = await request.json();
 
-    // Validate request body with Zod (parse full schema, but only use email/password)
-    // Note: Can't use .pick() on schemas with refinements, so validate the whole schema
-    const validatedData = signupSchema.parse(body);
+    // Validate request body with Zod (API only needs email and password)
+    const validatedData = signupApiSchema.parse(body);
 
     // Call signup service with email and password
     const result = await signupUser(validatedData.email, validatedData.password);

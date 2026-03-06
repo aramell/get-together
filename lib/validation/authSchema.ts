@@ -33,3 +33,11 @@ export const loginSchema = z.object({
 });
 
 export type LoginFormData = z.infer<typeof loginSchema>;
+
+// Signup API schema (no confirmPassword needed for API, only email and password)
+export const signupApiSchema = z.object({
+  email: emailSchema,
+  password: passwordSchema,
+});
+
+export type SignupApiData = z.infer<typeof signupApiSchema>;
