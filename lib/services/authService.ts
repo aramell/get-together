@@ -1,14 +1,30 @@
 import { CognitoIdentityProviderClient, AdminCreateUserCommand, AdminInitiateAuthCommand, ForgotPasswordCommand, ConfirmForgotPasswordCommand } from '@aws-sdk/client-cognito-identity-provider';
 
-// Create Cognito client with credentials from environment variables
-// Note: Amplify doesn't allow AWS_ prefix, so we use ACCESS_KEY_ID and SECRET_ACCESS_KEY
-const cognitoClient = new CognitoIdentityProviderClient({
-  region: process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-1',
-  credentials: process.env.ACCESS_KEY_ID && process.env.SECRET_ACCESS_KEY ? {
-    accessKeyId: process.env.ACCESS_KEY_ID,
-    secretAccessKey: process.env.SECRET_ACCESS_KEY,
-  } : undefined,
-});
+// Lazy initialize Cognito client to ensure env vars are available at runtime
+let cognitoClient: CognitoIdentityProviderClient | null = null;
+
+function getCognitoClient(): CognitoIdentityProviderClient {
+  if (!cognitoClient) {
+    const config: any = {
+      region: process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-1',
+    };
+
+    // Add credentials if available in environment (Amplify uses ACCESS_KEY_ID and SECRET_ACCESS_KEY)
+    const accessKeyId = process.env.ACCESS_KEY_ID;
+    const secretAccessKey = process.env.SECRET_ACCESS_KEY;
+
+    if (accessKeyId && secretAccessKey) {
+      config.credentials = {
+        accessKeyId,
+        secretAccessKey,
+      };
+    }
+
+    cognitoClient = new CognitoIdentityProviderClient(config);
+  }
+
+  return cognitoClient;
+}
 
 const USER_POOL_ID = process.env.NEXT_PUBLIC_USER_POOL_ID || '';
 const CLIENT_ID = process.env.NEXT_PUBLIC_USER_POOL_WEB_CLIENT_ID || '';
@@ -231,7 +247,7 @@ export async function signupUser(email: string, password: string): Promise<Signu
       ],
     });
 
-    const response = await cognitoClient.send(command);
+    const response = await getCognitoClient().send(command);
 
     if (response.User?.Username) {
       // Send email verification
@@ -317,7 +333,7 @@ export async function loginUser(email: string, password: string): Promise<LoginR
       },
     });
 
-    const response = await cognitoClient.send(command);
+    const response = await getCognitoClient().send(command);
 
     if (response.AuthenticationResult?.AccessToken) {
       return {
@@ -377,7 +393,7 @@ export async function forgotPassword(email: string): Promise<ForgotPasswordRespo
       Username: email,
     });
 
-    const response = await cognitoClient.send(command);
+    const response = await getCognitoClient().send(command);
 
     if (response.CodeDeliveryDetails) {
       return {
@@ -463,7 +479,7 @@ export async function resetPassword(
       Password: newPassword,
     });
 
-    await cognitoClient.send(command);
+    await getCognitoClient().send(command);
 
     return {
       success: true,
