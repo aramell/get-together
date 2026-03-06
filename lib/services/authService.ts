@@ -274,7 +274,13 @@ export async function signupUser(email: string, password: string): Promise<Signu
       statusCode: 500,
     };
 
-    console.error('Signup error:', { errorCode, message: error.message });
+    // Log detailed error info for debugging
+    console.error('Signup error details:', {
+      errorCode,
+      errorName: error.name,
+      errorMessage: error.message,
+      fullError: error.$metadata || error,
+    });
 
     // Map Cognito errors to standardized error codes
     let standardizedError = errorCode;
