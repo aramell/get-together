@@ -58,13 +58,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Handle unexpected errors
-    console.error('Signup API error:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Signup API error:', errorMessage, error);
 
     return NextResponse.json(
       {
         success: false,
         message: 'Internal server error',
         errorCode: 'INTERNAL_ERROR',
+        debug: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
       },
       { status: 500 }
     );
