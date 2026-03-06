@@ -1,16 +1,20 @@
 import { CognitoIdentityProviderClient, AdminCreateUserCommand, AdminInitiateAuthCommand, ForgotPasswordCommand, ConfirmForgotPasswordCommand } from '@aws-sdk/client-cognito-identity-provider';
+import { defaultProvider } from '@aws-sdk/credential-provider-node';
 
 /**
  * Get a fresh Cognito client with current environment credentials
  * Creates a new client on each call to ensure credentials are always up-to-date
- * This prevents caching issues where credentials loaded after first client creation would be missed
+ * Uses AWS SDK's default credential provider chain which checks:
+ * 1. Environment variables (ACCESS_KEY_ID, SECRET_ACCESS_KEY for Amplify)
+ * 2. ~/.aws/credentials file (created by aws configure)
+ * 3. AWS credential providers (EC2, ECS, etc.)
  */
-function getCognitoClient(): CognitoIdentityProviderClient {
+async function getCognitoClient(): Promise<CognitoIdentityProviderClient> {
   const config: any = {
     region: process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-1',
   };
 
-  // Add credentials if available in environment (Amplify uses ACCESS_KEY_ID and SECRET_ACCESS_KEY)
+  // First check for explicit env vars (Amplify uses ACCESS_KEY_ID and SECRET_ACCESS_KEY)
   const accessKeyId = process.env.ACCESS_KEY_ID;
   const secretAccessKey = process.env.SECRET_ACCESS_KEY;
 
@@ -19,6 +23,9 @@ function getCognitoClient(): CognitoIdentityProviderClient {
       accessKeyId,
       secretAccessKey,
     };
+  } else {
+    // Fall back to default credential provider chain (~/.aws/credentials, env vars, etc.)
+    config.credentials = defaultProvider();
   }
 
   return new CognitoIdentityProviderClient(config);
@@ -227,6 +234,15 @@ export async function signupUser(email: string, password: string): Promise<Signu
       };
     }
 
+    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+      return {
+        success: false,
+        message: 'Password must contain at least one special character',
+        error: 'INVALID_PASSWORD',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
     // Create user in Cognito
     const command = new AdminCreateUserCommand({
       UserPoolId: USER_POOL_ID,
@@ -245,7 +261,8 @@ export async function signupUser(email: string, password: string): Promise<Signu
       ],
     });
 
-    const response = await getCognitoClient().send(command);
+    const client = await getCognitoClient();
+    const response = await client.send(command);
 
     if (response.User?.Username) {
       // Send email verification
@@ -337,7 +354,8 @@ export async function loginUser(email: string, password: string): Promise<LoginR
       },
     });
 
-    const response = await getCognitoClient().send(command);
+    const client = await getCognitoClient();
+    const response = await client.send(command);
 
     if (response.AuthenticationResult?.AccessToken) {
       return {
@@ -397,7 +415,8 @@ export async function forgotPassword(email: string): Promise<ForgotPasswordRespo
       Username: email,
     });
 
-    const response = await getCognitoClient().send(command);
+    const client = await getCognitoClient();
+    const response = await client.send(command);
 
     if (response.CodeDeliveryDetails) {
       return {
@@ -483,7 +502,8 @@ export async function resetPassword(
       Password: newPassword,
     });
 
-    await getCognitoClient().send(command);
+    const client = await getCognitoClient();
+    await client.send(command);
 
     return {
       success: true,
