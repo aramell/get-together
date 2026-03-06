@@ -1,29 +1,27 @@
 import { CognitoIdentityProviderClient, AdminCreateUserCommand, AdminInitiateAuthCommand, ForgotPasswordCommand, ConfirmForgotPasswordCommand } from '@aws-sdk/client-cognito-identity-provider';
 
-// Lazy initialize Cognito client to ensure env vars are available at runtime
-let cognitoClient: CognitoIdentityProviderClient | null = null;
-
+/**
+ * Get a fresh Cognito client with current environment credentials
+ * Creates a new client on each call to ensure credentials are always up-to-date
+ * This prevents caching issues where credentials loaded after first client creation would be missed
+ */
 function getCognitoClient(): CognitoIdentityProviderClient {
-  if (!cognitoClient) {
-    const config: any = {
-      region: process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-1',
+  const config: any = {
+    region: process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-1',
+  };
+
+  // Add credentials if available in environment (Amplify uses ACCESS_KEY_ID and SECRET_ACCESS_KEY)
+  const accessKeyId = process.env.ACCESS_KEY_ID;
+  const secretAccessKey = process.env.SECRET_ACCESS_KEY;
+
+  if (accessKeyId && secretAccessKey) {
+    config.credentials = {
+      accessKeyId,
+      secretAccessKey,
     };
-
-    // Add credentials if available in environment (Amplify uses ACCESS_KEY_ID and SECRET_ACCESS_KEY)
-    const accessKeyId = process.env.ACCESS_KEY_ID;
-    const secretAccessKey = process.env.SECRET_ACCESS_KEY;
-
-    if (accessKeyId && secretAccessKey) {
-      config.credentials = {
-        accessKeyId,
-        secretAccessKey,
-      };
-    }
-
-    cognitoClient = new CognitoIdentityProviderClient(config);
   }
 
-  return cognitoClient;
+  return new CognitoIdentityProviderClient(config);
 }
 
 const USER_POOL_ID = process.env.NEXT_PUBLIC_USER_POOL_ID || '';
