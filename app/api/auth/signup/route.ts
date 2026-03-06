@@ -12,13 +12,11 @@ export async function POST(request: NextRequest) {
     // Parse request body
     const body = await request.json();
 
-    // Validate request body with Zod
-    const validatedData = signupSchema.pick({ email: true, password: true }).parse({
-      email: body.email,
-      password: body.password,
-    });
+    // Validate request body with Zod (parse full schema, but only use email/password)
+    // Note: Can't use .pick() on schemas with refinements, so validate the whole schema
+    const validatedData = signupSchema.parse(body);
 
-    // Call signup service
+    // Call signup service with email and password
     const result = await signupUser(validatedData.email, validatedData.password);
 
     // Return response based on result
