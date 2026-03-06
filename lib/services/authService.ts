@@ -344,6 +344,13 @@ export async function loginUser(email: string, password: string): Promise<LoginR
     }
 
     // Authenticate with Cognito using AdminInitiateAuth
+    console.log('Login attempt:', {
+      userPoolId: USER_POOL_ID,
+      clientId: CLIENT_ID,
+      email,
+      authFlow: 'ADMIN_USER_PASSWORD_AUTH',
+    });
+
     const command = new AdminInitiateAuthCommand({
       UserPoolId: USER_POOL_ID,
       ClientId: CLIENT_ID,
@@ -381,7 +388,14 @@ export async function loginUser(email: string, password: string): Promise<LoginR
       statusCode: 500,
     };
 
-    console.error('Login error:', { errorCode, message: error.message });
+    console.error('Login error details:', {
+      errorCode,
+      errorName: error.name,
+      errorMessage: error.message,
+      userPoolId: USER_POOL_ID,
+      clientId: CLIENT_ID,
+      fullError: error.$metadata || error,
+    });
 
     return {
       success: false,
