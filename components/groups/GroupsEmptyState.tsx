@@ -1,8 +1,7 @@
 'use client';
 
-import { VStack, Text, Button, Box, Icon } from '@chakra-ui/react';
+import { VStack, Text, Button, Box } from '@chakra-ui/react';
 import { useRouter } from 'next/navigation';
-import { MdAddCircle } from 'react-icons/md';
 
 interface GroupsEmptyStateProps {
   type?: 'no-groups' | 'no-search-results';
@@ -64,12 +63,11 @@ export function GroupsEmptyState({ type = 'no-groups' }: GroupsEmptyStateProps) 
         bg="white"
         color="purple.600"
         size="lg"
-        leftIcon={<Icon as={MdAddCircle} />}
         _hover={{ bg: 'gray.100' }}
         onClick={() => router.push('/groups/create')}
         mt={4}
       >
-        Create Your First Group
+        ➕ Create Your First Group
       </Button>
 
       <Text fontSize="sm" opacity={0.8} mt={8}>
