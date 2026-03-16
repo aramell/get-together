@@ -127,23 +127,41 @@ export const EventList: React.FC<EventListProps> = ({
     }
 
     // Poll every 5 seconds
-    pollingIntervalRef.current = setInterval(() => {
-      // Fetch only the first page to detect new events
-      fetchEvents(0, false).then(() => {
-        // Check if new events were added
-        const currentEventIds = new Set(events.map(e => e.id));
+    pollingIntervalRef.current = setInterval(async () => {
+      try {
+        // Fetch only the first page to detect new events
+        const url = new URL(
+          `/api/groups/${groupId}/events`,
+          typeof window !== 'undefined' ? window.location.origin : 'http://localhost'
+        );
+        url.searchParams.set('limit', limit.toString());
+        url.searchParams.set('offset', '0');
+
+        const response = await fetch(url.toString());
+        if (!response.ok) return;
+
+        const result = await response.json();
+        if (!result.success) return;
+
+        const newEvents = result.data || [];
+        const newEventIds = new Set(newEvents.map((e: any) => e.id));
         const previousEventIds = previousEventIdsRef.current;
 
-        const hasNewEvents = events.some(e => !previousEventIds.has(e.id));
+        // Check if new events were added
+        const hasNewEvents = newEvents.some((e: any) => !previousEventIds.has(e.id));
 
         if (hasNewEvents) {
+          // Update events with new ones at the top
+          setEvents(newEvents);
           // Reset pagination when new events are detected
           setOffset(limit);
         }
 
-        // Update previous event IDs
-        previousEventIdsRef.current = currentEventIds;
-      });
+        // Update previous event IDs for next poll
+        previousEventIdsRef.current = newEventIds;
+      } catch (error) {
+        console.error('Error polling for events:', error);
+      }
     }, 5000);
 
     return () => {
@@ -151,13 +169,13 @@ export const EventList: React.FC<EventListProps> = ({
         clearInterval(pollingIntervalRef.current);
       }
     };
-  }, [enablePolling, events, limit, fetchEvents]);
+  }, [enablePolling, groupId, limit];
 
   const handleLoadMore = () => {
     fetchEvents(offset, true);
   };
 
-  const hasMoreEvents = offset + limit < totalCount;
+  const hasMoreEvents = offset < totalCount;
 
   if (loading) {
     return (
@@ -170,10 +188,20 @@ export const EventList: React.FC<EventListProps> = ({
 
   if (error) {
     return (
-      <Alert status="error" borderRadius="md">
-        <AlertIcon />
-        <Text>Error loading events: {error}</Text>
-      </Alert>
+      <VStack spacing={3} align="stretch">
+        <Alert status="error" borderRadius="md">
+          <AlertIcon />
+          <Text>Error loading events: {error}</Text>
+        </Alert>
+        <Button
+          colorScheme="blue"
+          onClick={() => fetchEvents(0, false)}
+          size="sm"
+          alignSelf="flex-start"
+        >
+          Try Again
+        </Button>
+      </VStack>
     );
   }
 

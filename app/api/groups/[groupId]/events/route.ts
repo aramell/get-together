@@ -27,12 +27,20 @@ export async function GET(
 
     const options: { limit?: number; offset?: number } = {};
     if (limit) {
-      const parsedLimit = parseInt(limit);
-      if (!isNaN(parsedLimit)) options.limit = parsedLimit;
+      let parsedLimit = parseInt(limit);
+      if (!isNaN(parsedLimit)) {
+        // Validate bounds: min 1, max 100 to prevent DOS
+        parsedLimit = Math.max(1, Math.min(100, parsedLimit));
+        options.limit = parsedLimit;
+      }
     }
     if (offset) {
-      const parsedOffset = parseInt(offset);
-      if (!isNaN(parsedOffset)) options.offset = parsedOffset;
+      let parsedOffset = parseInt(offset);
+      if (!isNaN(parsedOffset)) {
+        // Validate bounds: min 0, prevent negative offsets
+        parsedOffset = Math.max(0, parsedOffset);
+        options.offset = parsedOffset;
+      }
     }
 
     const result = await getGroupEvents(params.groupId, userId, options);

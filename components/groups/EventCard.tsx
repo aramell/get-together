@@ -12,30 +12,12 @@ import {
   Box,
   Progress,
 } from '@chakra-ui/react';
-import { useState, useEffect } from 'react';
+import { EventWithMomentum } from './EventList';
 
 interface EventCardProps {
   event: EventWithMomentum;
   userRsvpStatus?: 'in' | 'maybe' | 'out' | null;
   onClick?: () => void;
-}
-
-export interface EventWithMomentum {
-  id: string;
-  group_id: string;
-  created_by: string;
-  title: string;
-  description?: string | null;
-  date: string;
-  threshold?: number | null;
-  status: 'proposal' | 'confirmed' | 'cancelled';
-  momentum: {
-    in: number;
-    maybe: number;
-    out: number;
-  };
-  created_at: string;
-  updated_at: string;
 }
 
 export function EventCard({ event, userRsvpStatus, onClick }: EventCardProps) {
@@ -49,13 +31,7 @@ export function EventCard({ event, userRsvpStatus, onClick }: EventCardProps) {
     created_by: createdBy,
     momentum: initialMomentum,
   } = event;
-  const [momentum] = useState(initialMomentum || { in: 0, maybe: 0, out: 0 });
-  const [previousStatus, setPreviousStatus] = useState(status);
-
-  // Track status changes
-  useEffect(() => {
-    setPreviousStatus(status);
-  }, [status]);
+  const momentum = initialMomentum || { in: 0, maybe: 0, out: 0 };
 
   const eventDate = new Date(date);
   const formattedDate = eventDate.toLocaleDateString('en-US', {
