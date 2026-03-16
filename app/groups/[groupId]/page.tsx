@@ -353,18 +353,23 @@ export default function GroupDetailsPage() {
 
   return (
     <Box bg="gray.50" minH="100vh">
-      <Container maxW="4xl" py={{ base: '12', md: '24' }}>
-        <VStack spacing={{ base: '8', md: '12' }} align="stretch">
-          {/* Navigation */}
+      {/* Top Navigation Bar */}
+      <Box bg="white" borderBottom="1px" borderColor="gray.200" py={4} sticky top={0} zIndex={10}>
+        <Container maxW="4xl">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => router.push('/groups')}
-            alignSelf="flex-start"
-            mb={4}
+            leftIcon={<Box>←</Box>}
+            fontWeight="medium"
           >
-            ← Back to Groups
+            Back to Groups
           </Button>
+        </Container>
+      </Box>
+
+      <Container maxW="4xl" py={{ base: '12', md: '24' }}>
+        <VStack spacing={{ base: '8', md: '12' }} align="stretch">
 
           {/* Header Section */}
           <Box>

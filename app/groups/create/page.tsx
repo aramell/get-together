@@ -1,17 +1,35 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { CreateGroupForm } from '@/components/groups/CreateGroupForm';
+import { InviteUsersModal } from '@/components/groups/InviteUsersModal';
 import { Box, Container, Heading, Text, VStack } from '@chakra-ui/react';
-import { redirect } from 'next/navigation';
+
+interface GroupCreated {
+  id: string;
+  name: string;
+}
 
 export default function CreateGroupPage() {
-  const handleGroupCreationSuccess = (groupId: string) => {
-    // Redirect to group detail page
-    // Note: In a real app, this would be handled by the form's onSuccess callback
-    // using useRouter from next/navigation
-    console.log('Group created with ID:', groupId);
-    // redirect(`/groups/${groupId}`);
+  const router = useRouter();
+  const [createdGroup, setCreatedGroup] = useState<GroupCreated | null>(null);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+
+  const handleGroupCreationSuccess = (groupId: string, groupName: string) => {
+    setCreatedGroup({
+      id: groupId,
+      name: groupName,
+    });
+    setIsInviteModalOpen(true);
+  };
+
+  const handleInviteComplete = () => {
+    if (createdGroup) {
+      setIsInviteModalOpen(false);
+      // Redirect to the group page
+      router.push(`/groups/${createdGroup.id}`);
+    }
   };
 
   return (
@@ -30,6 +48,16 @@ export default function CreateGroupPage() {
           <CreateGroupForm onSuccess={handleGroupCreationSuccess} />
         </VStack>
       </Container>
+
+      {createdGroup && (
+        <InviteUsersModal
+          isOpen={isInviteModalOpen}
+          groupId={createdGroup.id}
+          groupName={createdGroup.name}
+          onClose={() => setIsInviteModalOpen(false)}
+          onInviteComplete={handleInviteComplete}
+        />
+      )}
     </Box>
   );
 }

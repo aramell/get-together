@@ -21,7 +21,7 @@ import { createGroup } from '@/lib/services/groupService';
 import { ZodError } from 'zod';
 
 export interface CreateGroupFormProps {
-  onSuccess?: (groupId: string) => void;
+  onSuccess?: (groupId: string, groupName: string) => void;
 }
 
 export const CreateGroupForm: React.FC<CreateGroupFormProps> = ({ onSuccess }) => {
@@ -109,9 +109,9 @@ export const CreateGroupForm: React.FC<CreateGroupFormProps> = ({ onSuccess }) =
           description: '',
         });
 
-        // Call onSuccess callback if provided with group ID
-        if (onSuccess && result.group?.id) {
-          onSuccess(result.group.id);
+        // Call onSuccess callback if provided with group ID and name
+        if (onSuccess && result.group?.id && result.group?.name) {
+          onSuccess(result.group.id, result.group.name);
         }
       } else {
         // Handle error from service

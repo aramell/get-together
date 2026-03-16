@@ -1,5 +1,6 @@
 import { CognitoIdentityProviderClient, AdminCreateUserCommand, AdminInitiateAuthCommand, ForgotPasswordCommand, ConfirmForgotPasswordCommand, AdminSetUserPasswordCommand, AdminRespondToAuthChallengeCommand } from '@aws-sdk/client-cognito-identity-provider';
 import { defaultProvider } from '@aws-sdk/credential-provider-node';
+import { getSubFromJWT } from '@/lib/auth/jwt';
 
 /**
  * Get a fresh Cognito client with current environment credentials
@@ -376,13 +377,15 @@ export async function loginUser(email: string, password: string): Promise<LoginR
     console.log('[loginUser] Has AccessToken:', !!response.AuthenticationResult?.AccessToken);
 
     if (response.AuthenticationResult?.AccessToken) {
+      // Extract Cognito's sub (user ID) from the access token
+      const sub = getSubFromJWT(response.AuthenticationResult.AccessToken);
       return {
         success: true,
         message: 'Login successful',
         accessToken: response.AuthenticationResult.AccessToken,
         idToken: response.AuthenticationResult.IdToken,
         refreshToken: response.AuthenticationResult.RefreshToken,
-        userId: email,
+        userId: sub || email, // Fallback to email if sub not found
       };
     }
 
@@ -407,13 +410,15 @@ export async function loginUser(email: string, password: string): Promise<LoginR
       });
 
       if (challengeResult.AuthenticationResult?.AccessToken) {
+        // Extract Cognito's sub (user ID) from the access token
+        const sub = getSubFromJWT(challengeResult.AuthenticationResult.AccessToken);
         return {
           success: true,
           message: 'Login successful',
           accessToken: challengeResult.AuthenticationResult.AccessToken,
           idToken: challengeResult.AuthenticationResult.IdToken,
           refreshToken: challengeResult.AuthenticationResult.RefreshToken,
-          userId: email,
+          userId: sub || email, // Fallback to email if sub not found
         };
       }
     }

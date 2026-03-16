@@ -7,6 +7,27 @@ if (typeof global !== 'undefined') {
   const { TextEncoder, TextDecoder } = require('util');
   global.TextEncoder = TextEncoder;
   global.TextDecoder = TextDecoder;
+
+  // Mock next/server globals for API route testing
+  if (!global.Request) {
+    global.Request = class {
+      constructor(input, init) {
+        this.url = typeof input === 'string' ? input : input.url;
+        this.headers = init?.headers || {};
+      }
+    };
+  }
+
+  if (!global.Response) {
+    global.Response = class {
+      constructor(body, init) {
+        this.body = body;
+        this.status = init?.status || 200;
+        this.headers = init?.headers || new Map();
+        this.json = async () => typeof body === 'string' ? JSON.parse(body) : body;
+      }
+    };
+  }
 }
 
 // Only set up browser mocks in jsdom environment

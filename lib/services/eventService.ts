@@ -232,29 +232,102 @@ export async function getEventMomentum(eventId: string): Promise<{
 }
 
 /**
- * Get all events for a group
- * Returns list of events with status, not deleted
+ * Get all events for a group with pagination and momentum counts
+ * Returns list of events with RSVP momentum (in/maybe/out counts)
+ * Includes total_count for pagination
+ * Requires user to be group member
  */
-export async function getGroupEvents(groupId: string): Promise<{
+export async function getGroupEvents(
+  groupId: string,
+  userId: string,
+  options?: { limit?: number; offset?: number }
+): Promise<{
   success: boolean;
-  data?: EventProposal[];
+  data?: any[];
+  message?: string;
+  total_count?: number;
   error?: string;
   errorCode?: string;
 }> {
   const client = await getClient();
 
   try {
-    const result = await client.query(
-      `SELECT id, group_id, created_by, title, description, date, threshold, status, created_at, updated_at
-       FROM event_proposals
-       WHERE group_id = $1 AND deleted_at IS NULL
-       ORDER BY date DESC`,
+    // Check if user is a group member
+    const userRole = await getUserGroupRole(groupId, userId);
+    if (!userRole) {
+      return {
+        success: false,
+        message: 'You must be a group member to view events',
+        error: 'NOT_GROUP_MEMBER',
+        errorCode: 'FORBIDDEN',
+      };
+    }
+
+    // Handle pagination parameters
+    let limit = options?.limit || 20;
+    let offset = options?.offset || 0;
+
+    // Clamp limit to max 100
+    if (limit > 100) limit = 100;
+    if (limit < 1) limit = 1;
+    if (offset < 0) offset = 0;
+
+    // Get total count of events for this group
+    const countResult = await client.query(
+      `SELECT COUNT(*) as count FROM event_proposals WHERE group_id = $1 AND deleted_at IS NULL`,
       [groupId]
     );
 
+    const totalCount = parseInt(countResult.rows[0]?.count || '0');
+
+    // Get events with RSVP momentum counts using GROUP BY
+    const result = await client.query(
+      `SELECT
+        e.id,
+        e.group_id,
+        e.created_by,
+        e.title,
+        e.description,
+        e.date,
+        e.threshold,
+        e.status,
+        e.created_at,
+        e.updated_at,
+        COALESCE(COUNT(CASE WHEN r.status = 'in' THEN 1 END), 0)::INTEGER as in_count,
+        COALESCE(COUNT(CASE WHEN r.status = 'maybe' THEN 1 END), 0)::INTEGER as maybe_count,
+        COALESCE(COUNT(CASE WHEN r.status = 'out' THEN 1 END), 0)::INTEGER as out_count
+       FROM event_proposals e
+       LEFT JOIN event_rsvps r ON e.id = r.event_id
+       WHERE e.group_id = $1 AND e.deleted_at IS NULL
+       GROUP BY e.id, e.group_id, e.created_by, e.title, e.description, e.date, e.threshold, e.status, e.created_at, e.updated_at
+       ORDER BY e.date DESC
+       LIMIT $2 OFFSET $3`,
+      [groupId, limit, offset]
+    );
+
+    // Transform rows to include momentum object
+    const events = result.rows.map((row: any) => ({
+      id: row.id,
+      group_id: row.group_id,
+      created_by: row.created_by,
+      title: row.title,
+      description: row.description,
+      date: row.date,
+      threshold: row.threshold,
+      status: row.status,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      momentum: {
+        in: parseInt(row.in_count) || 0,
+        maybe: parseInt(row.maybe_count) || 0,
+        out: parseInt(row.out_count) || 0,
+      },
+    }));
+
     return {
       success: true,
-      data: result.rows,
+      data: events,
+      total_count: totalCount,
     };
   } catch (error: any) {
     console.error('Error getting group events:', error);

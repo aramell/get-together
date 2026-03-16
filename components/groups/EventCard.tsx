@@ -9,194 +9,126 @@ import {
   HStack,
   VStack,
   Badge,
-  Button,
-  useDisclosure,
   Box,
-  useToast,
+  Progress,
 } from '@chakra-ui/react';
 import { useState, useEffect } from 'react';
-import { UpdateThresholdModal } from './UpdateThresholdModal';
-import { RSVPButtons } from '@/components/events/RSVPButtons';
-import { ConfirmationBadge } from '@/components/events/ConfirmationBadge';
 
 interface EventCardProps {
-  eventId: string;
-  groupId: string;
-  title: string;
-  date: string;
-  threshold: number | null;
-  status: 'proposal' | 'confirmed' | 'cancelled';
-  confirmedAt?: string | null;
-  createdBy: string;
-  currentUserId: string;
+  event: EventWithMomentum;
+  userRsvpStatus?: 'in' | 'maybe' | 'out' | null;
+  onClick?: () => void;
 }
 
-export function EventCard({
-  eventId,
-  groupId,
-  title,
-  date,
-  threshold: initialThreshold,
-  status,
-  confirmedAt: initialConfirmedAt,
-  createdBy,
-  currentUserId,
-}: EventCardProps) {
-  const [momentum, setMomentum] = useState<{ in: number; maybe: number; out: number } | null>(null);
-  const [threshold, setThreshold] = useState(initialThreshold);
-  const [confirmedAt, setConfirmedAt] = useState(initialConfirmedAt || null);
-  const [loading, setLoading] = useState(true);
+export interface EventWithMomentum {
+  id: string;
+  group_id: string;
+  created_by: string;
+  title: string;
+  description?: string | null;
+  date: string;
+  threshold?: number | null;
+  status: 'proposal' | 'confirmed' | 'cancelled';
+  momentum: {
+    in: number;
+    maybe: number;
+    out: number;
+  };
+  created_at: string;
+  updated_at: string;
+}
+
+export function EventCard({ event, userRsvpStatus, onClick }: EventCardProps) {
+  const {
+    id: eventId,
+    group_id: groupId,
+    title,
+    date,
+    threshold: initialThreshold,
+    status,
+    created_by: createdBy,
+    momentum: initialMomentum,
+  } = event;
+  const [momentum] = useState(initialMomentum || { in: 0, maybe: 0, out: 0 });
   const [previousStatus, setPreviousStatus] = useState(status);
-  const { isOpen, onOpen, onClose } = useDisclosure();
-  const isCreator = createdBy === currentUserId;
-  const toast = useToast();
 
+  // Track status changes
   useEffect(() => {
-    loadEventData();
-  }, [eventId]);
-
-  // Detect confirmation and show celebration animation + toast
-  useEffect(() => {
-    if (previousStatus !== 'confirmed' && status === 'confirmed') {
-      // Play celebration animation
-      triggerCelebrationAnimation();
-
-      // Show success toast
-      toast({
-        title: '🎉 Event Confirmed!',
-        description: `${title} is officially happening!`,
-        status: 'success',
-        duration: 4000,
-        isClosable: true,
-        position: 'top',
-      });
-    }
     setPreviousStatus(status);
-  }, [status, title, toast]);
-
-  const loadEventData = async () => {
-    setLoading(true);
-    try {
-      // Load momentum and threshold data
-      const response = await fetch(`/api/events/${eventId}/momentum`);
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success && result.data) {
-          setMomentum(result.data);
-          // Update threshold from momentum response if available
-          if (result.data.threshold !== undefined) {
-            setThreshold(result.data.threshold);
-          }
-        }
-      }
-
-      // Load confirmation status
-      const confirmResponse = await fetch(`/api/groups/${groupId}/events/${eventId}/confirmation`);
-      if (confirmResponse.ok) {
-        const confirmResult = await confirmResponse.json();
-        if (confirmResult.success && confirmResult.data) {
-          setConfirmedAt(confirmResult.data.confirmedAt);
-        }
-      }
-    } catch (error) {
-      console.error('Error loading event data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const triggerCelebrationAnimation = () => {
-    // Check for prefers-reduced-motion
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-    if (prefersReducedMotion) {
-      return;
-    }
-
-    // Create a brief green glow effect on the card
-    const card = document.querySelector(`[data-event-id="${eventId}"]`);
-    if (card) {
-      card.classList.add('celebration-animation');
-      setTimeout(() => {
-        card.classList.remove('celebration-animation');
-      }, 2000);
-    }
-  };
+  }, [status]);
 
   const eventDate = new Date(date);
   const formattedDate = eventDate.toLocaleDateString('en-US', {
-    month: 'short',
+    month: 'long',
     day: 'numeric',
+    year: 'numeric',
+  });
+  const formattedTime = eventDate.toLocaleTimeString('en-US', {
     hour: '2-digit',
     minute: '2-digit',
   });
+  const momentumText = `${momentum.in} in, ${momentum.maybe} maybe, ${momentum.out} out`;
 
-  const statusColor = status === 'confirmed' ? 'green' : status === 'cancelled' ? 'red' : 'blue';
-  const inCount = momentum?.in || 0;
-  const thresholdText =
-    threshold !== null
-      ? `${inCount}/${threshold} confirmations`
-      : 'No confirmation threshold';
+  const inCount = momentum.in || 0;
 
   return (
-    <>
-      <Card data-event-id={eventId}>
-        <CardHeader pb={2}>
-          <HStack justify="space-between" align="flex-start">
-            <VStack align="flex-start" spacing={1} flex={1}>
-              <Heading size="md">{title}</Heading>
-              <Text fontSize="sm" color="gray.600">
-                {formattedDate}
-              </Text>
-            </VStack>
-            <ConfirmationBadge status={status as 'proposal' | 'confirmed'} confirmedAt={confirmedAt} />
-          </HStack>
-        </CardHeader>
+    <Card
+      data-event-id={eventId}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (onClick && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      tabIndex={onClick ? 0 : undefined}
+      role={onClick ? 'button' : undefined}
+      cursor={onClick ? 'pointer' : 'default'}
+      _hover={onClick ? { boxShadow: 'md' } : undefined}
+      _focus={{
+        outline: '2px solid',
+        outlineColor: 'blue.500',
+        outlineOffset: '2px',
+      }}
+      transition="all 0.2s"
+    >
+      <CardHeader pb={2}>
+        <HStack justify="space-between" align="flex-start">
+          <VStack align="flex-start" spacing={1} flex={1}>
+            <Heading size="md">{title}</Heading>
+            <Text fontSize="sm" color="gray.600">
+              {formattedDate} {formattedTime}
+            </Text>
+          </VStack>
+          <Badge
+            colorScheme={status === 'confirmed' ? 'green' : 'yellow'}
+            fontSize="xs"
+            px={2}
+            py={1}
+          >
+            {status === 'confirmed' ? '✓ Confirmed' : 'Proposed'}
+          </Badge>
+        </HStack>
+      </CardHeader>
 
-        <CardBody spacing={3}>
-          <VStack align="stretch" spacing={3}>
-            {/* Momentum Counter */}
-            <Box
-              p={3}
-              bg="gray.50"
-              borderRadius="md"
-              borderLeft="4px solid"
-              borderColor="blue.500"
-            >
-              <Text fontSize="sm" color="gray.600" mb={1}>
-                RSVPs
-              </Text>
-              <HStack spacing={4}>
-                <HStack>
-                  <Text fontWeight="bold" color="green.600">
-                    {inCount}
-                  </Text>
-                  <Text fontSize="sm">In</Text>
-                </HStack>
-                <HStack>
-                  <Text fontWeight="bold" color="yellow.600">
-                    {momentum?.maybe || 0}
-                  </Text>
-                  <Text fontSize="sm">Maybe</Text>
-                </HStack>
-                <HStack>
-                  <Text fontWeight="bold" color="red.600">
-                    {momentum?.out || 0}
-                  </Text>
-                  <Text fontSize="sm">Out</Text>
-                </HStack>
-              </HStack>
-            </Box>
+      <CardBody spacing={3}>
+        <VStack align="stretch" spacing={3}>
+          {/* Momentum Counter */}
+          <Box
+            p={3}
+            bg="gray.50"
+            borderRadius="md"
+            borderLeft="4px solid"
+            borderColor="blue.500"
+            aria-live="polite"
+          >
+            <Text fontSize="sm" color="gray.600" fontWeight="medium">
+              RSVPs: {momentumText}
+            </Text>
+          </Box>
 
-            {/* RSVP Buttons */}
-            <RSVPButtons
-              eventId={eventId}
-              groupId={groupId}
-              onSuccess={loadEventData}
-              isEventConfirmed={status === 'confirmed'}
-            />
-
-            {/* Threshold Display */}
+          {/* Threshold Display */}
+          {initialThreshold !== null && initialThreshold !== undefined && (
             <Box
               p={3}
               bg="blue.50"
@@ -204,32 +136,33 @@ export function EventCard({
               borderLeft="4px solid"
               borderColor="blue.300"
             >
-              <Text fontSize="sm" color="gray.600" mb={1}>
-                Confirmation Status
-              </Text>
-              <HStack justify="space-between" align="center">
-                <Text fontWeight="medium">{thresholdText}</Text>
-                {isCreator && (
-                  <Button size="sm" variant="ghost" onClick={onOpen}>
-                    Edit
-                  </Button>
-                )}
+              <HStack justify="space-between" mb={2}>
+                <Text fontSize="sm" color="gray.600" fontWeight="medium">
+                  Confirmation Status
+                </Text>
+                <Text fontSize="sm" fontWeight="bold">
+                  {inCount}/{initialThreshold}
+                </Text>
               </HStack>
+              <Progress
+                value={inCount}
+                max={initialThreshold}
+                size="sm"
+                colorScheme={inCount >= initialThreshold ? 'green' : 'blue'}
+              />
             </Box>
-          </VStack>
-        </CardBody>
-      </Card>
+          )}
 
-      {/* Update Threshold Modal */}
-      <UpdateThresholdModal
-        isOpen={isOpen}
-        onClose={onClose}
-        eventId={eventId}
-        groupId={groupId}
-        currentThreshold={threshold}
-        currentInCount={inCount}
-        onSuccess={loadEventData}
-      />
-    </>
+          {/* RSVP Status Indicator */}
+          {userRsvpStatus && (
+            <Box p={2} bg="gray.100" borderRadius="md">
+              <Text fontSize="sm" fontWeight="medium">
+                Your RSVP: {userRsvpStatus.charAt(0).toUpperCase() + userRsvpStatus.slice(1)}
+              </Text>
+            </Box>
+          )}
+        </VStack>
+      </CardBody>
+    </Card>
   );
 }

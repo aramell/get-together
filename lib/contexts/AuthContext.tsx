@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { getSubFromJWT } from '@/lib/auth/jwt';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -93,7 +94,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
     const idTok = localStorage.getItem('idToken');
-    const user = localStorage.getItem('userId');
 
     if (token && idTok) {
       // Check if token is not expired
@@ -102,10 +102,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Token expired, logout
         logout();
       } else {
-        // Token valid, set state
+        // Token valid, extract user ID (sub) from JWT
+        const sub = getSubFromJWT(token);
         setAccessToken(token);
         setIdToken(idTok);
-        setUserId(user);
+        setUserId(sub); // Use Cognito's sub (user ID) from JWT
         setIsAuthenticated(true);
       }
     }

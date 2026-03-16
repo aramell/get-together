@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createGroupSchema } from '@/lib/validation/groupSchema';
 import { ZodError } from 'zod';
 import { getClient } from '@/lib/db/client';
+import { getUserIdFromRequest } from '@/lib/api/auth';
 
 /**
  * POST /api/groups
@@ -19,9 +20,19 @@ export async function POST(request: NextRequest) {
       description: body.description || null,
     });
 
-    // Extract user ID from JWT token (via request headers or cookies)
-    // For MVP, we'll use a placeholder - in production, verify JWT token
-    const userId = body.userId || 'current-user-id'; // TODO: Extract from JWT
+    // Extract user ID (Cognito sub) from JWT token in cookies
+    const userId = getUserIdFromRequest(request);
+
+    if (!userId) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Authentication required',
+          errorCode: 'UNAUTHORIZED',
+        },
+        { status: 401 }
+      );
+    }
 
     // TODO: Database operations (requires schema migration)
     // 1. Create group record with invite_code and invite_url
@@ -90,10 +101,8 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   const client = await getClient();
   try {
-    // Extract userId from x-user-id header
-    const userIdHeader = request.headers.get('x-user-id');
-    const userIdQuery = request.nextUrl.searchParams.get('user_id');
-    const userId = userIdHeader || userIdQuery;
+    // Extract user ID (Cognito sub) from JWT token in cookies
+    const userId = getUserIdFromRequest(request);
 
     if (userId && !request.nextUrl.pathname.includes('/api/groups/')) {
       // Mode 1: Get all groups for a user
@@ -127,7 +136,7 @@ export async function GET(request: NextRequest) {
       );
 
       // If no groups found, return empty array but still successful
-      const groups = result.map((row: any) => ({
+      const groups = result.rows.map((row: any) => ({
         id: row.id,
         name: row.name,
         description: row.description,
@@ -166,7 +175,7 @@ export async function GET(request: NextRequest) {
       [groupId]
     );
 
-    if (groupResult.length === 0) {
+    if (groupResult.rows.length === 0) {
       return NextResponse.json(
         {
           success: false,
@@ -177,7 +186,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const group = groupResult[0];
+    const group = groupResult.rows[0];
 
     return NextResponse.json({
       success: true,
