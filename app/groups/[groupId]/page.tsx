@@ -32,6 +32,8 @@ import { useAuth } from '@/lib/contexts/AuthContext';
 import { getGroupDetails, deleteGroup, removeMember } from '@/lib/services/groupService';
 import { MemberList } from '@/components/groups/MemberList';
 import { AdminGroupSettings } from '@/components/groups/AdminGroupSettings';
+import { CreateEventModal } from '@/components/groups/CreateEventModal';
+import { EventCard } from '@/components/groups/EventCard';
 import SoftCalendar from '@/components/groups/SoftCalendar';
 
 interface GroupDetailsData {
@@ -54,6 +56,19 @@ interface GroupDetailsData {
   currentUserRole: 'admin' | 'member' | null;
 }
 
+interface EventProposal {
+  id: string;
+  group_id: string;
+  created_by: string;
+  title: string;
+  description: string | null;
+  date: string;
+  threshold: number | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export default function GroupDetailsPage() {
   const params = useParams();
   const router = useRouter();
@@ -63,13 +78,47 @@ export default function GroupDetailsPage() {
   const groupId = params?.groupId as string;
 
   const [data, setData] = useState<GroupDetailsData | null>(null);
+  const [events, setEvents] = useState<EventProposal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingEvents, setLoadingEvents] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [isRemoving, setIsRemoving] = useState(false);
   const [pendingMemberId, setPendingMemberId] = useState<string | null>(null);
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const { isOpen: isEventModalOpen, onOpen: onEventModalOpen, onClose: onEventModalClose } = useDisclosure();
   const cancelRef = useRef(null);
+  const loadEvents = async (gid: string) => {
+    setLoadingEvents(true);
+    try {
+      const response = await fetch(`/api/groups/${gid}/events`);
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.data) {
+          setEvents(result.data);
+        }
+      }
+    } catch (err) {
+      console.error('Error loading events:', err);
+    } finally {
+      setLoadingEvents(false);
+    }
+  };
+
+  const handleEventCreated = () => {
+    onEventModalClose();
+    if (groupId) {
+      loadEvents(groupId);
+    }
+    toast({
+      title: 'Success',
+      description: 'Event proposed successfully',
+      status: 'success',
+      duration: 3000,
+      isClosable: true,
+    });
+  };
+
   useEffect(() => {
     const loadGroupDetails = async () => {
       try {
@@ -90,6 +139,8 @@ export default function GroupDetailsPage() {
         if (result.success && result.data) {
           setData(result.data);
           setError(null);
+          // Load events after group details
+          loadEvents(groupId);
         } else {
           setError(result.message || 'Failed to load group details');
         }
@@ -174,7 +225,6 @@ export default function GroupDetailsPage() {
       });
     }
   };
-
 
   const handleRemoveMemberClick = async (memberId: string) => {
     setPendingMemberId(memberId);
@@ -334,9 +384,14 @@ export default function GroupDetailsPage() {
                   </Text>
                 )}
               </VStack>
-              <Button colorScheme="red" variant="outline" onClick={handleLeaveGroup}>
-                Leave Group
-              </Button>
+              <HStack spacing={3}>
+                <Button colorScheme="teal" onClick={onEventModalOpen}>
+                  Propose Event
+                </Button>
+                <Button colorScheme="red" variant="outline" onClick={handleLeaveGroup}>
+                  Leave Group
+                </Button>
+              </HStack>
             </HStack>
 
             {/* Info Cards */}
@@ -453,6 +508,42 @@ export default function GroupDetailsPage() {
             <SoftCalendar groupId={groupId} isGroupMember={currentUserRole !== null} />
           </Box>
 
+          <Divider />
+
+          {/* Events Section */}
+          <Box>
+            <Heading size="lg" mb={6}>
+              Events {events.length > 0 && `(${events.length})`}
+            </Heading>
+            {loadingEvents ? (
+              <HStack justify="center" py={8}>
+                <Spinner color="blue.500" />
+                <Text>Loading events...</Text>
+              </HStack>
+            ) : events.length > 0 ? (
+              <VStack spacing={4} align="stretch">
+                {events.map((event) => (
+                  <EventCard
+                    key={event.id}
+                    eventId={event.id}
+                    groupId={groupId}
+                    title={event.title}
+                    date={event.date}
+                    threshold={event.threshold}
+                    status={event.status}
+                    createdBy={event.created_by}
+                    currentUserId={userId}
+                  />
+                ))}
+              </VStack>
+            ) : (
+              <Alert status="info" borderRadius="md">
+                <AlertIcon />
+                <Text>No events yet. Create one using the "Propose Event" button above.</Text>
+              </Alert>
+            )}
+          </Box>
+
           {isAdmin && (
             <>
               <Divider />
@@ -507,6 +598,14 @@ export default function GroupDetailsPage() {
           </AlertDialogContent>
         </AlertDialogOverlay>
       </AlertDialog>
+
+      {/* Create Event Modal */}
+      <CreateEventModal
+        isOpen={isEventModalOpen}
+        onClose={onEventModalClose}
+        groupId={groupId}
+        onSuccess={handleEventCreated}
+      />
       </Container>
     </Box>
   );

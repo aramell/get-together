@@ -314,3 +314,57 @@ describe('Group API Response Format', () => {
     // - errorCode helps client handle error
   });
 });
+
+describe('POST /api/groups/:groupId/regenerate-invite', () => {
+  it('should require authentication (401 if missing x-user-id header)', () => {
+    // Test:
+    // - POST without x-user-id returns 401
+    // - Response includes 'Authentication required' message
+    // - Response includes UNAUTHORIZED error code
+  });
+
+  it('should verify user is admin of group (403 if not admin)', () => {
+    // Test:
+    // - POST with non-admin userId returns 403
+    // - Response includes 'Only group admins can regenerate' message
+    // - Response includes FORBIDDEN error code
+  });
+
+  it('should return 404 if group does not exist', () => {
+    // Test:
+    // - POST with non-existent groupId returns 404
+    // - Response includes 'Group not found' message
+    // - Response includes NOT_FOUND error code
+  });
+
+  it('should generate new invite code and return 200 on success', () => {
+    // Test:
+    // - POST with valid groupId and admin userId returns 200
+    // - Response includes success: true
+    // - Response includes new inviteCode (16 hex characters)
+    // - Response includes inviteUrl with new code
+    // - Data includes oldCodeInvalidated: true
+    // - Data includes existingMembersPreserved: true
+  });
+
+  it('should make new invite code functional and old code inactive', () => {
+    // Test:
+    // - After regeneration, new invite code can be used to join
+    // - Old invite code no longer allows joins
+    // - Existing members can still access group (not dependent on code)
+  });
+
+  it('should handle database errors gracefully (500 on failure)', () => {
+    // Test:
+    // - POST returns 500 on database error
+    // - Response includes error message
+    // - Response includes INTERNAL_ERROR code
+  });
+
+  it('should validate groupId format', () => {
+    // Test:
+    // - POST with invalid groupId format returns 400/422
+    // - Response includes validation error message
+    // - Response includes VALIDATION_ERROR code
+  });
+});

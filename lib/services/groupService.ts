@@ -1307,3 +1307,65 @@ export async function deleteGroup(
   }
 }
 
+/**
+ * Copy invite link to clipboard
+ * Constructs full invite URL and copies to clipboard
+ *
+ * @param inviteCode Invite code for the group
+ * @returns Response with copy status and URL
+ */
+export async function copyInviteLink(inviteCode: string): Promise<{
+  success: boolean;
+  message: string;
+  data?: {
+    inviteUrl: string;
+    copiedToClipboard: boolean;
+  };
+  error?: string;
+  errorCode?: string;
+}> {
+  try {
+    if (!inviteCode || typeof inviteCode !== 'string') {
+      return {
+        success: false,
+        message: 'Invite code is required',
+        error: 'INVALID_INVITE_CODE',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    // Construct invite URL
+    const inviteUrl = constructInviteUrl(inviteCode);
+
+    // Attempt to copy to clipboard
+    let copiedToClipboard = false;
+    try {
+      if (typeof window !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(inviteUrl);
+        copiedToClipboard = true;
+      }
+    } catch (clipboardError: any) {
+      console.warn('Clipboard copy failed:', clipboardError);
+      // Don't fail the entire function - return the URL for manual copy
+      copiedToClipboard = false;
+    }
+
+    return {
+      success: true,
+      message: copiedToClipboard ? 'Link copied to clipboard!' : 'Link ready to copy',
+      data: {
+        inviteUrl,
+        copiedToClipboard,
+      },
+    };
+  } catch (error: any) {
+    console.error('Copy invite link error:', error);
+    return {
+      success: false,
+      message: 'An unexpected error occurred while copying the invite link',
+      error: error.message || 'UNKNOWN_ERROR',
+      errorCode: 'INTERNAL_ERROR',
+    };
+  }
+}
+

@@ -115,16 +115,20 @@ export async function GET(request: NextRequest) {
         {
           id: 'group-1',
           name: 'Weekend Hikers',
+          description: 'A group for hiking enthusiasts',
           member_count: 5,
-          last_activity_date: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
-          role: 'admin',
+          user_role: 'admin',
+          created_at: new Date(Date.now() - 604800000).toISOString(), // 1 week ago
+          updated_at: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
         },
         {
           id: 'group-2',
           name: 'Board Game Night',
+          description: 'Weekly board game meetups',
           member_count: 3,
-          last_activity_date: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
-          role: 'member',
+          user_role: 'member',
+          created_at: new Date(Date.now() - 1209600000).toISOString(), // 2 weeks ago
+          updated_at: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
         },
       ];
 

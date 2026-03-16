@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 // Mock fetch
 global.fetch = jest.fn() as jest.Mock;
 
-const { getGroupsByUser, regenerateInviteCode } = require('@/lib/services/groupService');
+const { getGroupsByUser, regenerateInviteCode, copyInviteLink } = require('@/lib/services/groupService');
 
 describe('Group Service - getGroupsByUser', () => {
   beforeEach(() => {
@@ -326,6 +326,72 @@ describe('Group Service - regenerateInviteCode', () => {
 
       expect(result.success).toBe(false);
       expect(result.errorCode).toBe('INTERNAL_ERROR');
+    });
+  });
+});
+
+describe('Group Service - copyInviteLink', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // Mock clipboard API
+    Object.assign(navigator, {
+      clipboard: {
+        writeText: jest.fn().mockResolvedValue(undefined),
+      },
+    });
+  });
+
+  describe('copyInviteLink function', () => {
+    it('should construct correct invite URL and attempt clipboard copy', async () => {
+      const result = await copyInviteLink('abc123def456');
+
+      expect(result.success).toBe(true);
+      expect(result.data?.inviteUrl).toBe('https://gettogether.app/join/abc123def456');
+      expect(result.data?.copiedToClipboard).toBe(true);
+    });
+
+    it('should return success with URL even if clipboard copy fails', async () => {
+      (navigator.clipboard.writeText as jest.Mock).mockRejectedValueOnce(
+        new Error('Clipboard denied')
+      );
+
+      const result = await copyInviteLink('abc123def456');
+
+      expect(result.success).toBe(true);
+      expect(result.data?.inviteUrl).toBe('https://gettogether.app/join/abc123def456');
+      expect(result.data?.copiedToClipboard).toBe(false);
+    });
+
+    it('should handle empty invite code', async () => {
+      const result = await copyInviteLink('');
+
+      expect(result.success).toBe(false);
+      expect(result.errorCode).toBe('VALIDATION_ERROR');
+      expect(result.error).toBe('INVALID_INVITE_CODE');
+    });
+
+    it('should handle null invite code', async () => {
+      const result = await copyInviteLink(null as any);
+
+      expect(result.success).toBe(false);
+      expect(result.errorCode).toBe('VALIDATION_ERROR');
+    });
+
+    it('should use custom base URL if NEXT_PUBLIC_APP_URL is set', async () => {
+      process.env.NEXT_PUBLIC_APP_URL = 'https://custom.app';
+
+      const result = await copyInviteLink('test123');
+
+      expect(result.data?.inviteUrl).toBe('https://custom.app/join/test123');
+
+      delete process.env.NEXT_PUBLIC_APP_URL;
+    });
+
+    it('should handle special characters in invite code', async () => {
+      const result = await copyInviteLink('abc-123_def');
+
+      expect(result.success).toBe(true);
+      expect(result.data?.inviteUrl).toBe('https://gettogether.app/join/abc-123_def');
     });
   });
 });

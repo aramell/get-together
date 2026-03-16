@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { copyInviteLink, regenerateInviteCode } from '@/lib/services/groupService';
 import {
   Box,
   VStack,
@@ -158,34 +159,22 @@ export const AdminGroupSettings: React.FC<AdminGroupSettingsProps> = ({
   const handleRegenerateInviteLink = async () => {
     setIsRegenerating(true);
     try {
-      const response = await fetch(`/api/groups/${groupData.id}/regenerate-invite`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      const result = await regenerateInviteCode(groupData.id, '');
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to regenerate invite link');
-      }
-
-      const data = await response.json();
-
-      if (data.success && data.data?.inviteUrl) {
-        setCurrentInviteUrl(data.data.inviteUrl);
+      if (result.success && result.data?.inviteUrl) {
+        setCurrentInviteUrl(result.data.inviteUrl);
 
         toast({
           title: 'Success',
-          description: 'Invite link regenerated successfully',
+          description: result.message || 'Invite link regenerated successfully',
           status: 'success',
           duration: 2000,
           isClosable: true,
         });
 
         // Copy new link to clipboard automatically
-        try {
-          await navigator.clipboard.writeText(data.data.inviteUrl);
+        const copyResult = await copyInviteLink(result.data.inviteUrl.split('/').pop() || '');
+        if (copyResult.success && copyResult.data?.copiedToClipboard) {
           toast({
             title: 'Copied!',
             description: 'New invite link copied to clipboard',
@@ -193,11 +182,9 @@ export const AdminGroupSettings: React.FC<AdminGroupSettingsProps> = ({
             duration: 2000,
             isClosable: true,
           });
-        } catch (err) {
-          // Clipboard not available, just show the link
         }
       } else {
-        throw new Error(data.message || 'Failed to regenerate invite link');
+        throw new Error(result.message || 'Failed to regenerate invite link');
       }
 
       regenerateModal.onClose();
