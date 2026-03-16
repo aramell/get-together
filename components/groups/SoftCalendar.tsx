@@ -18,7 +18,9 @@ import {
 } from '@chakra-ui/react';
 import { ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons';
 import MarkAvailabilityModal from './MarkAvailabilityModal';
+import { EditAvailabilityModal } from './EditAvailabilityModal';
 import { AvailabilityWithUser } from '@/lib/validation/availabilitySchema';
+import { useAuth } from '@/lib/contexts/AuthContext';
 
 interface SoftCalendarProps {
   groupId: string;
@@ -47,12 +49,15 @@ export default function SoftCalendar({
   groupId,
   isGroupMember,
 }: SoftCalendarProps) {
+  const { user } = useAuth();
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [members, setMembers] = useState<MemberAvailabilities[]>([]);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showMarkModal, setShowMarkModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedAvailability, setSelectedAvailability] = useState<AvailabilityData | null>(null);
   const [liveRegionMessage, setLiveRegionMessage] = useState<string>('');
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
@@ -162,6 +167,21 @@ export default function SoftCalendar({
 
   const handleMarkAvailabilitySuccess = () => {
     setShowMarkModal(false);
+    fetchCalendarData();
+  };
+
+  const handleEditAvailability = (availability: AvailabilityData, memberUserId: string) => {
+    // Only allow editing own availability
+    if (user?.id !== memberUserId) {
+      return;
+    }
+    setSelectedAvailability(availability);
+    setShowEditModal(true);
+  };
+
+  const handleEditAvailabilitySuccess = () => {
+    setShowEditModal(false);
+    setSelectedAvailability(null);
     fetchCalendarData();
   };
 
@@ -358,12 +378,17 @@ export default function SoftCalendar({
                     ? 'busy'
                     : 'not specified';
 
+                const isOwnAvailability = user?.id === member.user_id;
+                const isClickable = isOwnAvailability && hasAvailability;
+
                 return (
                   <Tooltip
                     key={`${member.user_id}-${day.toISOString()}`}
                     label={
                       dayAvailabilities.length === 0
                         ? 'No availability set'
+                        : isOwnAvailability
+                        ? `${member.user_name} - ${status === 'free' ? 'Available ✓' : 'Busy ✗'} (Click to edit)`
                         : `${member.user_name} - ${status === 'free' ? 'Available ✓' : 'Busy ✗'}`
                     }
                   >
@@ -372,7 +397,7 @@ export default function SoftCalendar({
                       h="30px"
                       borderRadius="md"
                       border="1px solid"
-                      borderColor="gray.300"
+                      borderColor={isClickable ? 'blue.400' : 'gray.300'}
                       bg={
                         status === 'free'
                           ? 'green.100'
@@ -385,21 +410,28 @@ export default function SoftCalendar({
                       justifyContent="center"
                       fontSize="xs"
                       fontWeight="bold"
-                      cursor="pointer"
+                      cursor={isClickable ? 'pointer' : 'default'}
                       role="gridcell"
                       aria-label={`${member.user_name}, ${day.toLocaleDateString('default', {
                         weekday: 'short',
                         month: 'short',
                         day: 'numeric',
-                      })}, ${statusLabel}`}
+                      })}, ${statusLabel}${isClickable ? ', click to edit' : ''}`}
                       _focus={{
                         outline: '2px solid',
                         outlineColor: 'blue.500',
                       }}
-                      tabIndex={0}
+                      _hover={isClickable ? { boxShadow: 'md', borderColor: 'blue.500' } : {}}
+                      tabIndex={isClickable ? 0 : -1}
+                      onClick={() => {
+                        if (isClickable && dayAvailabilities.length > 0) {
+                          handleEditAvailability(dayAvailabilities[0], member.user_id);
+                        }
+                      }}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          // Could trigger a detail view or edit here
+                        if ((e.key === 'Enter' || e.key === ' ') && isClickable && dayAvailabilities.length > 0) {
+                          e.preventDefault();
+                          handleEditAvailability(dayAvailabilities[0], member.user_id);
                         }
                       }}
                     >
@@ -431,6 +463,20 @@ export default function SoftCalendar({
           isOpen={showMarkModal}
           onClose={() => setShowMarkModal(false)}
           onSuccess={handleMarkAvailabilitySuccess}
+        />
+      )}
+
+      {/* Edit Availability Modal */}
+      {showEditModal && selectedAvailability && (
+        <EditAvailabilityModal
+          isOpen={showEditModal}
+          onClose={() => {
+            setShowEditModal(false);
+            setSelectedAvailability(null);
+          }}
+          availability={selectedAvailability}
+          groupId={groupId}
+          onSuccess={handleEditAvailabilitySuccess}
         />
       )}
     </VStack>

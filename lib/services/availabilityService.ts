@@ -4,6 +4,8 @@ import {
   checkDuplicateAvailability,
   getGroupAvailabilities as getGroupAvailabilitiesDb,
   getGroupAvailabilitiesWithRecurring,
+  updateAvailability as updateAvailabilityDb,
+  deleteAvailability as deleteAvailabilityDb,
 } from '@/lib/db/queries';
 
 /**
@@ -305,6 +307,147 @@ export async function getGroupAvailabilities(
     return {
       success: false,
       message: 'Failed to retrieve availabilities',
+      error: error?.message || 'UNKNOWN_ERROR',
+      errorCode: 'INTERNAL_ERROR',
+    };
+  }
+}
+
+/**
+ * Update an availability entry with optimistic locking
+ * Validates ownership, time constraints, and handles concurrent updates
+ */
+export async function updateAvailability(
+  availabilityId: string,
+  userId: string,
+  startTime: string,
+  endTime: string,
+  status: 'free' | 'busy',
+  version: number,
+  currentAvailability: any
+): Promise<{
+  success: boolean;
+  message: string;
+  data?: Availability;
+  error?: string;
+  errorCode?: string;
+}> {
+  try {
+    // Validate authorization - user can only update their own availability
+    if (!currentAvailability || currentAvailability.user_id !== userId) {
+      return {
+        success: false,
+        message: 'You can only update your own availability',
+        error: 'UNAUTHORIZED',
+        errorCode: 'FORBIDDEN',
+      };
+    }
+
+    // Validate time constraints
+    const startDate = new Date(startTime);
+    const endDate = new Date(endTime);
+
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      return {
+        success: false,
+        message: 'Invalid date format',
+        error: 'INVALID_DATE_FORMAT',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    if (endDate <= startDate) {
+      return {
+        success: false,
+        message: 'End time must be after start time',
+        error: 'INVALID_TIME_RANGE',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    // Check 24-hour maximum duration
+    const durationHours = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
+    if (durationHours > 24) {
+      return {
+        success: false,
+        message: 'Availability duration cannot exceed 24 hours',
+        error: 'DURATION_EXCEEDS_MAX',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    // Attempt update with optimistic locking
+    const updated = await updateAvailabilityDb(
+      availabilityId,
+      startTime,
+      endTime,
+      status,
+      version
+    );
+
+    if (!updated) {
+      // Version mismatch - concurrent update detected
+      return {
+        success: false,
+        message: 'This availability has been updated. Please refresh and try again.',
+        error: 'VERSION_CONFLICT',
+        errorCode: 'CONFLICT',
+      };
+    }
+
+    return {
+      success: true,
+      message: 'Availability updated successfully',
+      data: updated as Availability,
+    };
+  } catch (error: any) {
+    console.error('Update availability error:', error);
+    return {
+      success: false,
+      message: 'Failed to update availability',
+      error: error?.message || 'UNKNOWN_ERROR',
+      errorCode: 'INTERNAL_ERROR',
+    };
+  }
+}
+
+/**
+ * Delete an availability entry
+ * Only the owner can delete their availability
+ */
+export async function deleteAvailability(
+  availabilityId: string,
+  userId: string,
+  currentAvailability: any
+): Promise<{
+  success: boolean;
+  message: string;
+  error?: string;
+  errorCode?: string;
+}> {
+  try {
+    // Validate authorization - user can only delete their own availability
+    if (!currentAvailability || currentAvailability.user_id !== userId) {
+      return {
+        success: false,
+        message: 'You can only delete your own availability',
+        error: 'UNAUTHORIZED',
+        errorCode: 'FORBIDDEN',
+      };
+    }
+
+    // Delete the availability
+    await deleteAvailabilityDb(availabilityId);
+
+    return {
+      success: true,
+      message: 'Availability removed',
+    };
+  } catch (error: any) {
+    console.error('Delete availability error:', error);
+    return {
+      success: false,
+      message: 'Failed to delete availability',
       error: error?.message || 'UNKNOWN_ERROR',
       errorCode: 'INTERNAL_ERROR',
     };
