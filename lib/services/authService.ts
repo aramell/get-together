@@ -1,4 +1,4 @@
-import { CognitoIdentityProviderClient, AdminCreateUserCommand, AdminInitiateAuthCommand, ForgotPasswordCommand, ConfirmForgotPasswordCommand } from '@aws-sdk/client-cognito-identity-provider';
+import { CognitoIdentityProviderClient, AdminCreateUserCommand, AdminInitiateAuthCommand, ForgotPasswordCommand, ConfirmForgotPasswordCommand, AdminSetUserPasswordCommand, AdminRespondToAuthChallengeCommand } from '@aws-sdk/client-cognito-identity-provider';
 import { defaultProvider } from '@aws-sdk/credential-provider-node';
 
 /**
@@ -256,7 +256,7 @@ export async function signupUser(email: string, password: string): Promise<Signu
         },
         {
           Name: 'email_verified',
-          Value: 'false',
+          Value: 'true',
         },
       ],
     });
@@ -265,9 +265,14 @@ export async function signupUser(email: string, password: string): Promise<Signu
     const response = await client.send(command);
 
     if (response.User?.Username) {
-      // Send email verification
-      // Note: In production, Cognito would send verification email automatically
-      // For MVP, we'll rely on Cognito's built-in email verification
+      // Set the password as permanent so user doesn't need to change it on first login
+      const setPasswordCommand = new AdminSetUserPasswordCommand({
+        UserPoolId: USER_POOL_ID,
+        Username: email,
+        Password: password,
+        Permanent: true,
+      });
+      await client.send(setPasswordCommand);
 
       return {
         success: true,
@@ -324,6 +329,8 @@ export async function signupUser(email: string, password: string): Promise<Signu
  */
 export async function loginUser(email: string, password: string): Promise<LoginResponse> {
   try {
+    console.log('[loginUser] Starting login attempt');
+
     // Validate inputs (server-side validation)
     if (!email || typeof email !== 'string') {
       return {
@@ -344,7 +351,7 @@ export async function loginUser(email: string, password: string): Promise<LoginR
     }
 
     // Authenticate with Cognito using AdminInitiateAuth
-    console.log('Login attempt:', {
+    console.log('[loginUser] Login attempt:', {
       userPoolId: USER_POOL_ID,
       clientId: CLIENT_ID,
       email,
@@ -361,8 +368,12 @@ export async function loginUser(email: string, password: string): Promise<LoginR
       },
     });
 
+    console.log('[loginUser] Getting Cognito client...');
     const client = await getCognitoClient();
+    console.log('[loginUser] Sending auth command...');
     const response = await client.send(command);
+    console.log('[loginUser] Full Cognito response:', JSON.stringify(response, null, 2));
+    console.log('[loginUser] Has AccessToken:', !!response.AuthenticationResult?.AccessToken);
 
     if (response.AuthenticationResult?.AccessToken) {
       return {
@@ -375,6 +386,38 @@ export async function loginUser(email: string, password: string): Promise<LoginR
       };
     }
 
+    // Handle NEW_PASSWORD_REQUIRED challenge (from temporary passwords)
+    if (response.ChallengeName === 'NEW_PASSWORD_REQUIRED' && response.Session) {
+      console.log('[loginUser] Handling NEW_PASSWORD_REQUIRED challenge');
+      const challengeResponse = new AdminRespondToAuthChallengeCommand({
+        UserPoolId: USER_POOL_ID,
+        ClientId: CLIENT_ID,
+        ChallengeName: 'NEW_PASSWORD_REQUIRED',
+        Session: response.Session,
+        ChallengeResponses: {
+          USERNAME: email,
+          PASSWORD: password,
+          NEW_PASSWORD: password,
+        },
+      });
+
+      const challengeResult = await client.send(challengeResponse);
+      console.log('[loginUser] Challenge response:', {
+        hasAccessToken: !!challengeResult.AuthenticationResult?.AccessToken,
+      });
+
+      if (challengeResult.AuthenticationResult?.AccessToken) {
+        return {
+          success: true,
+          message: 'Login successful',
+          accessToken: challengeResult.AuthenticationResult.AccessToken,
+          idToken: challengeResult.AuthenticationResult.IdToken,
+          refreshToken: challengeResult.AuthenticationResult.RefreshToken,
+          userId: email,
+        };
+      }
+    }
+
     return {
       success: false,
       message: 'Failed to authenticate user',
@@ -382,13 +425,15 @@ export async function loginUser(email: string, password: string): Promise<LoginR
       errorCode: 'UNKNOWN_ERROR',
     };
   } catch (error: any) {
+    console.error('[loginUser] CAUGHT ERROR:', error);
+
     const errorCode = error.name || error.code || 'UNKNOWN_ERROR';
     const errorInfo = loginErrorCodeMap[errorCode] || {
       message: error.message || 'An unexpected error occurred',
       statusCode: 500,
     };
 
-    console.error('Login error details:', {
+    console.error('[loginUser] Processed error:', {
       errorCode,
       errorName: error.name,
       errorMessage: error.message,

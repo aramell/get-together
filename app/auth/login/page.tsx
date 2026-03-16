@@ -17,11 +17,14 @@ export default function LoginPage() {
     }
   }, [isAuthenticated, router]);
 
-  const handleLoginSuccess = (tokens: { accessToken: string; idToken: string }) => {
+  const handleLoginSuccess = (tokens: { accessToken: string; idToken: string; userId?: string }) => {
     // Store tokens in localStorage (in addition to HTTP-only cookies)
     // This allows the frontend to access the tokens for API calls
     localStorage.setItem('accessToken', tokens.accessToken);
     localStorage.setItem('idToken', tokens.idToken);
+    if (tokens.userId) {
+      localStorage.setItem('userId', tokens.userId);
+    }
 
     // Redirect to groups page after a brief delay to ensure tokens are synced
     setTimeout(() => {
@@ -32,7 +35,7 @@ export default function LoginPage() {
   // Show loading spinner while checking auth status
   if (isAuthenticated) {
     return (
-      <Container maxW="md" py={{ base: '12', md: '24' }}>
+      <Container maxW="md" py={{ base: '12', md: '24' }} suppressHydrationWarning>
         <VStack spacing={4} justify="center" minH="400px">
           <Spinner size="lg" color="blue.500" />
           <Text>Redirecting to your groups...</Text>
@@ -42,7 +45,7 @@ export default function LoginPage() {
   }
 
   return (
-    <Container maxW="md" py={{ base: '12', md: '24' }}>
+    <Container maxW="md" py={{ base: '12', md: '24' }} suppressHydrationWarning>
       <VStack spacing={{ base: '8', md: '10' }}>
         {/* Header */}
         <Stack spacing="2" textAlign="center">

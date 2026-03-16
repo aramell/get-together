@@ -23,7 +23,7 @@ import { loginSchema, type LoginFormData } from '@/lib/validation/authSchema';
 import { ZodError } from 'zod';
 
 interface LoginFormProps {
-  onSuccess?: (tokens: { accessToken: string; idToken: string }) => void;
+  onSuccess?: (tokens: { accessToken: string; idToken: string; userId?: string }) => void;
 }
 
 export default function LoginForm({ onSuccess }: LoginFormProps) {
@@ -114,6 +114,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
           onSuccess({
             accessToken: result.accessToken,
             idToken: result.idToken,
+            userId: result.userId,
           });
         }
 
