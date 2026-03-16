@@ -688,3 +688,66 @@ export async function getGroupAvailabilitiesForCalendar(
     throw error;
   }
 }
+
+/**
+ * Get a single availability by ID
+ */
+export async function getAvailabilityById(availabilityId: string): Promise<{
+  id: string;
+  user_id: string;
+  group_id: string;
+  start_time: string;
+  end_time: string;
+  status: 'free' | 'busy';
+  version: number;
+  created_at: string;
+  updated_at: string;
+} | null> {
+  return queryOne(
+    `SELECT id, user_id, group_id, start_time, end_time, status, version, created_at, updated_at
+     FROM availabilities
+     WHERE id = $1`,
+    [availabilityId]
+  );
+}
+
+/**
+ * Update an availability entry with optimistic locking (version field)
+ * Returns null if version mismatch (concurrent update detected)
+ */
+export async function updateAvailability(
+  availabilityId: string,
+  startTime: string,
+  endTime: string,
+  status: 'free' | 'busy',
+  currentVersion: number
+): Promise<{
+  id: string;
+  user_id: string;
+  group_id: string;
+  start_time: string;
+  end_time: string;
+  status: 'free' | 'busy';
+  version: number;
+  created_at: string;
+  updated_at: string;
+} | null> {
+  return queryOne(
+    `UPDATE availabilities
+     SET start_time = $2, end_time = $3, status = $4, version = version + 1, updated_at = CURRENT_TIMESTAMP
+     WHERE id = $1 AND version = $5
+     RETURNING id, user_id, group_id, start_time, end_time, status, version, created_at, updated_at`,
+    [availabilityId, startTime, endTime, status, currentVersion]
+  );
+}
+
+/**
+ * Delete an availability entry by ID
+ * Hard delete (removes the record completely)
+ */
+export async function deleteAvailability(availabilityId: string): Promise<void> {
+  await queryOne(
+    `DELETE FROM availabilities WHERE id = $1 RETURNING id`,
+    [availabilityId]
+  );
+}
