@@ -1,86 +1,80 @@
 'use client';
 
-import React from 'react';
-import { Box, VStack, Heading, Text, Button, HStack } from '@chakra-ui/react';
+import { VStack, Text, Button, Box, Icon } from '@chakra-ui/react';
 import { useRouter } from 'next/navigation';
+import { MdAddCircle } from 'react-icons/md';
 
 interface GroupsEmptyStateProps {
   type?: 'no-groups' | 'no-search-results';
 }
 
-/**
- * GroupsEmptyState Component
- * Displays when user has no groups or search returns no results
- *
- * @param type - Type of empty state (no-groups or no-search-results)
- */
-export const GroupsEmptyState: React.FC<GroupsEmptyStateProps> = ({
-  type = 'no-groups',
-}) => {
+export function GroupsEmptyState({ type = 'no-groups' }: GroupsEmptyStateProps) {
   const router = useRouter();
 
-  const getEmptyStateContent = () => {
-    switch (type) {
-      case 'no-search-results':
-        return {
-          title: 'No Groups Found',
-          description: 'Try adjusting your search or filter criteria',
-          icon: '🔍',
-        };
-      case 'no-groups':
-      default:
-        return {
-          title: "You Haven't Joined Any Groups Yet",
-          description: 'Join a group to start coordinating activities with others',
-          icon: '👥',
-        };
-    }
-  };
-
-  const content = getEmptyStateContent();
+  if (type === 'no-search-results') {
+    return (
+      <VStack
+        spacing={4}
+        align="center"
+        justify="center"
+        minH="300px"
+        bg="white"
+        borderRadius="lg"
+        border="1px"
+        borderColor="gray.200"
+        p={8}
+      >
+        <Text fontSize="lg" fontWeight="semibold" color="gray.700">
+          No groups found
+        </Text>
+        <Text color="gray.500" textAlign="center">
+          Try adjusting your search or filters to find what you're looking for.
+        </Text>
+      </VStack>
+    );
+  }
 
   return (
-    <Box textAlign="center" py={20} px={4}>
-      <VStack spacing={6}>
-        <Box fontSize="4xl">{content.icon}</Box>
+    <VStack
+      spacing={6}
+      align="center"
+      justify="center"
+      minH="400px"
+      bg="linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+      borderRadius="lg"
+      p={8}
+      color="white"
+      textAlign="center"
+    >
+      <Box fontSize="64px" mb={4}>
+        👥
+      </Box>
 
-        <VStack spacing={2}>
-          <Heading size="lg">{content.title}</Heading>
-          <Text color="gray.600" fontSize="md" maxW="md">
-            {content.description}
-          </Text>
-        </VStack>
-
-        {type === 'no-groups' && (
-          <HStack spacing={4} pt={4}>
-            <Button
-              colorScheme="blue"
-              onClick={() => router.push('/groups/create')}
-            >
-              Create a Group
-            </Button>
-            <Button
-              colorScheme="gray"
-              variant="outline"
-              onClick={() => {
-                // Ideally we'd have a way to open an invite modal
-                // For now, we can show an info message
-                alert('Ask someone to share a group invite link with you!');
-              }}
-            >
-              Join via Invite
-            </Button>
-          </HStack>
-        )}
-
-        {type === 'no-search-results' && (
-          <Button colorScheme="gray" variant="outline" onClick={() => window.location.reload()}>
-            Clear Search
-          </Button>
-        )}
+      <VStack spacing={2}>
+        <Text fontSize="2xl" fontWeight="bold">
+          You're not in any groups yet
+        </Text>
+        <Text fontSize="md" opacity={0.9} maxW="400px">
+          Create a group to start coordinating with friends, colleagues, or community members.
+        </Text>
       </VStack>
-    </Box>
-  );
-};
 
-export default GroupsEmptyState;
+      <Button
+        colorScheme="whiteAlpha"
+        bg="white"
+        color="purple.600"
+        size="lg"
+        leftIcon={<Icon as={MdAddCircle} />}
+        _hover={{ bg: 'gray.100' }}
+        onClick={() => router.push('/groups/create')}
+        mt={4}
+      >
+        Create Your First Group
+      </Button>
+
+      <Text fontSize="sm" opacity={0.8} mt={8}>
+        Or ask a friend to invite you to join their group!
+      </Text>
+    </VStack>
+  );
+}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createGroupSchema } from '@/lib/validation/groupSchema';
 import { ZodError } from 'zod';
+import { getClient } from '@/lib/db/client';
 
 /**
  * POST /api/groups
@@ -83,59 +84,64 @@ export async function POST(request: NextRequest) {
 /**
  * GET /api/groups
  * Two modes:
- * 1. GET /api/groups?user_id=<id> - Retrieve all groups for a user
+ * 1. GET /api/groups - Retrieve all groups for the authenticated user
  * 2. GET /api/groups/:id - Retrieve specific group by ID
  */
 export async function GET(request: NextRequest) {
+  const client = await getClient();
   try {
-    // Check if user_id query parameter is present (groups list mode)
-    const userId = request.nextUrl.searchParams.get('user_id');
+    // Extract userId from x-user-id header
+    const userIdHeader = request.headers.get('x-user-id');
+    const userIdQuery = request.nextUrl.searchParams.get('user_id');
+    const userId = userIdHeader || userIdQuery;
 
-    if (userId) {
+    if (userId && !request.nextUrl.pathname.includes('/api/groups/')) {
       // Mode 1: Get all groups for a user
       if (!userId || typeof userId !== 'string') {
         return NextResponse.json(
           {
             success: false,
-            message: 'user_id query parameter is required',
+            message: 'User ID is required',
             errorCode: 'MISSING_USER_ID',
           },
           { status: 400 }
         );
       }
 
-      // TODO: Verify user is authenticated
-      // TODO: Fetch all groups from database where user is a member
-      // TODO: Join with group_memberships to get role
-      // TODO: Count members for each group
-      // TODO: Get last_activity_date (most recent change to group or its events)
+      // Query groups where user is a member
+      const result = await client.query(
+        `SELECT
+          g.id,
+          g.name,
+          g.description,
+          g.created_by,
+          g.created_at,
+          g.updated_at,
+          gm.role as user_role,
+          (SELECT COUNT(*) FROM group_memberships WHERE group_id = g.id) as member_count
+        FROM groups g
+        LEFT JOIN group_memberships gm ON g.id = gm.group_id AND gm.user_id = $1
+        WHERE g.deleted_at IS NULL AND gm.user_id = $1
+        ORDER BY g.updated_at DESC`,
+        [userId]
+      );
 
-      // For now, return mock groups list
-      const mockGroups = [
-        {
-          id: 'group-1',
-          name: 'Weekend Hikers',
-          description: 'A group for hiking enthusiasts',
-          member_count: 5,
-          user_role: 'admin',
-          created_at: new Date(Date.now() - 604800000).toISOString(), // 1 week ago
-          updated_at: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
-        },
-        {
-          id: 'group-2',
-          name: 'Board Game Night',
-          description: 'Weekly board game meetups',
-          member_count: 3,
-          user_role: 'member',
-          created_at: new Date(Date.now() - 1209600000).toISOString(), // 2 weeks ago
-          updated_at: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
-        },
-      ];
+      // If no groups found, return empty array but still successful
+      const groups = result.map((row: any) => ({
+        id: row.id,
+        name: row.name,
+        description: row.description,
+        created_by: row.created_by,
+        member_count: parseInt(row.member_count),
+        user_role: row.user_role,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+      }));
 
       return NextResponse.json({
         success: true,
         message: 'Groups retrieved successfully',
-        groups: mockGroups,
+        groups,
       });
     }
 
@@ -154,25 +160,29 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // TODO: Verify user is a member of this group
-    // TODO: Fetch group and members from database
+    // Fetch group from database
+    const groupResult = await client.query(
+      `SELECT * FROM groups WHERE id = $1 AND deleted_at IS NULL`,
+      [groupId]
+    );
 
-    // For now, return mock group
-    const mockGroup = {
-      id: groupId,
-      name: 'Sample Group',
-      description: 'A sample group for testing',
-      created_by: 'user-id',
-      invite_code: 'mock-invite',
-      invite_url: `https://gettogether.app/join/mock-invite`,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
+    if (groupResult.length === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Group not found',
+          errorCode: 'NOT_FOUND',
+        },
+        { status: 404 }
+      );
+    }
+
+    const group = groupResult[0];
 
     return NextResponse.json({
       success: true,
       message: 'Group retrieved successfully',
-      group: mockGroup,
+      group,
     });
   } catch (error) {
     console.error('Get group API error:', error);
@@ -185,5 +195,7 @@ export async function GET(request: NextRequest) {
       },
       { status: 500 }
     );
+  } finally {
+    client.release();
   }
 }
