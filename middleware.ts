@@ -6,6 +6,24 @@ const protectedRoutes = ['/dashboard', '/groups', '/events', '/profile'];
 // Routes that should redirect to dashboard if already logged in
 const authRoutes = ['/auth/login', '/auth/signup', '/auth/forgot-password'];
 
+/**
+ * Decode JWT and check if expired
+ */
+function isTokenExpired(token: string): boolean {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return true;
+
+    const decodedToken = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+    const expirationTime = decodedToken.exp ? decodedToken.exp * 1000 : null;
+
+    if (!expirationTime) return true;
+    return Date.now() > expirationTime;
+  } catch {
+    return true;
+  }
+}
+
 export function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
@@ -13,7 +31,13 @@ export function middleware(request: NextRequest) {
   const accessToken = request.cookies.get('accessToken')?.value;
   const idToken = request.cookies.get('idToken')?.value;
 
-  const isAuthenticated = !!(accessToken && idToken);
+  // Check if tokens exist AND are not expired
+  const isAuthenticated = !!(
+    accessToken &&
+    idToken &&
+    !isTokenExpired(accessToken) &&
+    !isTokenExpired(idToken)
+  );
 
   // Check if route requires authentication
   const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route));

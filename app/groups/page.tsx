@@ -53,38 +53,40 @@ export default function GroupsPage() {
         console.log('[GroupsPage] Loading groups, isAuthenticated:', isAuthenticated, 'userId:', userId);
 
         if (!isAuthenticated || !userId) {
-          console.log('[GroupsPage] Not authenticated or no userId');
+          console.log('[GroupsPage] Not authenticated or no userId, returning');
           setError('Please log in to view your groups');
           setLoading(false);
           return;
         }
 
-        console.log('[GroupsPage] Calling getGroupsByUser...');
+        console.log('[GroupsPage] Calling getGroupsByUser with userId:', userId);
+        const startTime = Date.now();
         const result = await getGroupsByUser(userId);
-        console.log('[GroupsPage] Got result:', result);
+        const duration = Date.now() - startTime;
+        console.log('[GroupsPage] Got result after', duration, 'ms:', result);
 
         if (result.success && result.groups) {
-          console.log('[GroupsPage] Setting groups:', result.groups);
+          console.log('[GroupsPage] Successfully loaded', result.groups.length, 'groups');
           setGroups(result.groups);
           setError(null);
         } else {
-          console.log('[GroupsPage] Failed:', result.message);
+          console.log('[GroupsPage] Failed to load groups:', result.message);
           setError(result.message || 'Failed to load groups');
         }
       } catch (err) {
         console.error('[GroupsPage] Error loading groups:', err);
         setError('An error occurred while loading your groups');
       } finally {
-        console.log('[GroupsPage] Finished loading');
+        console.log('[GroupsPage] Finished loading, setting loading to false');
         setLoading(false);
       }
     };
 
     if (isAuthenticated) {
-      console.log('[GroupsPage] Calling loadGroups');
+      console.log('[GroupsPage] isAuthenticated is true, calling loadGroups');
       loadGroups();
     } else {
-      console.log('[GroupsPage] Not authenticated, skipping loadGroups');
+      console.log('[GroupsPage] isAuthenticated is false, skipping');
     }
   }, [isAuthenticated, userId]);
 

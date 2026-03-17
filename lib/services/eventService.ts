@@ -854,3 +854,75 @@ export async function getEventConfirmationStatus(eventId: string): Promise<{
     client.release();
   }
 }
+
+/**
+ * Cancel an event (soft delete)
+ * Only event creator can cancel
+ * Sets deleted_at timestamp and preserves RSVP history
+ */
+export async function cancelEvent(
+  groupId: string,
+  eventId: string,
+  userId: string
+): Promise<{
+  success: boolean;
+  message: string;
+  errorCode?: string;
+}> {
+  const client = await getClient();
+
+  try {
+    // Get event and verify it belongs to the group and user is creator
+    const eventResult = await client.query(
+      'SELECT id, group_id, created_by, title FROM event_proposals WHERE id = $1 AND group_id = $2 AND deleted_at IS NULL',
+      [eventId, groupId]
+    );
+
+    if (eventResult.rows.length === 0) {
+      return {
+        success: false,
+        message: 'Event not found',
+        errorCode: 'NOT_FOUND',
+      };
+    }
+
+    const event = eventResult.rows[0];
+
+    // Verify user is event creator
+    if (event.created_by !== userId) {
+      return {
+        success: false,
+        message: 'You do not have permission to cancel this event',
+        errorCode: 'FORBIDDEN',
+      };
+    }
+
+    // Soft delete: set deleted_at timestamp
+    const deleteResult = await client.query(
+      'UPDATE event_proposals SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1 RETURNING id',
+      [eventId]
+    );
+
+    if (deleteResult.rows.length === 0) {
+      return {
+        success: false,
+        message: 'Failed to cancel event',
+        errorCode: 'INTERNAL_ERROR',
+      };
+    }
+
+    return {
+      success: true,
+      message: `Event "${event.title}" has been cancelled. All group members have been notified.`,
+    };
+  } catch (error: any) {
+    console.error('Error cancelling event:', error);
+    return {
+      success: false,
+      message: 'An error occurred while cancelling the event',
+      errorCode: 'INTERNAL_ERROR',
+    };
+  } finally {
+    client.release();
+  }
+}

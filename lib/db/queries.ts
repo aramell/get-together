@@ -751,3 +751,139 @@ export async function deleteAvailability(availabilityId: string): Promise<void> 
     [availabilityId]
   );
 }
+
+/**
+ * Create a new wishlist item for a group
+ * Returns the created item with all fields
+ */
+export async function createWishlistItem(
+  groupId: string,
+  userId: string,
+  title: string,
+  description: string | null,
+  link: string | null
+): Promise<{
+  id: string;
+  group_id: string;
+  created_by: string;
+  title: string;
+  description: string | null;
+  link: string | null;
+  created_at: string;
+  updated_at: string;
+}> {
+  return queryOne(
+    `INSERT INTO wishlist_items (group_id, created_by, title, description, link)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING id, group_id, created_by, title, description, link, created_at, updated_at`,
+    [groupId, userId, title, description, link]
+  );
+}
+
+/**
+ * Get wishlist items for a group with pagination, ordered by newest first
+ * Excludes soft-deleted items
+ */
+export async function getWishlistItems(
+  groupId: string,
+  limit: number = 20,
+  offset: number = 0
+): Promise<Array<{
+  id: string;
+  group_id: string;
+  created_by: string;
+  title: string;
+  description: string | null;
+  link: string | null;
+  created_at: string;
+  updated_at: string;
+}>> {
+  const result = await query(
+    `SELECT id, group_id, created_by, title, description, link, created_at, updated_at
+     FROM wishlist_items
+     WHERE group_id = $1 AND deleted_at IS NULL
+     ORDER BY created_at DESC
+     LIMIT $2 OFFSET $3`,
+    [groupId, limit, offset]
+  );
+  return result.rows;
+}
+
+/**
+ * Get total count of active wishlist items for a group
+ * Used for pagination
+ */
+export async function getWishlistItemCount(groupId: string): Promise<number> {
+  const result = await queryOne(
+    `SELECT COUNT(*) as count FROM wishlist_items WHERE group_id = $1 AND deleted_at IS NULL`,
+    [groupId]
+  );
+  return result ? parseInt(result.count) : 0;
+}
+
+/**
+ * Get a single wishlist item by ID
+ * Includes creator information via join with users table
+ */
+export async function getWishlistItemById(
+  itemId: string
+): Promise<{
+  id: string;
+  group_id: string;
+  created_by: string;
+  title: string;
+  description: string | null;
+  link: string | null;
+  created_at: string;
+  updated_at: string;
+  creator_name?: string;
+  creator_email?: string;
+} | null> {
+  return queryOne(
+    `SELECT
+       wi.id, wi.group_id, wi.created_by, wi.title, wi.description, wi.link, wi.created_at, wi.updated_at,
+       u.name as creator_name, u.email as creator_email
+     FROM wishlist_items wi
+     LEFT JOIN users u ON wi.created_by = u.sub
+     WHERE wi.id = $1 AND wi.deleted_at IS NULL`,
+    [itemId]
+  );
+}
+
+/**
+ * Soft delete a wishlist item (marks with deleted_at timestamp)
+ * Used to preserve item history while removing from view
+ */
+export async function softDeleteWishlistItem(itemId: string): Promise<void> {
+  await queryOne(
+    `UPDATE wishlist_items SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1 RETURNING id`,
+    [itemId]
+  );
+}
+
+/**
+ * Get wishlist items created after a specific timestamp
+ * Used for real-time polling to detect new items
+ */
+export async function getWishlistItemsSince(
+  groupId: string,
+  since: string
+): Promise<Array<{
+  id: string;
+  group_id: string;
+  created_by: string;
+  title: string;
+  description: string | null;
+  link: string | null;
+  created_at: string;
+  updated_at: string;
+}>> {
+  const result = await query(
+    `SELECT id, group_id, created_by, title, description, link, created_at, updated_at
+     FROM wishlist_items
+     WHERE group_id = $1 AND created_at > $2 AND deleted_at IS NULL
+     ORDER BY created_at DESC`,
+    [groupId, since]
+  );
+  return result.rows;
+}

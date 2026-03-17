@@ -99,25 +99,40 @@ export async function POST(request: NextRequest) {
  * 2. GET /api/groups/:id - Retrieve specific group by ID
  */
 export async function GET(request: NextRequest) {
-  const client = await getClient();
+  let client;
   try {
+    console.log('[Groups GET] Starting, userId extraction...');
+
     // Extract user ID (Cognito sub) from JWT token in cookies
     const userId = getUserIdFromRequest(request);
+    console.log('[Groups GET] userId:', userId);
 
-    if (userId && !request.nextUrl.pathname.includes('/api/groups/')) {
-      // Mode 1: Get all groups for a user
-      if (!userId || typeof userId !== 'string') {
-        return NextResponse.json(
-          {
-            success: false,
-            message: 'User ID is required',
-            errorCode: 'MISSING_USER_ID',
-          },
-          { status: 400 }
-        );
-      }
+    if (!userId) {
+      console.log('[Groups GET] No userId, returning 401');
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Authentication required',
+          errorCode: 'UNAUTHORIZED',
+        },
+        { status: 401 }
+      );
+    }
+
+    // Check if this is a query for all user groups (no /:id in path)
+    const isRootGroupsPath = request.nextUrl.pathname === '/api/groups';
+    console.log('[Groups GET] isRootGroupsPath:', isRootGroupsPath);
+
+    if (isRootGroupsPath) {
+      console.log('[Groups GET] Mode 1: Getting all groups for user', userId);
+
+      // Get database client
+      console.log('[Groups GET] Getting database client...');
+      client = await getClient();
+      console.log('[Groups GET] Got database client');
 
       // Query groups where user is a member
+      console.log('[Groups GET] Executing groups query...');
       const result = await client.query(
         `SELECT
           g.id,
@@ -134,6 +149,7 @@ export async function GET(request: NextRequest) {
         ORDER BY g.updated_at DESC`,
         [userId]
       );
+      console.log('[Groups GET] Query complete, rows:', result.rows.length);
 
       // If no groups found, return empty array but still successful
       const groups = result.rows.map((row: any) => ({
@@ -147,6 +163,7 @@ export async function GET(request: NextRequest) {
         updated_at: row.updated_at,
       }));
 
+      console.log('[Groups GET] Returning groups:', groups.length);
       return NextResponse.json({
         success: true,
         message: 'Groups retrieved successfully',
@@ -169,9 +186,29 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Verify user is a member of this group
+    const memberCheckResult = await client.query(
+      `SELECT role FROM group_memberships WHERE group_id = $1 AND user_id = $2`,
+      [groupId, userId]
+    );
+
+    if (memberCheckResult.rows.length === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'You are not a member of this group',
+          errorCode: 'FORBIDDEN',
+        },
+        { status: 403 }
+      );
+    }
+
     // Fetch group from database
     const groupResult = await client.query(
-      `SELECT * FROM groups WHERE id = $1 AND deleted_at IS NULL`,
+      `SELECT g.*, gm.role as user_role, (SELECT COUNT(*) FROM group_memberships WHERE group_id = g.id) as member_count
+       FROM groups g
+       JOIN group_memberships gm ON g.id = gm.group_id
+       WHERE g.id = $1 AND g.deleted_at IS NULL`,
       [groupId]
     );
 
@@ -194,7 +231,7 @@ export async function GET(request: NextRequest) {
       group,
     });
   } catch (error) {
-    console.error('Get group API error:', error);
+    console.error('[Groups GET] Error:', error);
 
     return NextResponse.json(
       {
@@ -205,6 +242,9 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   } finally {
-    client.release();
+    if (client) {
+      console.log('[Groups GET] Releasing database client');
+      client.release();
+    }
   }
 }

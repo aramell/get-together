@@ -34,6 +34,7 @@ import { MemberList } from '@/components/groups/MemberList';
 import { AdminGroupSettings } from '@/components/groups/AdminGroupSettings';
 import { CreateEventModal } from '@/components/groups/CreateEventModal';
 import { EventCard } from '@/components/groups/EventCard';
+import { WishlistList } from '@/components/groups/WishlistList';
 import SoftCalendar from '@/components/groups/SoftCalendar';
 
 interface GroupDetailsData {
@@ -547,6 +548,13 @@ export default function GroupDetailsPage() {
                 <Text>No events yet. Create one using the "Propose Event" button above.</Text>
               </Alert>
             )}
+          </Box>
+
+          <Divider />
+
+          {/* Wishlist Section */}
+          <Box>
+            <WishlistList groupId={groupId} />
           </Box>
 
           {isAdmin && (

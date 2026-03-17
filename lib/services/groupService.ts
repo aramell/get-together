@@ -201,6 +201,7 @@ export async function getGroupsByUser(userId: string): Promise<{
 }> {
   try {
     if (!userId || typeof userId !== 'string') {
+      console.error('[getGroupsByUser] Invalid userId:', userId);
       return {
         success: false,
         message: 'User ID is required',
@@ -209,15 +210,24 @@ export async function getGroupsByUser(userId: string): Promise<{
       };
     }
 
-    const response = await fetch(`/api/groups?user_id=${encodeURIComponent(userId)}`, {
+    const url = `/api/groups?user_id=${encodeURIComponent(userId)}`;
+    console.log('[getGroupsByUser] Fetching from:', url);
+    const startTime = Date.now();
+
+    const response = await fetch(url, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
       },
     });
 
+    const duration = Date.now() - startTime;
+    console.log('[getGroupsByUser] Response received after', duration, 'ms, status:', response.status);
+
     if (!response.ok) {
+      console.log('[getGroupsByUser] Response not ok, parsing error...');
       const errorData = await response.json().catch(() => ({}));
+      console.log('[getGroupsByUser] Error data:', errorData);
       return {
         success: false,
         message: errorData.message || 'Failed to retrieve groups',
@@ -226,15 +236,19 @@ export async function getGroupsByUser(userId: string): Promise<{
       };
     }
 
+    console.log('[getGroupsByUser] Parsing response JSON...');
     const data = await response.json();
+    console.log('[getGroupsByUser] Parsed data:', data);
 
     if (data.success) {
+      console.log('[getGroupsByUser] Success! Groups:', data.groups?.length);
       return {
         success: true,
         message: 'Groups retrieved successfully',
         groups: data.groups || [],
       };
     } else {
+      console.log('[getGroupsByUser] Data indicates failure:', data.message);
       return {
         success: false,
         message: data.message || 'Failed to retrieve groups',
@@ -243,7 +257,7 @@ export async function getGroupsByUser(userId: string): Promise<{
       };
     }
   } catch (error: any) {
-    console.error('Get groups error:', error);
+    console.error('[getGroupsByUser] Caught error:', error);
     return {
       success: false,
       message: 'An unexpected error occurred while retrieving groups',
