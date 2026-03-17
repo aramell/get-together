@@ -30,7 +30,7 @@ export type CreateWishlistItemInput = z.infer<typeof createWishlistItemSchema>;
 
 /**
  * Schema for wishlist item response
- * Includes all item fields plus creator information
+ * Includes all item fields plus creator information and interest data
  */
 export const wishlistItemResponseSchema = z.object({
   id: z.string().uuid(),
@@ -43,6 +43,8 @@ export const wishlistItemResponseSchema = z.object({
   updated_at: z.string(),
   creator_name: z.string().optional(),
   creator_email: z.string().optional(),
+  interest_count: z.number().optional(),
+  user_is_interested: z.boolean().optional(),
 });
 
 export type WishlistItemResponse = z.infer<typeof wishlistItemResponseSchema>;

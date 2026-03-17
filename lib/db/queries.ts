@@ -887,3 +887,64 @@ export async function getWishlistItemsSince(
   );
   return result.rows;
 }
+
+/**
+ * Mark a wishlist item as interesting to a user
+ * Creates a new interest record (fails if user already interested - unique constraint)
+ */
+export async function markInterest(
+  itemId: string,
+  userId: string
+): Promise<{ id: string }> {
+  const result = await queryOne(
+    `INSERT INTO wishlist_interests (user_id, wishlist_item_id)
+     VALUES ($1, $2)
+     RETURNING id`,
+    [userId, itemId]
+  );
+  if (!result) throw new Error('Failed to create interest record');
+  return result;
+}
+
+/**
+ * Unmark interest - soft delete the interest record
+ * Sets deleted_at timestamp to preserve data history
+ */
+export async function unmarkInterest(itemId: string, userId: string): Promise<void> {
+  await queryOne(
+    `UPDATE wishlist_interests
+     SET deleted_at = NOW()
+     WHERE wishlist_item_id = $1 AND user_id = $2 AND deleted_at IS NULL
+     RETURNING id`,
+    [itemId, userId]
+  );
+}
+
+/**
+ * Get count of active interests on a wishlist item
+ * Excludes soft-deleted (deleted_at IS NOT NULL) interests
+ */
+export async function getInterestCount(itemId: string): Promise<number> {
+  const result = await queryOne(
+    `SELECT COUNT(*) as count
+     FROM wishlist_interests
+     WHERE wishlist_item_id = $1 AND deleted_at IS NULL`,
+    [itemId]
+  );
+  return result ? parseInt(result.count, 10) : 0;
+}
+
+/**
+ * Check if a user has marked interest on a wishlist item
+ * Returns true if active interest exists, false otherwise
+ */
+export async function getUserInterestStatus(itemId: string, userId: string): Promise<boolean> {
+  const result = await queryOne(
+    `SELECT EXISTS(
+       SELECT 1 FROM wishlist_interests
+       WHERE wishlist_item_id = $1 AND user_id = $2 AND deleted_at IS NULL
+     ) as is_interested`,
+    [itemId, userId]
+  );
+  return result?.is_interested ?? false;
+}

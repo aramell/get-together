@@ -110,7 +110,7 @@ export async function createWishlistItemService(
 
 /**
  * Get wishlist items for a group with pagination
- * Filters by group membership
+ * Filters by group membership and includes interest counts and status
  */
 export async function getWishlistItemsService(
   groupId: string,
@@ -156,11 +156,21 @@ export async function getWishlistItemsService(
 
     const hasMore = validOffset + validLimit < total;
 
+    // Enrich items with interest data
+    const { getInterestCount, getUserInterestStatus } = await import('@/lib/db/queries');
+    const enrichedItems = await Promise.all(
+      items.map(async (item) => ({
+        ...item,
+        interest_count: await getInterestCount(item.id),
+        user_is_interested: await getUserInterestStatus(item.id, userId),
+      }))
+    );
+
     return {
       success: true,
       message: 'Wishlist items retrieved',
       data: {
-        items: items as WishlistItemResponse[],
+        items: enrichedItems as WishlistItemResponse[],
         total,
         limit: validLimit,
         offset: validOffset,
@@ -180,7 +190,7 @@ export async function getWishlistItemsService(
 
 /**
  * Get a single wishlist item by ID
- * Validates that user is a member of the item's group
+ * Validates that user is a member of the item's group and includes interest data
  */
 export async function getWishlistItemService(
   itemId: string,
@@ -225,10 +235,18 @@ export async function getWishlistItemService(
       };
     }
 
+    // Enrich item with interest data
+    const { getInterestCount, getUserInterestStatus } = await import('@/lib/db/queries');
+    const enrichedItem = {
+      ...item,
+      interest_count: await getInterestCount(itemId),
+      user_is_interested: await getUserInterestStatus(itemId, userId),
+    } as WishlistItemResponse;
+
     return {
       success: true,
       message: 'Item retrieved',
-      data: item as WishlistItemResponse,
+      data: enrichedItem,
     };
   } catch (error) {
     console.error('Error retrieving wishlist item:', error);
@@ -308,6 +326,177 @@ export async function deleteWishlistItemService(
     return {
       success: false,
       message: 'Failed to delete wishlist item',
+      error: 'INTERNAL_ERROR',
+      errorCode: 'INTERNAL_ERROR',
+    };
+  }
+}
+
+/**
+ * Mark interest on a wishlist item
+ * Validates group membership before allowing the operation
+ */
+export async function markInterestService(
+  itemId: string,
+  userId: string,
+  groupId?: string
+): Promise<{
+  success: boolean;
+  message: string;
+  data?: { interest_count: number };
+  error?: string;
+  errorCode?: string;
+}> {
+  try {
+    if (!itemId || typeof itemId !== 'string') {
+      return {
+        success: false,
+        message: 'Item ID is required',
+        error: 'INVALID_ITEM_ID',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    if (!userId || typeof userId !== 'string') {
+      return {
+        success: false,
+        message: 'User ID is required',
+        error: 'INVALID_USER_ID',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    // Get the item to verify it exists and optionally check group
+    const item = await getWishlistItemById(itemId);
+    if (!item) {
+      return {
+        success: false,
+        message: 'Wishlist item not found',
+        error: 'ITEM_NOT_FOUND',
+        errorCode: 'NOT_FOUND',
+      };
+    }
+
+    // Verify user is a member of the group
+    const userRole = await getUserGroupRole(item.group_id, userId);
+    if (!userRole) {
+      return {
+        success: false,
+        message: 'You must be a group member to mark interest',
+        error: 'USER_NOT_MEMBER',
+        errorCode: 'FORBIDDEN',
+      };
+    }
+
+    // Mark interest
+    const { markInterest, getInterestCount } = await import('@/lib/db/queries');
+    try {
+      await markInterest(itemId, userId);
+    } catch (error: any) {
+      // Check if it's a unique constraint violation (already interested)
+      if (error.code === '23505') {
+        return {
+          success: false,
+          message: 'You have already marked interest on this item',
+          error: 'ALREADY_INTERESTED',
+          errorCode: 'CONFLICT',
+        };
+      }
+      throw error;
+    }
+
+    // Get updated count
+    const count = await getInterestCount(itemId);
+
+    return {
+      success: true,
+      message: 'Interest marked',
+      data: { interest_count: count },
+    };
+  } catch (error) {
+    console.error('Error marking interest:', error);
+    return {
+      success: false,
+      message: 'Failed to mark interest',
+      error: 'INTERNAL_ERROR',
+      errorCode: 'INTERNAL_ERROR',
+    };
+  }
+}
+
+/**
+ * Unmark interest on a wishlist item
+ * Validates group membership before allowing the operation
+ */
+export async function unmarkInterestService(
+  itemId: string,
+  userId: string,
+  groupId?: string
+): Promise<{
+  success: boolean;
+  message: string;
+  data?: { interest_count: number };
+  error?: string;
+  errorCode?: string;
+}> {
+  try {
+    if (!itemId || typeof itemId !== 'string') {
+      return {
+        success: false,
+        message: 'Item ID is required',
+        error: 'INVALID_ITEM_ID',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    if (!userId || typeof userId !== 'string') {
+      return {
+        success: false,
+        message: 'User ID is required',
+        error: 'INVALID_USER_ID',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    // Get the item to verify it exists
+    const item = await getWishlistItemById(itemId);
+    if (!item) {
+      return {
+        success: false,
+        message: 'Wishlist item not found',
+        error: 'ITEM_NOT_FOUND',
+        errorCode: 'NOT_FOUND',
+      };
+    }
+
+    // Verify user is a member of the group
+    const userRole = await getUserGroupRole(item.group_id, userId);
+    if (!userRole) {
+      return {
+        success: false,
+        message: 'You must be a group member to unmark interest',
+        error: 'USER_NOT_MEMBER',
+        errorCode: 'FORBIDDEN',
+      };
+    }
+
+    // Unmark interest
+    const { unmarkInterest, getInterestCount } = await import('@/lib/db/queries');
+    await unmarkInterest(itemId, userId);
+
+    // Get updated count
+    const count = await getInterestCount(itemId);
+
+    return {
+      success: true,
+      message: 'Interest unmarked',
+      data: { interest_count: count },
+    };
+  } catch (error) {
+    console.error('Error unmarking interest:', error);
+    return {
+      success: false,
+      message: 'Failed to unmark interest',
       error: 'INTERNAL_ERROR',
       errorCode: 'INTERNAL_ERROR',
     };
