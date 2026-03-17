@@ -2,8 +2,7 @@
 
 import React, { useState } from 'react';
 import { format } from 'date-fns';
-import { Box, Text, Link, HStack, VStack, Avatar, Flex } from '@chakra-ui/react';
-import { format } from 'date-fns';
+import { Box, Text, Link, HStack, VStack, Avatar } from '@chakra-ui/react';
 
 interface WishlistItemProps {
   id: string;
@@ -13,6 +12,7 @@ interface WishlistItemProps {
   creator_name?: string;
   creator_email?: string;
   created_at: string;
+  onClick?: () => void;
 }
 
 export function WishlistItem({
@@ -23,6 +23,7 @@ export function WishlistItem({
   creator_name,
   creator_email,
   created_at,
+  onClick,
 }: WishlistItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -47,8 +48,14 @@ export function WishlistItem({
       borderRadius="md"
       borderColor="gray.200"
       bg="white"
-      _hover={{ shadow: 'md' }}
+      _hover={{ shadow: 'md', bg: 'gray.50' }}
       transition="all 0.2s"
+      cursor={onClick ? 'pointer' : 'default'}
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => e.key === 'Enter' && onClick() : undefined}
+      aria-label={`Wishlist item: ${title}`}
     >
       <VStack align="stretch" spacing={3}>
         {/* Header with title and creator */}

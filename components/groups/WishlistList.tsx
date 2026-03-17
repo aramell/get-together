@@ -13,6 +13,7 @@ import {
 } from '@chakra-ui/react';
 import { WishlistAddModal } from './WishlistAddModal';
 import { WishlistItem } from './WishlistItem';
+import { WishlistDetail } from './WishlistDetail';
 import type { WishlistListResponse, WishlistItemResponse } from '@/lib/validation/wishlistSchema';
 
 interface WishlistListProps {
@@ -21,10 +22,12 @@ interface WishlistListProps {
 
 export function WishlistList({ groupId }: WishlistListProps) {
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const { isOpen: isDetailOpen, onOpen: onDetailOpen, onClose: onDetailClose } = useDisclosure();
   const [items, setItems] = useState<WishlistItemResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastFetchTime, setLastFetchTime] = useState<string>(new Date().toISOString());
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch wishlist items
@@ -98,6 +101,11 @@ export function WishlistList({ groupId }: WishlistListProps) {
     fetchItems(false);
   };
 
+  const handleItemClick = (itemId: string) => {
+    setSelectedItemId(itemId);
+    onDetailOpen();
+  };
+
   if (isLoading) {
     return (
       <Center py={8}>
@@ -146,6 +154,7 @@ export function WishlistList({ groupId }: WishlistListProps) {
               creator_name={item.creator_name}
               creator_email={item.creator_email}
               created_at={item.created_at}
+              onClick={() => handleItemClick(item.id)}
             />
           ))}
         </VStack>
@@ -157,6 +166,15 @@ export function WishlistList({ groupId }: WishlistListProps) {
         groupId={groupId}
         onItemAdded={handleItemAdded}
       />
+
+      {selectedItemId && (
+        <WishlistDetail
+          isOpen={isDetailOpen}
+          onClose={onDetailClose}
+          itemId={selectedItemId}
+          groupId={groupId}
+        />
+      )}
     </VStack>
   );
 }
