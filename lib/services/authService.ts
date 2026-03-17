@@ -1,3 +1,5 @@
+'use server';
+
 import { CognitoIdentityProviderClient, AdminCreateUserCommand, AdminInitiateAuthCommand, ForgotPasswordCommand, ConfirmForgotPasswordCommand, AdminSetUserPasswordCommand, AdminRespondToAuthChallengeCommand } from '@aws-sdk/client-cognito-identity-provider';
 import { defaultProvider } from '@aws-sdk/credential-provider-node';
 import { getSubFromJWT } from '@/lib/auth/jwt';

@@ -9,9 +9,10 @@ import { markInterestService, unmarkInterestService } from '@/lib/services/wishl
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { groupId: string; itemId: string } }
+  { params }: { params: Promise<{ groupId: string; itemId: string }> }
 ) {
   try {
+    const resolvedParams = await params;
     // Get user ID from JWT token
     const userId = await getUserIdFromRequest(request);
     if (!userId) {
@@ -26,7 +27,7 @@ export async function POST(
     }
 
     // Mark interest on the item
-    const result = await markInterestService(params.itemId, userId, params.groupId);
+    const result = await markInterestService(resolvedParams.itemId, userId, resolvedParams.groupId);
 
     if (!result.success) {
       const statusCode =
@@ -62,9 +63,10 @@ export async function POST(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { groupId: string; itemId: string } }
+  { params }: { params: Promise<{ groupId: string; itemId: string }> }
 ) {
   try {
+    const resolvedParams = await params;
     // Get user ID from JWT token
     const userId = await getUserIdFromRequest(request);
     if (!userId) {
@@ -79,7 +81,7 @@ export async function DELETE(
     }
 
     // Unmark interest on the item
-    const result = await unmarkInterestService(params.itemId, userId, params.groupId);
+    const result = await unmarkInterestService(resolvedParams.itemId, userId, resolvedParams.groupId);
 
     if (!result.success) {
       const statusCode =

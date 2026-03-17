@@ -21,7 +21,7 @@ import {
   Spinner,
   useToast,
 } from '@chakra-ui/react';
-import { createEvent } from '@/lib/services/eventService';
+// Removed: use API endpoint instead
 
 interface CreateEventModalProps {
   isOpen: boolean;
@@ -96,12 +96,18 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
     setIsLoading(true);
 
     try {
-      const result = await createEvent(groupId, '', {
-        title: formData.title,
-        date: formData.date,
-        threshold: formData.threshold ? parseInt(formData.threshold) : undefined,
-        description: formData.description || undefined,
+      const response = await fetch(`/api/groups/${groupId}/events`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: formData.title,
+          date: formData.date,
+          threshold: formData.threshold ? parseInt(formData.threshold) : undefined,
+          description: formData.description || undefined,
+        }),
       });
+
+      const result = await response.json();
 
       if (result.success) {
         toast({

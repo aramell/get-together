@@ -6,11 +6,12 @@ import { cancelEvent } from '@/lib/services/eventService';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { groupId: string; eventId: string } }
+  { params }: { params: Promise<{ groupId: string; eventId: string }> }
 ) {
   const client = await getClient();
 
   try {
+    const resolvedParams = await params;
     // Get user ID from JWT token
     const userId = await getUserIdFromRequest(request);
     if (!userId) {
@@ -25,7 +26,7 @@ export async function GET(
     }
 
     // Verify user is a group member
-    const userRole = await getUserGroupRole(params.groupId, userId);
+    const userRole = await getUserGroupRole(resolvedParams.groupId, userId);
     if (!userRole) {
       return NextResponse.json(
         {
@@ -57,7 +58,7 @@ export async function GET(
        LEFT JOIN event_rsvps r ON e.id = r.event_id
        WHERE e.id = $1 AND e.group_id = $2 AND e.deleted_at IS NULL
        GROUP BY e.id, e.group_id, e.created_by, e.title, e.description, e.date, e.threshold, e.status, e.created_at, e.updated_at`,
-      [params.eventId, params.groupId]
+      [resolvedParams.eventId, resolvedParams.groupId]
     );
 
     if (result.rows.length === 0) {
@@ -114,9 +115,10 @@ export async function GET(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { groupId: string; eventId: string } }
+  { params }: { params: Promise<{ groupId: string; eventId: string }> }
 ) {
   try {
+    const resolvedParams = await params;
     // Get user ID from JWT token
     const userId = await getUserIdFromRequest(request);
     if (!userId) {
@@ -131,7 +133,7 @@ export async function DELETE(
     }
 
     // Cancel the event
-    const result = await cancelEvent(params.groupId, params.eventId, userId);
+    const result = await cancelEvent(resolvedParams.groupId, resolvedParams.eventId, userId);
 
     if (!result.success) {
       const statusCode = result.errorCode === 'FORBIDDEN' ? 403 : result.errorCode === 'NOT_FOUND' ? 404 : 500;

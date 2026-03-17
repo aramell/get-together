@@ -8,9 +8,10 @@ import { getWishlistItemService } from '@/lib/services/wishlistService';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { groupId: string; itemId: string } }
+  { params }: { params: Promise<{ groupId: string; itemId: string }> }
 ) {
   try {
+    const resolvedParams = await params;
     // Get user ID from JWT token
     const userId = await getUserIdFromRequest(request);
     if (!userId) {
@@ -25,7 +26,7 @@ export async function GET(
     }
 
     // Get the wishlist item
-    const result = await getWishlistItemService(params.itemId, userId);
+    const result = await getWishlistItemService(resolvedParams.itemId, userId);
 
     if (!result.success) {
       const statusCode =

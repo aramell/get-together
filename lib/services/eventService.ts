@@ -1,3 +1,5 @@
+'use server';
+
 import { getClient } from '@/lib/db/client';
 import { getUserGroupRole } from '@/lib/db/queries';
 import { eventCreateSchema, EventProposal, RsvpStatus } from '@/lib/validation/eventSchema';

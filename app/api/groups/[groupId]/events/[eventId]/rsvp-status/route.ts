@@ -7,9 +7,10 @@ import { getClient } from '@/lib/db/client';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { groupId: string; eventId: string } }
+  { params }: { params: Promise<{ groupId: string; eventId: string }> }
 ) {
   try {
+    const resolvedParams = await params;
     // Extract user ID from header
     const userId = request.headers.get('x-user-id');
     if (!userId) {
@@ -26,7 +27,7 @@ export async function GET(
       const result = await client.query(
         `SELECT status FROM event_rsvps
          WHERE event_id = $1 AND user_id = $2`,
-        [params.eventId, userId]
+        [resolvedParams.eventId, userId]
       );
 
       if (result.rows.length === 0) {

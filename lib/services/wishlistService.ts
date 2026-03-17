@@ -1,3 +1,5 @@
+'use server';
+
 import { getUserGroupRole } from '@/lib/db/queries';
 import {
   createWishlistItem,

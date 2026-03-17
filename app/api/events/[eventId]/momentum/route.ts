@@ -3,10 +3,11 @@ import { getEventMomentum } from '@/lib/services/eventService';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { eventId: string } }
+  { params }: { params: Promise<{ eventId: string }> }
 ) {
   try {
-    const result = await getEventMomentum(params.eventId);
+    const resolvedParams = await params;
+    const result = await getEventMomentum(resolvedParams.eventId);
 
     if (!result.success) {
       return NextResponse.json(result, { status: 500 });

@@ -4,9 +4,10 @@ import { getUserIdFromRequest } from '@/lib/api/auth';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { groupId: string } }
+  { params }: { params: Promise<{ groupId: string }> }
 ) {
   try {
+    const resolvedParams = await params;
     // Get user ID from JWT token
     const userId = await getUserIdFromRequest(request);
     if (!userId) {
@@ -43,7 +44,7 @@ export async function GET(
       }
     }
 
-    const result = await getGroupEvents(params.groupId, userId, options);
+    const result = await getGroupEvents(resolvedParams.groupId, userId, options);
 
     if (!result.success) {
       // Return appropriate status code based on error type

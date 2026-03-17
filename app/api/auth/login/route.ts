@@ -103,11 +103,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Handle unexpected errors
+    const err = error as any;
     console.error('Login API error:', {
-      message: error?.message,
-      code: error?.code,
-      name: error?.name,
-      stack: error?.stack,
+      message: err?.message,
+      code: err?.code,
+      name: err?.name,
+      stack: err?.stack,
       fullError: error,
     });
     return NextResponse.json(

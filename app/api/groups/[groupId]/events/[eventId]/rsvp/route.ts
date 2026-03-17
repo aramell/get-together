@@ -11,9 +11,10 @@ type RsvpRequest = z.infer<typeof rsvpSchema>;
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { groupId: string; eventId: string } }
+  { params }: { params: Promise<{ groupId: string; eventId: string }> }
 ) {
   try {
+    const resolvedParams = await params;
     // Extract user ID from header
     const userId = request.headers.get('x-user-id');
     if (!userId) {
@@ -41,7 +42,7 @@ export async function POST(
     }
 
     // Call service function to update RSVP
-    const result = await updateEventRsvp(params.eventId, userId, validatedData.status);
+    const result = await updateEventRsvp(resolvedParams.eventId, userId, validatedData.status);
 
     if (!result.success) {
       // Map error codes to HTTP status codes

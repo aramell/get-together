@@ -8,9 +8,10 @@ const updateThresholdSchema = z.object({
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { groupId: string; eventId: string } }
+  { params }: { params: Promise<{ groupId: string; eventId: string }> }
 ) {
   try {
+    const resolvedParams = await params;
     // Get user ID from header
     const userId = request.headers.get('x-user-id');
     if (!userId) {
@@ -33,7 +34,7 @@ export async function PATCH(
     const newThreshold = validatedBody.threshold !== undefined ? validatedBody.threshold : null;
 
     // Call service function
-    const result = await updateEventThreshold(params.eventId, userId, newThreshold);
+    const result = await updateEventThreshold(resolvedParams.eventId, userId, newThreshold);
 
     if (!result.success) {
       if (result.errorCode === 'FORBIDDEN') {
@@ -57,11 +58,12 @@ export async function PATCH(
 
     // Handle validation errors
     if (error instanceof z.ZodError) {
+      const zodError = error as any;
       return NextResponse.json(
         {
           success: false,
           message: 'Validation error',
-          error: error.errors[0].message,
+          error: zodError.errors[0].message,
           errorCode: 'VALIDATION_ERROR',
         },
         { status: 400 }

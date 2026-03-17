@@ -8,9 +8,10 @@ import { confirmEvent } from '@/lib/services/eventService';
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { groupId: string; eventId: string } }
+  { params }: { params: Promise<{ groupId: string; eventId: string }> }
 ) {
   try {
+    const resolvedParams = await params;
     // Extract user ID from header
     const userId = request.headers.get('x-user-id');
     if (!userId) {
@@ -21,7 +22,7 @@ export async function POST(
     }
 
     // Call service to confirm event (manual confirmation, not auto-confirmed)
-    const result = await confirmEvent(params.eventId, userId, false);
+    const result = await confirmEvent(resolvedParams.eventId, userId, false);
 
     if (!result.success) {
       if (result.errorCode === 'NOT_FOUND') {

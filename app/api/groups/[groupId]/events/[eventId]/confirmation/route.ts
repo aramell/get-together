@@ -8,9 +8,10 @@ import { getUserGroupRole } from '@/lib/db/queries';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { groupId: string; eventId: string } }
+  { params }: { params: Promise<{ groupId: string; eventId: string }> }
 ) {
   try {
+    const resolvedParams = await params;
     // Extract user ID from header
     const userId = request.headers.get('x-user-id');
     if (!userId) {
@@ -21,7 +22,7 @@ export async function GET(
     }
 
     // Verify user is a member of the group
-    const userRole = await getUserGroupRole(params.groupId, userId);
+    const userRole = await getUserGroupRole(resolvedParams.groupId, userId);
     if (!userRole) {
       return NextResponse.json(
         { success: false, message: 'You must be a group member to view event details' },
@@ -29,7 +30,7 @@ export async function GET(
       );
     }
 
-    const result = await getEventConfirmationStatus(params.eventId);
+    const result = await getEventConfirmationStatus(resolvedParams.eventId);
 
     if (!result.success) {
       if (result.errorCode === 'NOT_FOUND') {
