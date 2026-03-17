@@ -3,6 +3,8 @@ import {
   getWishlistItemsService,
   getWishlistItemService,
   deleteWishlistItemService,
+  markInterestService,
+  unmarkInterestService,
 } from '@/lib/services/wishlistService';
 import * as db from '@/lib/db/queries';
 import { ZodError } from 'zod';
@@ -15,6 +17,10 @@ jest.mock('@/lib/db/queries', () => ({
   getWishlistItemCount: jest.fn(),
   getWishlistItemById: jest.fn(),
   softDeleteWishlistItem: jest.fn(),
+  markInterest: jest.fn(),
+  unmarkInterest: jest.fn(),
+  getInterestCount: jest.fn(),
+  getUserInterestStatus: jest.fn(),
 }));
 
 describe('wishlistService', () => {
@@ -361,5 +367,141 @@ describe('wishlistService - Edge Cases', () => {
     // Test max bound
     await getWishlistItemsService(mockGroupId, mockUserId, 500, 0);
     expect(db.getWishlistItems).toHaveBeenCalledWith(mockGroupId, 100, 0);
+  });
+
+  describe('markInterestService', () => {
+    it('should mark interest on a wishlist item successfully', async () => {
+      const mockItem = {
+        id: mockItemId,
+        group_id: mockGroupId,
+        created_by: 'user-123',
+        title: 'Concert Tickets',
+        description: 'Summer concerts',
+        link: 'https://ticketmaster.com',
+        created_at: '2026-03-16T10:00:00Z',
+        updated_at: '2026-03-16T10:00:00Z',
+      };
+
+      (db.getWishlistItemById as jest.Mock).mockResolvedValue(mockItem);
+      (db.getUserGroupRole as jest.Mock).mockResolvedValue('member');
+      (db.markInterest as jest.Mock).mockResolvedValue({ id: 'interest-123' });
+      (db.getInterestCount as jest.Mock).mockResolvedValue(5);
+
+      const result = await markInterestService(mockItemId, mockUserId, mockGroupId);
+
+      expect(result.success).toBe(true);
+      expect(result.data?.interest_count).toBe(5);
+      expect(db.markInterest).toHaveBeenCalledWith(mockItemId, mockUserId);
+    });
+
+    it('should return 403 if user is not a group member', async () => {
+      const mockItem = {
+        id: mockItemId,
+        group_id: mockGroupId,
+        created_by: 'user-123',
+        title: 'Concert Tickets',
+        description: 'Summer concerts',
+        link: 'https://ticketmaster.com',
+        created_at: '2026-03-16T10:00:00Z',
+        updated_at: '2026-03-16T10:00:00Z',
+      };
+
+      (db.getWishlistItemById as jest.Mock).mockResolvedValue(mockItem);
+      (db.getUserGroupRole as jest.Mock).mockResolvedValue(null);
+
+      const result = await markInterestService(mockItemId, mockUserId, mockGroupId);
+
+      expect(result.success).toBe(false);
+      expect(result.errorCode).toBe('FORBIDDEN');
+    });
+
+    it('should return 404 if item not found', async () => {
+      (db.getWishlistItemById as jest.Mock).mockResolvedValue(null);
+
+      const result = await markInterestService(mockItemId, mockUserId, mockGroupId);
+
+      expect(result.success).toBe(false);
+      expect(result.errorCode).toBe('NOT_FOUND');
+    });
+
+    it('should return 409 if user already interested', async () => {
+      const mockItem = {
+        id: mockItemId,
+        group_id: mockGroupId,
+        created_by: 'user-123',
+        title: 'Concert Tickets',
+        description: 'Summer concerts',
+        link: 'https://ticketmaster.com',
+        created_at: '2026-03-16T10:00:00Z',
+        updated_at: '2026-03-16T10:00:00Z',
+      };
+
+      (db.getWishlistItemById as jest.Mock).mockResolvedValue(mockItem);
+      (db.getUserGroupRole as jest.Mock).mockResolvedValue('member');
+      (db.markInterest as jest.Mock).mockRejectedValue(
+        new Error('duplicate key value violates unique constraint')
+      );
+
+      const result = await markInterestService(mockItemId, mockUserId, mockGroupId);
+
+      expect(result.success).toBe(false);
+      expect(result.errorCode).toBe('INTERNAL_ERROR');
+    });
+  });
+
+  describe('unmarkInterestService', () => {
+    it('should unmark interest on a wishlist item successfully', async () => {
+      const mockItem = {
+        id: mockItemId,
+        group_id: mockGroupId,
+        created_by: 'user-123',
+        title: 'Concert Tickets',
+        description: 'Summer concerts',
+        link: 'https://ticketmaster.com',
+        created_at: '2026-03-16T10:00:00Z',
+        updated_at: '2026-03-16T10:00:00Z',
+      };
+
+      (db.getWishlistItemById as jest.Mock).mockResolvedValue(mockItem);
+      (db.getUserGroupRole as jest.Mock).mockResolvedValue('member');
+      (db.unmarkInterest as jest.Mock).mockResolvedValue(undefined);
+      (db.getInterestCount as jest.Mock).mockResolvedValue(4);
+
+      const result = await unmarkInterestService(mockItemId, mockUserId, mockGroupId);
+
+      expect(result.success).toBe(true);
+      expect(result.data?.interest_count).toBe(4);
+      expect(db.unmarkInterest).toHaveBeenCalledWith(mockItemId, mockUserId);
+    });
+
+    it('should return 403 if user is not a group member', async () => {
+      const mockItem = {
+        id: mockItemId,
+        group_id: mockGroupId,
+        created_by: 'user-123',
+        title: 'Concert Tickets',
+        description: 'Summer concerts',
+        link: 'https://ticketmaster.com',
+        created_at: '2026-03-16T10:00:00Z',
+        updated_at: '2026-03-16T10:00:00Z',
+      };
+
+      (db.getWishlistItemById as jest.Mock).mockResolvedValue(mockItem);
+      (db.getUserGroupRole as jest.Mock).mockResolvedValue(null);
+
+      const result = await unmarkInterestService(mockItemId, mockUserId, mockGroupId);
+
+      expect(result.success).toBe(false);
+      expect(result.errorCode).toBe('FORBIDDEN');
+    });
+
+    it('should return 404 if item not found', async () => {
+      (db.getWishlistItemById as jest.Mock).mockResolvedValue(null);
+
+      const result = await unmarkInterestService(mockItemId, mockUserId, mockGroupId);
+
+      expect(result.success).toBe(false);
+      expect(result.errorCode).toBe('NOT_FOUND');
+    });
   });
 });
