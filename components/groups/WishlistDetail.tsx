@@ -36,6 +36,8 @@ export function WishlistDetail({ isOpen, onClose, itemId, groupId }: WishlistDet
   const [item, setItem] = useState<WishlistItemResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isMarkingInterest, setIsMarkingInterest] = useState(false);
+  const [interestError, setInterestError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen || !itemId) return;
@@ -72,6 +74,50 @@ export function WishlistDetail({ isOpen, onClose, itemId, groupId }: WishlistDet
 
     fetchItem();
   }, [isOpen, itemId, groupId]);
+
+  const handleToggleInterest = async () => {
+    if (!item) return;
+
+    setIsMarkingInterest(true);
+    setInterestError(null);
+
+    try {
+      const method = item.user_is_interested ? 'DELETE' : 'POST';
+      const response = await fetch(
+        `/api/groups/${groupId}/wishlist/${itemId}/interest`,
+        { method }
+      );
+
+      if (!response.ok) {
+        if (response.status === 403) {
+          throw new Error('You do not have permission to mark interest');
+        } else if (response.status === 404) {
+          throw new Error('Item not found');
+        } else if (response.status === 409) {
+          throw new Error('You have already marked interest on this item');
+        } else {
+          throw new Error('Failed to update interest status');
+        }
+      }
+
+      const data = await response.json();
+      if (data.success && data.data) {
+        // Update local state optimistically
+        setItem({
+          ...item,
+          interest_count: data.data.interest_count,
+          user_is_interested: !item.user_is_interested,
+        });
+      } else {
+        throw new Error(data.message || 'Failed to update interest');
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred';
+      setInterestError(errorMessage);
+    } finally {
+      setIsMarkingInterest(false);
+    }
+  };
 
   if (!item && !error && !isLoading) {
     return null;
@@ -169,15 +215,26 @@ export function WishlistDetail({ isOpen, onClose, itemId, groupId }: WishlistDet
                 </Box>
               )}
 
-              {/* Interest Count Placeholder */}
+              {/* Interest Count & Error */}
+              {interestError && (
+                <Alert status="warning" borderRadius="md">
+                  <AlertIcon />
+                  {interestError}
+                </Alert>
+              )}
               <Box>
                 <HStack spacing={2}>
-                  <Badge colorScheme="purple" variant="subtle">
-                    0 interested
+                  <Badge
+                    colorScheme={item.user_is_interested ? 'green' : 'purple'}
+                    variant="subtle"
+                  >
+                    {item.interest_count ?? 0} interested
                   </Badge>
-                  <Text fontSize="xs" color="gray.600">
-                    (Coming in Story 5.3)
-                  </Text>
+                  {item.user_is_interested && (
+                    <Badge colorScheme="green" variant="solid">
+                      You're interested
+                    </Badge>
+                  )}
                 </HStack>
               </Box>
             </VStack>
@@ -189,8 +246,19 @@ export function WishlistDetail({ isOpen, onClose, itemId, groupId }: WishlistDet
             <Button variant="ghost" onClick={onClose} minH="48px">
               Close
             </Button>
-            <Button colorScheme="blue" isDisabled minH="48px">
-              Mark Interested (Coming Soon)
+            <Button
+              colorScheme={item?.user_is_interested ? 'red' : 'blue'}
+              onClick={handleToggleInterest}
+              isLoading={isMarkingInterest}
+              minH="48px"
+              aria-label={
+                item?.user_is_interested
+                  ? 'Unmark interest on this item'
+                  : 'Mark interest on this item'
+              }
+              aria-pressed={item?.user_is_interested}
+            >
+              {item?.user_is_interested ? 'Unmark Interest' : 'Mark Interest'}
             </Button>
             <Button colorScheme="teal" isDisabled minH="48px">
               Convert to Event (Coming Soon)

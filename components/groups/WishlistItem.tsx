@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { format } from 'date-fns';
-import { Box, Text, Link, HStack, VStack, Avatar } from '@chakra-ui/react';
+import { Box, Text, Link, HStack, VStack, Avatar, Badge } from '@chakra-ui/react';
 
 interface WishlistItemProps {
   id: string;
@@ -14,6 +14,8 @@ interface WishlistItemProps {
   created_at: string;
   onClick?: () => void;
   isNew?: boolean;
+  interest_count?: number;
+  user_is_interested?: boolean;
 }
 
 export function WishlistItem({
@@ -26,6 +28,8 @@ export function WishlistItem({
   created_at,
   onClick,
   isNew = false,
+  interest_count = 0,
+  user_is_interested = false,
 }: WishlistItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -138,14 +142,19 @@ export function WishlistItem({
           </Link>
         )}
 
-        {/* Interest Count Placeholder */}
+        {/* Interest Count */}
         <HStack spacing={2}>
-          <Text fontSize="xs" color="gray.600">
-            0 interested
-          </Text>
-          <Text fontSize="xs" color="gray.500">
-            (Coming in Story 5.3)
-          </Text>
+          <Badge
+            colorScheme={user_is_interested ? 'green' : 'purple'}
+            variant="subtle"
+          >
+            {interest_count} interested
+          </Badge>
+          {user_is_interested && (
+            <Badge colorScheme="green" variant="solid" fontSize="xs">
+              You're interested
+            </Badge>
+          )}
         </HStack>
       </VStack>
     </Box>

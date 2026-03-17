@@ -185,6 +185,8 @@ export function WishlistList({ groupId }: WishlistListProps) {
                   created_at={item.created_at}
                   onClick={() => handleItemClick(item.id)}
                   isNew={newItemIds.has(item.id)}
+                  interest_count={item.interest_count}
+                  user_is_interested={item.user_is_interested}
                 />
               </div>
             ))}
