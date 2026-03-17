@@ -28,21 +28,49 @@ export function WishlistList({ groupId }: WishlistListProps) {
   const [error, setError] = useState<string | null>(null);
   const [lastFetchTime, setLastFetchTime] = useState<string>(new Date().toISOString());
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [offset, setOffset] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [newItemIds, setNewItemIds] = useState<Set<string>>(new Set());
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch wishlist items
-  const fetchItems = async (pollMode = false) => {
+  const fetchItems = async (pollMode = false, append = false) => {
     try {
-      const response = await fetch(`/api/groups/${groupId}/wishlist?limit=50&offset=0`);
+      const currentOffset = append ? offset : 0;
+      const response = await fetch(`/api/groups/${groupId}/wishlist?limit=20&offset=${currentOffset}`);
 
       if (!response.ok) {
         throw new Error('Failed to fetch wishlist items');
       }
 
-      const data: WishlistListResponse = await response.json();
+      const data = await response.json();
 
-      if (data.items) {
-        setItems(data.items);
+      if (data.success && data.data?.items) {
+        const responseData = data.data;
+        if (append) {
+          // When loading more, detect new items added by polling
+          const oldItemIds = new Set(items.map((item) => item.id));
+          const newIds = responseData.items.filter((item: WishlistItemResponse) => !oldItemIds.has(item.id)).map((item: WishlistItemResponse) => item.id);
+          if (newIds.length > 0) {
+            setNewItemIds(new Set(newIds));
+          }
+          setItems([...items, ...responseData.items]);
+          setOffset(currentOffset + responseData.items.length);
+        } else {
+          // Reset and set new items for initial/polling loads
+          if (pollMode) {
+            const oldItemIds = new Set(items.map((item) => item.id));
+            const newIds = responseData.items.filter((item: WishlistItemResponse) => !oldItemIds.has(item.id)).map((item: WishlistItemResponse) => item.id);
+            if (newIds.length > 0) {
+              setNewItemIds(new Set(newIds));
+              // Clear highlight after 3 seconds
+              setTimeout(() => setNewItemIds(new Set()), 3000);
+            }
+          }
+          setItems(responseData.items);
+          setOffset(20);
+        }
+        setTotal(responseData.total);
         setError(null);
 
         if (!pollMode) {
@@ -120,7 +148,7 @@ export function WishlistList({ groupId }: WishlistListProps) {
         <Text color="red.500" mb={4}>
           {error}
         </Text>
-        <Button onClick={() => fetchItems(false)} colorScheme="blue">
+        <Button onClick={() => fetchItems(false)} colorScheme="blue" minH="48px">
           Retry
         </Button>
       </Box>
@@ -129,11 +157,11 @@ export function WishlistList({ groupId }: WishlistListProps) {
 
   return (
     <VStack spacing={4} align="stretch">
-      <HStack justify="space-between">
+      <HStack justify="space-between" mb={2}>
         <Text fontSize="lg" fontWeight="600">
           Wishlist
         </Text>
-        <Button colorScheme="blue" size="sm" onClick={onOpen}>
+        <Button colorScheme="blue" size="md" onClick={onOpen} minH="48px">
           + Add Item
         </Button>
       </HStack>
@@ -143,21 +171,32 @@ export function WishlistList({ groupId }: WishlistListProps) {
           <Text>No items yet. Add something to get started!</Text>
         </Box>
       ) : (
-        <VStack spacing={3} align="stretch">
-          {items.map((item) => (
-            <WishlistItem
-              key={item.id}
-              id={item.id}
-              title={item.title}
-              description={item.description}
-              link={item.link}
-              creator_name={item.creator_name}
-              creator_email={item.creator_email}
-              created_at={item.created_at}
-              onClick={() => handleItemClick(item.id)}
-            />
-          ))}
-        </VStack>
+        <>
+          <VStack spacing={3} align="stretch" role="list">
+            {items.map((item) => (
+              <div key={item.id} role="listitem">
+                <WishlistItem
+                  id={item.id}
+                  title={item.title}
+                  description={item.description}
+                  link={item.link}
+                  creator_name={item.creator_name}
+                  creator_email={item.creator_email}
+                  created_at={item.created_at}
+                  onClick={() => handleItemClick(item.id)}
+                  isNew={newItemIds.has(item.id)}
+                />
+              </div>
+            ))}
+          </VStack>
+          {offset < total && (
+            <Box mt={6}>
+              <Button colorScheme="blue" variant="outline" width="full" onClick={() => fetchItems(false, true)} minH="48px">
+                Load More Items
+              </Button>
+            </Box>
+          )}
+        </>
       )}
 
       <WishlistAddModal

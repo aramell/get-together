@@ -13,6 +13,7 @@ interface WishlistItemProps {
   creator_email?: string;
   created_at: string;
   onClick?: () => void;
+  isNew?: boolean;
 }
 
 export function WishlistItem({
@@ -24,6 +25,7 @@ export function WishlistItem({
   creator_email,
   created_at,
   onClick,
+  isNew = false,
 }: WishlistItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -46,25 +48,25 @@ export function WishlistItem({
       p={4}
       borderWidth="1px"
       borderRadius="md"
-      borderColor="gray.200"
-      bg="white"
-      _hover={{ shadow: 'md', bg: 'gray.50' }}
-      transition="all 0.2s"
+      borderColor={isNew ? 'green.300' : 'gray.200'}
+      bg={isNew ? 'green.50' : 'white'}
+      _hover={{ shadow: 'md', bg: isNew ? 'green.100' : 'gray.50' }}
+      transition="all 0.3s"
       cursor={onClick ? 'pointer' : 'default'}
       onClick={onClick}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
       onKeyDown={onClick ? (e) => e.key === 'Enter' && onClick() : undefined}
-      aria-label={`Wishlist item: ${title}`}
+      aria-label={`Wishlist item: ${title}${isNew ? ' (newly added)' : ''}`}
     >
       <VStack align="stretch" spacing={3}>
         {/* Header with title and creator */}
-        <HStack justify="space-between">
-          <Text fontSize="lg" fontWeight="600" noOfLines={1}>
+        <HStack justify="space-between" spacing={4}>
+          <Text fontSize="lg" fontWeight="600" noOfLines={1} flex={1}>
             {title}
           </Text>
           <Avatar
-            size="sm"
+            size="md"
             name={creator_name || creator_email || 'Unknown'}
             getInitials={() => initials}
             title={`${creator_name || creator_email}`}
@@ -85,7 +87,15 @@ export function WishlistItem({
               fontSize="sm"
               color="gray.700"
               onClick={() => setIsExpanded(!isExpanded)}
+              onKeyDown={(e) => {
+                if (description && description.length > 100 && (e.key === 'Enter' || e.key === ' ')) {
+                  e.preventDefault();
+                  setIsExpanded(!isExpanded);
+                }
+              }}
               cursor={description && description.length > 100 ? 'pointer' : undefined}
+              role={description && description.length > 100 ? 'button' : undefined}
+              tabIndex={description && description.length > 100 ? 0 : undefined}
             >
               {isExpanded ? description : displayDescription}
             </Text>
@@ -96,6 +106,14 @@ export function WishlistItem({
                 cursor="pointer"
                 mt={1}
                 onClick={() => setIsExpanded(!isExpanded)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setIsExpanded(!isExpanded);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
               >
                 {isExpanded ? 'Show less' : 'Show more'}
               </Text>
@@ -112,10 +130,23 @@ export function WishlistItem({
             color="blue.500"
             fontSize="sm"
             isExternal
+            minH="48px"
+            display="flex"
+            alignItems="center"
           >
             {link.replace(/^https?:\/\//, '').split('/')[0]}
           </Link>
         )}
+
+        {/* Interest Count Placeholder */}
+        <HStack spacing={2}>
+          <Text fontSize="xs" color="gray.600">
+            0 interested
+          </Text>
+          <Text fontSize="xs" color="gray.500">
+            (Coming in Story 5.3)
+          </Text>
+        </HStack>
       </VStack>
     </Box>
   );

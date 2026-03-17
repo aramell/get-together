@@ -89,7 +89,7 @@ export function WishlistDetail({ isOpen, onClose, itemId, groupId }: WishlistDet
     <Modal isOpen={isOpen} onClose={onClose} size="lg" scrollBehavior="inside">
       <ModalOverlay />
       <ModalContent>
-        <ModalHeader>Wishlist Item Details</ModalHeader>
+        <ModalHeader aria-label="Wishlist Item Details">Wishlist Item Details</ModalHeader>
         <ModalCloseButton />
         <ModalBody>
           {isLoading ? (
@@ -186,13 +186,13 @@ export function WishlistDetail({ isOpen, onClose, itemId, groupId }: WishlistDet
 
         <ModalFooter>
           <HStack spacing={3}>
-            <Button variant="ghost" onClick={onClose}>
+            <Button variant="ghost" onClick={onClose} minH="48px">
               Close
             </Button>
-            <Button colorScheme="blue" isDisabled>
+            <Button colorScheme="blue" isDisabled minH="48px">
               Mark Interested (Coming Soon)
             </Button>
-            <Button colorScheme="teal" isDisabled>
+            <Button colorScheme="teal" isDisabled minH="48px">
               Convert to Event (Coming Soon)
             </Button>
           </HStack>

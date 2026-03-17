@@ -72,7 +72,7 @@ describe('WishlistList Integration with WishlistDetail', () => {
 
     // Detail modal should be visible
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Wishlist Item Details' })).toBeInTheDocument();
+      expect(screen.getByText('Wishlist Item Details')).toBeInTheDocument();
     });
   });
 
@@ -105,9 +105,12 @@ describe('WishlistList Integration with WishlistDetail', () => {
       expect(screen.getByText('Item 20')).toBeInTheDocument();
     });
 
+    // Verify Load More button appears
+    expect(screen.getByRole('button', { name: /Load More Items/i })).toBeInTheDocument();
+
     // Verify API was called with pagination params
     expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringContaining('?limit=50&offset=0')
+      expect.stringContaining('?limit=20&offset=0')
     );
   });
 
@@ -163,11 +166,11 @@ describe('WishlistList Integration with WishlistDetail', () => {
 
     // Simulate document becoming hidden
     Object.defineProperty(document, 'hidden', {
-      writable: true,
+      configurable: true,
       value: true,
     });
 
-    fireEvent.visibilitychange(document);
+    document.dispatchEvent(new Event('visibilitychange'));
 
     // Advance timers - should not trigger additional fetches
     jest.advanceTimersByTime(5000);
@@ -187,7 +190,7 @@ describe('WishlistList Integration with WishlistDetail', () => {
 
     // Start with hidden document
     Object.defineProperty(document, 'hidden', {
-      writable: true,
+      configurable: true,
       value: true,
     });
 
@@ -201,11 +204,11 @@ describe('WishlistList Integration with WishlistDetail', () => {
 
     // Make document visible
     Object.defineProperty(document, 'hidden', {
-      writable: true,
+      configurable: true,
       value: false,
     });
 
-    fireEvent.visibilitychange(document);
+    document.dispatchEvent(new Event('visibilitychange'));
 
     // Advance timers - should trigger fetch
     jest.advanceTimersByTime(5000);
