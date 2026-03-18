@@ -32,8 +32,7 @@ describe('POST /api/groups/[groupId]/wishlist/[itemId]/interest', () => {
     expect(response.status).toBe(200);
     expect(wishlistService.markInterestService).toHaveBeenCalledWith(
       mockItemId,
-      mockUserId,
-      mockGroupId
+      mockUserId
     );
   });
 
@@ -148,8 +147,7 @@ describe('DELETE /api/groups/[groupId]/wishlist/[itemId]/interest', () => {
     expect(response.status).toBe(200);
     expect(wishlistService.unmarkInterestService).toHaveBeenCalledWith(
       mockItemId,
-      mockUserId,
-      mockGroupId
+      mockUserId
     );
   });
 

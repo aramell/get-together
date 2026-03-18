@@ -27,7 +27,7 @@ export async function POST(
     }
 
     // Mark interest on the item
-    const result = await markInterestService(resolvedParams.itemId, userId, resolvedParams.groupId);
+    const result = await markInterestService(resolvedParams.itemId, userId);
 
     if (!result.success) {
       const statusCode =
@@ -81,7 +81,7 @@ export async function DELETE(
     }
 
     // Unmark interest on the item
-    const result = await unmarkInterestService(resolvedParams.itemId, userId, resolvedParams.groupId);
+    const result = await unmarkInterestService(resolvedParams.itemId, userId);
 
     if (!result.success) {
       const statusCode =

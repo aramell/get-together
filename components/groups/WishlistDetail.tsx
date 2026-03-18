@@ -22,8 +22,11 @@ import {
   AlertIcon,
   Badge,
   Divider,
+  Tooltip,
 } from '@chakra-ui/react';
 import type { WishlistItemResponse } from '@/lib/validation/wishlistSchema';
+import { ConvertToEventModal } from './ConvertToEventModal';
+import { CommentSection } from '@/components/wishlist/CommentSection';
 
 interface WishlistDetailProps {
   isOpen: boolean;
@@ -38,9 +41,49 @@ export function WishlistDetail({ isOpen, onClose, itemId, groupId }: WishlistDet
   const [error, setError] = useState<string | null>(null);
   const [isMarkingInterest, setIsMarkingInterest] = useState(false);
   const [interestError, setInterestError] = useState<string | null>(null);
+  const [isConvertModalOpen, setIsConvertModalOpen] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<'admin' | 'member' | null>(null);
+  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
 
+  // Get user ID from localStorage (populated by AuthContext)
   useEffect(() => {
-    if (!isOpen || !itemId) return;
+    const storedUserId = localStorage.getItem('userId');
+    if (storedUserId) {
+      setUserId(storedUserId);
+    }
+  }, []);
+
+  // Fetch user's group role for authorization checks
+  useEffect(() => {
+    if (!isOpen || !groupId) {
+      return;
+    }
+
+    const fetchUserRole = async () => {
+      try {
+        const response = await fetch(`/api/groups/${groupId}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.data?.currentUserRole) {
+            setUserRole(data.data.currentUserRole);
+          }
+        }
+      } catch (err) {
+        // Silently fail - authorization check will use backend validation
+        console.error('Failed to fetch user role:', err);
+      }
+    };
+
+    fetchUserRole();
+  }, [isOpen, groupId]);
+
+  // Fetch item details and set up polling
+  useEffect(() => {
+    if (!isOpen || !itemId) {
+      if (pollingInterval) clearInterval(pollingInterval);
+      return;
+    }
 
     const fetchItem = async () => {
       setIsLoading(true);
@@ -72,8 +115,24 @@ export function WishlistDetail({ isOpen, onClose, itemId, groupId }: WishlistDet
       }
     };
 
+    // Initial fetch
     fetchItem();
+
+    // Set up polling for real-time updates (check for conversion)
+    const interval = setInterval(fetchItem, 5000);
+    setPollingInterval(interval);
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, [isOpen, itemId, groupId]);
+
+  // Clean up polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingInterval) clearInterval(pollingInterval);
+    };
+  }, [pollingInterval]);
 
   const handleToggleInterest = async () => {
     if (!item) return;
@@ -102,14 +161,16 @@ export function WishlistDetail({ isOpen, onClose, itemId, groupId }: WishlistDet
 
       const data = await response.json();
       if (data.success && data.data) {
-        // Update local state optimistically
+        // Update local state with confirmed interest count from server
         setItem({
           ...item,
           interest_count: data.data.interest_count,
           user_is_interested: !item.user_is_interested,
         });
       } else {
-        throw new Error(data.message || 'Failed to update interest');
+        // Provide specific error message based on response
+        const errorMessage = data.message || data.error || 'Failed to update interest';
+        throw new Error(errorMessage);
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred';
@@ -237,6 +298,23 @@ export function WishlistDetail({ isOpen, onClose, itemId, groupId }: WishlistDet
                   )}
                 </HStack>
               </Box>
+
+              {/* Conversion Status Indicator */}
+              {item.item_to_event_id && (
+                <Alert status="info" borderRadius="md">
+                  <AlertIcon />
+                  <VStack align="flex-start" spacing={0}>
+                    <Text fontWeight="600">Converted to Event</Text>
+                    <Text fontSize="sm">
+                      This item has been converted to an event proposal. Click the event
+                      link in the button below to view it.
+                    </Text>
+                  </VStack>
+                </Alert>
+              )}
+
+              {/* Comments Section */}
+              <CommentSection groupId={groupId} itemId={itemId} />
             </VStack>
           ) : null}
         </ModalBody>
@@ -260,11 +338,64 @@ export function WishlistDetail({ isOpen, onClose, itemId, groupId }: WishlistDet
             >
               {item?.user_is_interested ? 'Unmark Interest' : 'Mark Interest'}
             </Button>
-            <Button colorScheme="teal" isDisabled minH="48px">
-              Convert to Event (Coming Soon)
-            </Button>
+
+            {/* Convert to Event Button */}
+            {item?.item_to_event_id ? (
+              <Button
+                colorScheme="teal"
+                isDisabled
+                minH="48px"
+                title="This item has already been converted to an event"
+              >
+                Already Converted
+              </Button>
+            ) : userId && item && (userId === item.created_by || userRole === 'admin') ? (
+              <Button
+                colorScheme="teal"
+                onClick={() => setIsConvertModalOpen(true)}
+                minH="48px"
+                aria-label="Convert this wishlist item to an event"
+              >
+                Convert to Event
+              </Button>
+            ) : (
+              <Tooltip label="Only the item creator or group admin can convert this">
+                <Button colorScheme="teal" isDisabled minH="48px">
+                  Convert to Event
+                </Button>
+              </Tooltip>
+            )}
           </HStack>
         </ModalFooter>
+
+        {/* Convert to Event Modal */}
+        {item && (
+          <ConvertToEventModal
+            isOpen={isConvertModalOpen}
+            onClose={() => setIsConvertModalOpen(false)}
+            groupId={groupId}
+            itemId={itemId}
+            item={item}
+            onSuccess={() => {
+              setIsConvertModalOpen(false);
+              // Refresh the item to show conversion status
+              const fetchItem = async () => {
+                try {
+                  const response = await fetch(`/api/groups/${groupId}/wishlist/${itemId}`);
+                  if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.data) {
+                      setItem(data.data);
+                    }
+                  }
+                } catch (err) {
+                  console.error('Failed to refresh item:', err);
+                }
+              };
+              fetchItem();
+            }}
+          />
+        )}
       </ModalContent>
     </Modal>
   );

@@ -25,6 +25,7 @@ import {
 } from '@chakra-ui/react';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { EventWithMomentum } from './EventList';
+import { EventCommentSection } from './EventCommentSection';
 
 interface EventDetailProps {
   groupId: string;
@@ -192,6 +193,17 @@ export const EventDetail: React.FC<EventDetailProps> = ({ groupId, eventId }) =>
               </Button>
             </HStack>
           </VStack>
+        </CardBody>
+      </Card>
+
+      {/* Comments Section */}
+      <Card>
+        <CardBody>
+          <EventCommentSection
+            eventId={eventId}
+            groupId={groupId}
+            initialComments={event.comments || []}
+          />
         </CardBody>
       </Card>
 

@@ -948,3 +948,107 @@ export async function getUserInterestStatus(itemId: string, userId: string): Pro
   );
   return result?.is_interested ?? false;
 }
+
+// ============================================================================
+// Wishlist Comments (Story 6-2: Add Comments to Wishlist Items)
+// ============================================================================
+
+/**
+ * Create a comment on a wishlist item
+ */
+export async function createWishlistComment(
+  itemId: string,
+  groupId: string,
+  userId: string,
+  content: string
+): Promise<{
+  id: string;
+  wishlist_item_id: string;
+  group_id: string;
+  created_by: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}> {
+  const result = await queryOne(
+    `INSERT INTO wishlist_comments (wishlist_item_id, group_id, created_by, content)
+     VALUES ($1, $2, $3, $4)
+     RETURNING id, wishlist_item_id, group_id, created_by, content, created_at, updated_at, deleted_at`,
+    [itemId, groupId, userId, content]
+  );
+
+  if (!result) {
+    throw new Error('Failed to create wishlist comment');
+  }
+
+  return result;
+}
+
+/**
+ * Get all comments for a wishlist item with pagination
+ */
+export async function getWishlistComments(
+  itemId: string,
+  limit: number = 50,
+  offset: number = 0
+): Promise<{
+  comments: Array<{
+    id: string;
+    wishlist_item_id: string;
+    created_by: string;
+    content: string;
+    created_at: string;
+    updated_at: string;
+    display_name: string | null;
+    avatar_url: string | null;
+  }>;
+  totalCount: number;
+}> {
+  const comments = await query(
+    `SELECT
+       c.id, c.wishlist_item_id, c.created_by, c.content, c.created_at, c.updated_at,
+       u.display_name, u.avatar_url
+     FROM wishlist_comments c
+     LEFT JOIN users u ON c.created_by = u.id
+     WHERE c.wishlist_item_id = $1 AND c.deleted_at IS NULL
+     ORDER BY c.created_at ASC
+     LIMIT $2 OFFSET $3`,
+    [itemId, limit, offset]
+  );
+
+  const countResult = await queryOne(
+    `SELECT COUNT(*) as count FROM wishlist_comments
+     WHERE wishlist_item_id = $1 AND deleted_at IS NULL`,
+    [itemId]
+  );
+
+  const totalCount = countResult ? parseInt(countResult.count, 10) : 0;
+
+  return {
+    comments: comments || [],
+    totalCount,
+  };
+}
+
+/**
+ * Get comment count for a wishlist item
+ */
+export async function getWishlistCommentCount(itemId: string): Promise<number> {
+  const result = await queryOne(
+    `SELECT COUNT(*) as count FROM wishlist_comments
+     WHERE wishlist_item_id = $1 AND deleted_at IS NULL`,
+    [itemId]
+  );
+  return result ? parseInt(result.count, 10) : 0;
+}
+
+/**
+ * Soft delete a wishlist comment
+ */
+export async function deleteWishlistComment(commentId: string): Promise<void> {
+  await query(
+    `UPDATE wishlist_comments SET deleted_at = NOW() WHERE id = $1`,
+    [commentId]
+  );
+}

@@ -928,3 +928,245 @@ export async function cancelEvent(
     client.release();
   }
 }
+
+/**
+ * Get all comments for an event
+ * Returns comments in chronological order (oldest first) with creator user info
+ * Filters out soft-deleted comments (deleted_at IS NULL)
+ */
+export async function getEventComments(
+  eventId: string,
+  groupId: string
+): Promise<{
+  success: boolean;
+  data?: Array<{
+    id: string;
+    content: string;
+    created_by: string;
+    created_at: string;
+    creator?: {
+      display_name?: string;
+      email?: string;
+      avatar_url?: string;
+    };
+  }>;
+  error?: string;
+  errorCode?: string;
+}> {
+  const client = await getClient();
+
+  try {
+    // Verify event exists and belongs to group
+    const eventResult = await client.query(
+      'SELECT id FROM event_proposals WHERE id = $1 AND group_id = $2 AND deleted_at IS NULL',
+      [eventId, groupId]
+    );
+
+    if (eventResult.rows.length === 0) {
+      return {
+        success: false,
+        error: 'Event not found',
+        errorCode: 'NOT_FOUND',
+      };
+    }
+
+    // Get comments with creator info
+    const result = await client.query(
+      `SELECT
+        ec.id,
+        ec.content,
+        ec.created_by,
+        ec.created_at,
+        u.display_name,
+        u.email,
+        u.avatar_url
+       FROM event_comments ec
+       LEFT JOIN users u ON ec.created_by = u.sub
+       WHERE ec.event_id = $1 AND ec.deleted_at IS NULL
+       ORDER BY ec.created_at ASC`,
+      [eventId]
+    );
+
+    const comments = result.rows.map((row: any) => ({
+      id: row.id,
+      content: row.content,
+      created_by: row.created_by,
+      created_at: row.created_at,
+      creator: {
+        display_name: row.display_name,
+        email: row.email,
+        avatar_url: row.avatar_url,
+      },
+    }));
+
+    return {
+      success: true,
+      data: comments,
+    };
+  } catch (error: any) {
+    console.error('Error getting event comments:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to get event comments',
+      errorCode: 'INTERNAL_ERROR',
+    };
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Add a comment to an event
+ * Validates user is group member and event exists
+ * Uses transaction handling for atomicity
+ */
+export async function addEventComment(
+  eventId: string,
+  groupId: string,
+  userId: string,
+  content: string
+): Promise<{
+  success: boolean;
+  message: string;
+  data?: {
+    id: string;
+    content: string;
+    created_by: string;
+    created_at: string;
+    creator?: {
+      display_name?: string;
+      email?: string;
+      avatar_url?: string;
+    };
+  };
+  error?: string;
+  errorCode?: string;
+}> {
+  const client = await getClient();
+
+  try {
+    // Validate content length
+    if (!content || content.trim().length === 0 || content.length > 2000) {
+      return {
+        success: false,
+        message: 'Comment must be between 1 and 2000 characters',
+        error: 'INVALID_COMMENT',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    // Verify event exists and belongs to group
+    const eventResult = await client.query(
+      'SELECT id FROM event_proposals WHERE id = $1 AND group_id = $2 AND deleted_at IS NULL',
+      [eventId, groupId]
+    );
+
+    if (eventResult.rows.length === 0) {
+      return {
+        success: false,
+        message: 'Event not found',
+        error: 'EVENT_NOT_FOUND',
+        errorCode: 'NOT_FOUND',
+      };
+    }
+
+    // Verify user is group member
+    const memberResult = await client.query(
+      'SELECT id FROM group_memberships WHERE group_id = $1 AND user_id = $2',
+      [groupId, userId]
+    );
+
+    if (memberResult.rows.length === 0) {
+      return {
+        success: false,
+        message: 'You must be a group member to comment on events',
+        error: 'NOT_GROUP_MEMBER',
+        errorCode: 'FORBIDDEN',
+      };
+    }
+
+    // Begin transaction
+    await client.query('BEGIN');
+
+    try {
+      // Insert comment
+      const insertResult = await client.query(
+        `INSERT INTO event_comments (event_id, group_id, created_by, content)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id, event_id, group_id, created_by, content, created_at`,
+        [eventId, groupId, userId, content]
+      );
+
+      if (insertResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return {
+          success: false,
+          message: 'Failed to create comment',
+          error: 'CREATE_FAILED',
+          errorCode: 'INTERNAL_ERROR',
+        };
+      }
+
+      const comment = insertResult.rows[0];
+
+      // Get creator info
+      const userResult = await client.query(
+        'SELECT display_name, email, avatar_url FROM users WHERE sub = $1',
+        [userId]
+      );
+
+      await client.query('COMMIT');
+
+      const creator = userResult.rows[0] || {};
+
+      return {
+        success: true,
+        message: 'Comment posted successfully',
+        data: {
+          id: comment.id,
+          content: comment.content,
+          created_by: comment.created_by,
+          created_at: comment.created_at,
+          creator: {
+            display_name: creator.display_name,
+            email: creator.email,
+            avatar_url: creator.avatar_url,
+          },
+        },
+      };
+    } catch (txError: any) {
+      await client.query('ROLLBACK');
+      throw txError;
+    }
+  } catch (error: any) {
+    console.error('Error adding event comment:', error);
+
+    // Handle database constraint errors
+    if (error.message?.includes('content_not_empty')) {
+      return {
+        success: false,
+        message: 'Comment cannot be empty',
+        error: 'EMPTY_COMMENT',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    if (error.message?.includes('content_length_limit')) {
+      return {
+        success: false,
+        message: 'Comment must be 2000 characters or less',
+        error: 'COMMENT_TOO_LONG',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    return {
+      success: false,
+      message: 'An error occurred while posting the comment',
+      error: error.message || 'UNKNOWN_ERROR',
+      errorCode: 'INTERNAL_ERROR',
+    };
+  } finally {
+    client.release();
+  }
+}
