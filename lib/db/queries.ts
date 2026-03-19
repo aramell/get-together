@@ -1052,3 +1052,165 @@ export async function deleteWishlistComment(commentId: string): Promise<void> {
     [commentId]
   );
 }
+
+/**
+ * Get comments from both events and wishlist items for a group with filtering, search, and pagination
+ * Supports: content_type filter (all|event|wishlist), author_id filter, full-text search, sorting, pagination
+ */
+export async function getGroupCommentsWithFilters(
+  groupId: string,
+  options: {
+    content_type?: 'all' | 'event' | 'wishlist';
+    author_id?: string | null;
+    search_query?: string | null;
+    sort_by?: 'newest' | 'oldest' | 'author';
+    limit?: number;
+    offset?: number;
+  } = {}
+): Promise<{
+  comments: Array<{
+    id: string;
+    created_by: string;
+    content: string;
+    created_at: string;
+    display_name: string | null;
+    avatar_url: string | null;
+    target_id: string;
+    target_type: 'event' | 'wishlist';
+    target_name: string;
+  }>;
+  totalCount: number;
+}> {
+  const {
+    content_type = 'all',
+    author_id = null,
+    search_query = null,
+    sort_by = 'newest',
+    limit = 20,
+    offset = 0,
+  } = options;
+
+  // Build base queries for event and wishlist comments
+  const eventBase = `
+    SELECT
+      c.id, c.created_by, c.content, c.created_at,
+      u.display_name, u.avatar_url,
+      c.event_id as target_id,
+      'event'::text as target_type,
+      e.title as target_name
+    FROM event_comments c
+    LEFT JOIN users u ON c.created_by = u.id
+    LEFT JOIN event_proposals e ON c.event_id = e.id
+    WHERE c.group_id = $1 AND c.deleted_at IS NULL
+  `;
+
+  const wishlistBase = `
+    SELECT
+      c.id, c.created_by, c.content, c.created_at,
+      u.display_name, u.avatar_url,
+      c.wishlist_item_id as target_id,
+      'wishlist'::text as target_type,
+      w.title as target_name
+    FROM wishlist_comments c
+    LEFT JOIN users u ON c.created_by = u.id
+    LEFT JOIN wishlist_items w ON c.wishlist_item_id = w.id
+    WHERE c.group_id = $1 AND c.deleted_at IS NULL
+  `;
+
+  // Build union query based on content type
+  let unionQueryBase = '';
+  if (content_type === 'event') {
+    unionQueryBase = eventBase;
+  } else if (content_type === 'wishlist') {
+    unionQueryBase = wishlistBase;
+  } else {
+    unionQueryBase = `${eventBase} UNION ALL ${wishlistBase}`;
+  }
+
+  // Build WHERE clause for additional filters
+  let whereExtension = '';
+  const params: (string | number)[] = [groupId];
+
+  if (author_id) {
+    whereExtension += ` AND c.created_by = $2`;
+    params.push(author_id);
+  }
+
+  if (search_query) {
+    const paramIdx = params.length + 1;
+    const searchTerm = `%${search_query}%`;
+    whereExtension += ` AND (c.content ILIKE $${paramIdx} OR u.display_name ILIKE $${paramIdx} OR COALESCE(e.title, w.title) ILIKE $${paramIdx})`;
+    params.push(searchTerm);
+  }
+
+  // If we have extended WHERE conditions and it's a UNION, we need to wrap each subquery
+  let finalQueryBase = unionQueryBase;
+  if (whereExtension && content_type === 'all') {
+    // Wrap each part of the union with the additional filters
+    const eventWithFilter = eventBase + whereExtension;
+    const wishlistWithFilter = wishlistBase + whereExtension;
+    finalQueryBase = `${eventWithFilter} UNION ALL ${wishlistWithFilter}`;
+  } else if (whereExtension) {
+    finalQueryBase = unionQueryBase + whereExtension;
+  }
+
+  // Add sorting
+  let orderBy = 'created_at DESC'; // newest first
+  if (sort_by === 'oldest') {
+    orderBy = 'created_at ASC';
+  } else if (sort_by === 'author') {
+    orderBy = 'display_name ASC, created_at DESC';
+  }
+
+  // Build final query with sorting and pagination
+  const paramIdx = params.length + 1;
+  const finalQuery = `
+    SELECT * FROM (${finalQueryBase}) as all_comments
+    ORDER BY ${orderBy}
+    LIMIT $${paramIdx} OFFSET $${paramIdx + 1}
+  `;
+
+  params.push(limit, offset);
+
+  // Get comments
+  const comments = await query(finalQuery, params);
+
+  // Get total count
+  let countQuery = '';
+  const countParams = [groupId] as (string | null)[];
+
+  if (content_type === 'event') {
+    countQuery = `SELECT COUNT(*) as count FROM event_comments c
+                 LEFT JOIN users u ON c.created_by = u.id
+                 LEFT JOIN event_proposals e ON c.event_id = e.id
+                 WHERE c.group_id = $1 AND c.deleted_at IS NULL`;
+  } else if (content_type === 'wishlist') {
+    countQuery = `SELECT COUNT(*) as count FROM wishlist_comments c
+                 LEFT JOIN users u ON c.created_by = u.id
+                 LEFT JOIN wishlist_items w ON c.wishlist_item_id = w.id
+                 WHERE c.group_id = $1 AND c.deleted_at IS NULL`;
+  } else {
+    countQuery = `
+      SELECT (
+        (SELECT COUNT(*) FROM event_comments WHERE group_id = $1 AND deleted_at IS NULL) +
+        (SELECT COUNT(*) FROM wishlist_comments WHERE group_id = $1 AND deleted_at IS NULL)
+      ) as count
+    `;
+  }
+
+  // Add author filter to count
+  if (author_id) {
+    if (content_type === 'event' || content_type === 'wishlist') {
+      countQuery = countQuery.replace('WHERE c.group_id = $1', `WHERE c.group_id = $1 AND c.created_by = $2`);
+      countParams.push(author_id);
+    }
+  }
+
+  const countResult = await queryOne(countQuery, countParams);
+  const totalCount = countResult ? parseInt(countResult.count, 10) : 0;
+
+  return {
+    comments: comments || [],
+    totalCount,
+  };
+}
