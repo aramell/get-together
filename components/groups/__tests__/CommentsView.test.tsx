@@ -3,13 +3,12 @@
  * Covers: AC1-10 (full integration), real-time polling, filter/search integration, pagination
  */
 
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CommentsView } from '../CommentsView';
 
 // Mock fetch globally
-global.fetch = vi.fn();
+global.fetch = jest.fn();
 
 const mockGroupId = 'group-123';
 
@@ -47,8 +46,8 @@ const mockApiResponse = {
 
 describe('CommentsView Container - Full Integration (AC1-10)', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    vi.useFakeTimers();
+    jest.clearAllMocks();
+    jest.useFakeTimers();
     (global.fetch as any).mockResolvedValue({
       ok: true,
       json: async () => mockApiResponse,
@@ -56,8 +55,8 @@ describe('CommentsView Container - Full Integration (AC1-10)', () => {
   });
 
   afterEach(() => {
-    vi.runOnlyPendingTimers();
-    vi.useRealTimers();
+    jest.runOnlyPendingTimers();
+    jest.useRealTimers();
   });
 
   describe('Initial Load & API Integration', () => {
@@ -119,7 +118,7 @@ describe('CommentsView Container - Full Integration (AC1-10)', () => {
       const initialCallCount = (global.fetch as any).mock.calls.length;
 
       // Advance timer by 5 seconds
-      vi.advanceTimersByTime(5000);
+      jest.advanceTimersByTime(5000);
 
       await waitFor(() => {
         expect((global.fetch as any).mock.calls.length).toBeGreaterThan(initialCallCount);
@@ -140,7 +139,7 @@ describe('CommentsView Container - Full Integration (AC1-10)', () => {
       expect(eventButton).toBeInTheDocument();
 
       // Next polling interval
-      vi.advanceTimersByTime(5000);
+      jest.advanceTimersByTime(5000);
 
       await waitFor(() => {
         expect(global.fetch).toHaveBeenCalled();
@@ -151,11 +150,11 @@ describe('CommentsView Container - Full Integration (AC1-10)', () => {
       const { unmount } = render(<CommentsView groupId={mockGroupId} />);
 
       const initialCallCount = (global.fetch as any).mock.calls.length;
-      vi.advanceTimersByTime(5000);
+      jest.advanceTimersByTime(5000);
       unmount();
 
       (global.fetch as any).mockClear();
-      vi.advanceTimersByTime(5000);
+      jest.advanceTimersByTime(5000);
 
       // Should not make new calls after unmount
       expect((global.fetch as any).mock.calls.length).toBe(0);
@@ -232,7 +231,7 @@ describe('CommentsView Container - Full Integration (AC1-10)', () => {
       await user.type(searchInput, 'pizza');
 
       // Wait for debounce
-      vi.advanceTimersByTime(300);
+      jest.advanceTimersByTime(300);
 
       await waitFor(() => {
         const call = (global.fetch as any).mock.calls[0][0];
@@ -251,7 +250,7 @@ describe('CommentsView Container - Full Integration (AC1-10)', () => {
       const searchInput = screen.getByLabelText(/search comments/i);
       await user.type(searchInput, 'test');
 
-      vi.advanceTimersByTime(300);
+      jest.advanceTimersByTime(300);
 
       await waitFor(() => {
         const call = (global.fetch as any).mock.calls[0][0];
@@ -283,7 +282,7 @@ describe('CommentsView Container - Full Integration (AC1-10)', () => {
       const searchInput = screen.getByLabelText(/search comments/i);
       await user.type(searchInput, 'test');
 
-      vi.advanceTimersByTime(300);
+      jest.advanceTimersByTime(300);
 
       await waitFor(() => {
         // Result count is passed to CommentSearchBox
@@ -301,14 +300,14 @@ describe('CommentsView Container - Full Integration (AC1-10)', () => {
 
       const searchInput = screen.getByLabelText(/search comments/i);
       await user.type(searchInput, 'test');
-      vi.advanceTimersByTime(300);
+      jest.advanceTimersByTime(300);
 
       (global.fetch as any).mockClear();
 
       const clearButton = screen.getByRole('button', { name: /clear search/i });
       await user.click(clearButton);
 
-      vi.advanceTimersByTime(300);
+      jest.advanceTimersByTime(300);
 
       await waitFor(() => {
         const call = (global.fetch as any).mock.calls[0][0];
@@ -456,7 +455,7 @@ describe('CommentsView Container - Full Integration (AC1-10)', () => {
         expect(screen.getByText(/error/i)).toBeInTheDocument();
       });
 
-      vi.advanceTimersByTime(5000);
+      jest.advanceTimersByTime(5000);
 
       expect(screen.getByText(/error/i)).toBeInTheDocument();
     });
@@ -577,7 +576,7 @@ describe('CommentsView Container - Full Integration (AC1-10)', () => {
       // Change search (would reset pagination)
       const searchInput = screen.getByLabelText(/search comments/i);
       await user.type(searchInput, 'test');
-      vi.advanceTimersByTime(300);
+      jest.advanceTimersByTime(300);
 
       // Should still be on page 1 after search
       expect(screen.getByText('Page 1 of 1')).toBeInTheDocument();
@@ -616,7 +615,7 @@ describe('CommentsView Container - Full Integration (AC1-10)', () => {
       await user.type(searchInput, 'a');
 
       // Only 1 API call should be made after debounce
-      vi.advanceTimersByTime(300);
+      jest.advanceTimersByTime(300);
 
       await waitFor(() => {
         expect((global.fetch as any).mock.calls.length).toBe(1);
@@ -631,7 +630,7 @@ describe('CommentsView Container - Full Integration (AC1-10)', () => {
       expect(initialCalls).toBeGreaterThan(0);
 
       // Advance to next polling interval
-      vi.advanceTimersByTime(2500); // Less than 5 seconds
+      jest.advanceTimersByTime(2500); // Less than 5 seconds
       expect((global.fetch as any).mock.calls.length).toBe(initialCalls);
     });
   });

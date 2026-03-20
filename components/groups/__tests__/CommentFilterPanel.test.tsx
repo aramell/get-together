@@ -3,12 +3,12 @@
  * Covers: AC2 (content type filter), AC3 (author filter), AC7 (sort options)
  */
 
-import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { CommentFilterPanel } from '../CommentFilterPanel';
 
 // Mock component for testing
-const mockOnFilterChange = vi.fn();
+const mockOnFilterChange = jest.fn();
 const mockAuthors = [
   { id: 'user-1', display_name: 'Alice' },
   { id: 'user-2', display_name: 'Bob' },
@@ -17,7 +17,7 @@ const mockAuthors = [
 
 describe('CommentFilterPanel Component', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    jest.clearAllMocks();
   });
 
   describe('Content Type Filter (AC2)', () => {

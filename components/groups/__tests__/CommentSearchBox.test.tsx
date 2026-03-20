@@ -3,16 +3,15 @@
  * Covers: AC4 (search functionality), debouncing, result count display
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CommentSearchBox } from '../CommentSearchBox';
 
 describe('CommentSearchBox Component', () => {
-  const mockOnSearch = vi.fn();
+  const mockOnSearch = jest.fn();
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    jest.clearAllMocks();
   });
 
   describe('Search Input (AC4)', () => {
@@ -59,7 +58,7 @@ describe('CommentSearchBox Component', () => {
   describe('Search Debouncing (AC4)', () => {
     it('should debounce search input by 300ms', async () => {
       const user = userEvent.setup({ delay: null });
-      vi.useFakeTimers();
+      jest.useFakeTimers();
       render(<CommentSearchBox onSearch={mockOnSearch} resultCount={0} />);
       const input = screen.getByLabelText(/search comments/i);
 
@@ -68,17 +67,17 @@ describe('CommentSearchBox Component', () => {
       expect(mockOnSearch).not.toHaveBeenCalled();
 
       // Advance time to trigger debounce
-      vi.advanceTimersByTime(300);
+      jest.advanceTimersByTime(300);
       await waitFor(() => {
         expect(mockOnSearch).toHaveBeenCalledWith('test');
       });
 
-      vi.useRealTimers();
+      jest.useRealTimers();
     });
 
     it('should not call onSearch until debounce completes', async () => {
       const user = userEvent.setup({ delay: null });
-      vi.useFakeTimers();
+      jest.useFakeTimers();
       render(<CommentSearchBox onSearch={mockOnSearch} resultCount={0} />);
       const input = screen.getByLabelText(/search comments/i);
 
@@ -95,12 +94,12 @@ describe('CommentSearchBox Component', () => {
         expect(mockOnSearch).toHaveBeenCalledWith('pi');
       });
 
-      vi.useRealTimers();
+      jest.useRealTimers();
     });
 
     it('should reset debounce timer on new input', async () => {
       const user = userEvent.setup({ delay: null });
-      vi.useFakeTimers();
+      jest.useFakeTimers();
       render(<CommentSearchBox onSearch={mockOnSearch} resultCount={0} />);
       const input = screen.getByLabelText(/search comments/i);
 
@@ -119,25 +118,25 @@ describe('CommentSearchBox Component', () => {
         expect(mockOnSearch).toHaveBeenCalledWith('test query');
       });
 
-      vi.useRealTimers();
+      jest.useRealTimers();
     });
 
     it('should handle rapid backspace deletions', async () => {
       const user = userEvent.setup({ delay: null });
-      vi.useFakeTimers();
+      jest.useFakeTimers();
       render(<CommentSearchBox onSearch={mockOnSearch} resultCount={0} />);
       const input = screen.getByLabelText(/search comments/i);
 
       await user.type(input, 'pizza');
-      vi.advanceTimersByTime(300);
+      jest.advanceTimersByTime(300);
       expect(mockOnSearch).toHaveBeenCalledWith('pizza');
 
       mockOnSearch.mockClear();
       await user.clear(input);
-      vi.advanceTimersByTime(300);
+      jest.advanceTimersByTime(300);
       expect(mockOnSearch).toHaveBeenCalledWith(null);
 
-      vi.useRealTimers();
+      jest.useRealTimers();
     });
   });
 
@@ -172,21 +171,21 @@ describe('CommentSearchBox Component', () => {
 
     it('should call onSearch with null after clearing', async () => {
       const user = userEvent.setup({ delay: null });
-      vi.useFakeTimers();
+      jest.useFakeTimers();
       render(<CommentSearchBox onSearch={mockOnSearch} resultCount={0} />);
       const input = screen.getByLabelText(/search comments/i);
 
       await user.type(input, 'test');
-      vi.advanceTimersByTime(300);
+      jest.advanceTimersByTime(300);
       expect(mockOnSearch).toHaveBeenCalledWith('test');
 
       mockOnSearch.mockClear();
       const clearButton = screen.getByRole('button', { name: /clear search/i });
       await user.click(clearButton);
-      vi.advanceTimersByTime(300);
+      jest.advanceTimersByTime(300);
       expect(mockOnSearch).toHaveBeenCalledWith(null);
 
-      vi.useRealTimers();
+      jest.useRealTimers();
     });
 
     it('should hide clear button after clearing', async () => {
@@ -206,54 +205,54 @@ describe('CommentSearchBox Component', () => {
   describe('Result Count Display (AC4)', () => {
     it('should display result count when search is active', async () => {
       const user = userEvent.setup({ delay: null });
-      vi.useFakeTimers();
+      jest.useFakeTimers();
       render(<CommentSearchBox onSearch={mockOnSearch} resultCount={12} />);
       const input = screen.getByLabelText(/search comments/i);
 
       await user.type(input, 'pizza');
-      vi.advanceTimersByTime(300);
+      jest.advanceTimersByTime(300);
 
       expect(screen.getByText(/Found.*12.*comment.*matching/i)).toBeInTheDocument();
-      vi.useRealTimers();
+      jest.useRealTimers();
     });
 
     it('should show singular "comment" for 1 result', async () => {
       const user = userEvent.setup({ delay: null });
-      vi.useFakeTimers();
+      jest.useFakeTimers();
       render(<CommentSearchBox onSearch={mockOnSearch} resultCount={1} />);
       const input = screen.getByLabelText(/search comments/i);
 
       await user.type(input, 'test');
-      vi.advanceTimersByTime(300);
+      jest.advanceTimersByTime(300);
 
       expect(screen.getByText(/Found.*1.*comment matching/i)).toBeInTheDocument();
-      vi.useRealTimers();
+      jest.useRealTimers();
     });
 
     it('should show plural "comments" for multiple results', async () => {
       const user = userEvent.setup({ delay: null });
-      vi.useFakeTimers();
+      jest.useFakeTimers();
       render(<CommentSearchBox onSearch={mockOnSearch} resultCount={5} />);
       const input = screen.getByLabelText(/search comments/i);
 
       await user.type(input, 'test');
-      vi.advanceTimersByTime(300);
+      jest.advanceTimersByTime(300);
 
       expect(screen.getByText(/Found.*5.*comments matching/i)).toBeInTheDocument();
-      vi.useRealTimers();
+      jest.useRealTimers();
     });
 
     it('should show zero results correctly', async () => {
       const user = userEvent.setup({ delay: null });
-      vi.useFakeTimers();
+      jest.useFakeTimers();
       render(<CommentSearchBox onSearch={mockOnSearch} resultCount={0} />);
       const input = screen.getByLabelText(/search comments/i);
 
       await user.type(input, 'nonexistent');
-      vi.advanceTimersByTime(300);
+      jest.advanceTimersByTime(300);
 
       expect(screen.getByText(/Found.*0.*comments matching/i)).toBeInTheDocument();
-      vi.useRealTimers();
+      jest.useRealTimers();
     });
 
     it('should display hint text when no search is active', () => {
@@ -263,15 +262,15 @@ describe('CommentSearchBox Component', () => {
 
     it('should include search query in hint text', async () => {
       const user = userEvent.setup({ delay: null });
-      vi.useFakeTimers();
+      jest.useFakeTimers();
       render(<CommentSearchBox onSearch={mockOnSearch} resultCount={8} />);
       const input = screen.getByLabelText(/search comments/i);
 
       await user.type(input, 'pizza party');
-      vi.advanceTimersByTime(300);
+      jest.advanceTimersByTime(300);
 
       expect(screen.getByText(/pizza party/)).toBeInTheDocument();
-      vi.useRealTimers();
+      jest.useRealTimers();
     });
 
     it('should update result count when prop changes', async () => {
@@ -280,57 +279,57 @@ describe('CommentSearchBox Component', () => {
       );
 
       const user = userEvent.setup({ delay: null });
-      vi.useFakeTimers();
+      jest.useFakeTimers();
       const input = screen.getByLabelText(/search comments/i);
       await user.type(input, 'test');
-      vi.advanceTimersByTime(300);
+      jest.advanceTimersByTime(300);
 
       // Update result count
       rerender(<CommentSearchBox onSearch={mockOnSearch} resultCount={10} />);
       expect(screen.getByText(/Found.*10.*comments/i)).toBeInTheDocument();
 
-      vi.useRealTimers();
+      jest.useRealTimers();
     });
   });
 
   describe('Whitespace Handling', () => {
     it('should trim leading whitespace from search query', async () => {
       const user = userEvent.setup({ delay: null });
-      vi.useFakeTimers();
+      jest.useFakeTimers();
       render(<CommentSearchBox onSearch={mockOnSearch} resultCount={0} />);
       const input = screen.getByLabelText(/search comments/i);
 
       await user.type(input, '   test');
-      vi.advanceTimersByTime(300);
+      jest.advanceTimersByTime(300);
       expect(mockOnSearch).toHaveBeenCalledWith('test');
 
-      vi.useRealTimers();
+      jest.useRealTimers();
     });
 
     it('should trim trailing whitespace from search query', async () => {
       const user = userEvent.setup({ delay: null });
-      vi.useFakeTimers();
+      jest.useFakeTimers();
       render(<CommentSearchBox onSearch={mockOnSearch} resultCount={0} />);
       const input = screen.getByLabelText(/search comments/i);
 
       await user.type(input, 'test   ');
-      vi.advanceTimersByTime(300);
+      jest.advanceTimersByTime(300);
       expect(mockOnSearch).toHaveBeenCalledWith('test');
 
-      vi.useRealTimers();
+      jest.useRealTimers();
     });
 
     it('should convert empty or whitespace-only input to null', async () => {
       const user = userEvent.setup({ delay: null });
-      vi.useFakeTimers();
+      jest.useFakeTimers();
       render(<CommentSearchBox onSearch={mockOnSearch} resultCount={0} />);
       const input = screen.getByLabelText(/search comments/i);
 
       await user.type(input, '   ');
-      vi.advanceTimersByTime(300);
+      jest.advanceTimersByTime(300);
       expect(mockOnSearch).toHaveBeenCalledWith(null);
 
-      vi.useRealTimers();
+      jest.useRealTimers();
     });
   });
 
@@ -368,13 +367,13 @@ describe('CommentSearchBox Component', () => {
 
     it('should be operable with keyboard only', async () => {
       const user = userEvent.setup({ delay: null });
-      vi.useFakeTimers();
+      jest.useFakeTimers();
       render(<CommentSearchBox onSearch={mockOnSearch} resultCount={0} />);
 
       const input = screen.getByLabelText(/search comments/i);
       input.focus();
       await user.type(input, 'test');
-      vi.advanceTimersByTime(300);
+      jest.advanceTimersByTime(300);
       expect(mockOnSearch).toHaveBeenCalledWith('test');
 
       // Tab to clear button and activate with Enter
@@ -382,63 +381,63 @@ describe('CommentSearchBox Component', () => {
       const clearButton = screen.getByRole('button', { name: /clear search/i });
       expect(clearButton).toHaveFocus();
       await user.keyboard('{Enter}');
-      vi.advanceTimersByTime(300);
+      jest.advanceTimersByTime(300);
       expect(mockOnSearch).toHaveBeenCalledWith(null);
 
-      vi.useRealTimers();
+      jest.useRealTimers();
     });
   });
 
   describe('Edge Cases', () => {
     it('should handle very long search queries', async () => {
       const user = userEvent.setup({ delay: null });
-      vi.useFakeTimers();
+      jest.useFakeTimers();
       const longQuery = 'a'.repeat(500);
       render(<CommentSearchBox onSearch={mockOnSearch} resultCount={0} />);
       const input = screen.getByLabelText(/search comments/i);
 
       await user.type(input, longQuery);
-      vi.advanceTimersByTime(300);
+      jest.advanceTimersByTime(300);
       expect(mockOnSearch).toHaveBeenCalledWith(longQuery);
 
-      vi.useRealTimers();
+      jest.useRealTimers();
     });
 
     it('should handle unicode characters in search', async () => {
       const user = userEvent.setup({ delay: null });
-      vi.useFakeTimers();
+      jest.useFakeTimers();
       render(<CommentSearchBox onSearch={mockOnSearch} resultCount={0} />);
       const input = screen.getByLabelText(/search comments/i);
 
       await user.type(input, '日本語 🎉');
-      vi.advanceTimersByTime(300);
+      jest.advanceTimersByTime(300);
       expect(mockOnSearch).toHaveBeenCalledWith('日本語 🎉');
 
-      vi.useRealTimers();
+      jest.useRealTimers();
     });
 
     it('should handle rapid successive searches', async () => {
       const user = userEvent.setup({ delay: null });
-      vi.useFakeTimers();
+      jest.useFakeTimers();
       render(<CommentSearchBox onSearch={mockOnSearch} resultCount={0} />);
       const input = screen.getByLabelText(/search comments/i);
 
       // First search
       await user.type(input, 'pizza');
-      vi.advanceTimersByTime(300);
+      jest.advanceTimersByTime(300);
       expect(mockOnSearch).toHaveBeenCalledWith('pizza');
 
       mockOnSearch.mockClear();
       await user.clear(input);
-      vi.advanceTimersByTime(300);
+      jest.advanceTimersByTime(300);
       expect(mockOnSearch).toHaveBeenCalledWith(null);
 
       mockOnSearch.mockClear();
       await user.type(input, 'party');
-      vi.advanceTimersByTime(300);
+      jest.advanceTimersByTime(300);
       expect(mockOnSearch).toHaveBeenCalledWith('party');
 
-      vi.useRealTimers();
+      jest.useRealTimers();
     });
   });
 });

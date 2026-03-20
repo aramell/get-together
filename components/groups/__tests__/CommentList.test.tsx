@@ -3,13 +3,12 @@
  * Covers: AC1 (comment display), AC8 (target links), rendering, accessibility
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CommentList } from '../CommentList';
 
 // Mock Next.js Link component
-vi.mock('next/link', () => ({
+jest.mock('next/link', () => ({
   default: ({ href, children, ...props }: any) => (
     <a href={href} {...props}>
       {children}
@@ -57,7 +56,7 @@ const mockComments = [
 
 describe('CommentList Component', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    jest.clearAllMocks();
   });
 
   describe('Comment Display (AC1)', () => {
@@ -247,7 +246,7 @@ describe('CommentList Component', () => {
   describe('Comment Click Handler', () => {
     it('should call onCommentClick when comment is clicked', async () => {
       const user = userEvent.setup();
-      const mockOnCommentClick = vi.fn();
+      const mockOnCommentClick = jest.fn();
       render(
         <CommentList
           comments={[mockComments[0]]}
@@ -275,7 +274,7 @@ describe('CommentList Component', () => {
 
     it('should call onCommentClick with correct commentId', async () => {
       const user = userEvent.setup();
-      const mockOnCommentClick = vi.fn();
+      const mockOnCommentClick = jest.fn();
       render(
         <CommentList
           comments={mockComments}

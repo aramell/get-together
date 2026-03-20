@@ -3,15 +3,15 @@
  * Covers: AC5 (pagination), navigation, edge cases
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { PaginationControls } from '../PaginationControls';
 
 describe('PaginationControls Component', () => {
-  const mockOnPageChange = vi.fn();
+  const mockOnPageChange = jest.fn();
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    jest.clearAllMocks();
   });
 
   describe('Basic Navigation (AC5)', () => {
