@@ -90,25 +90,11 @@ export function WishlistItem({
             <Text
               fontSize="sm"
               color="gray.700"
-              onClick={() => setIsExpanded(!isExpanded)}
-              onKeyDown={(e) => {
-                if (description && description.length > 100 && (e.key === 'Enter' || e.key === ' ')) {
-                  e.preventDefault();
-                  setIsExpanded(!isExpanded);
-                }
-              }}
-              cursor={description && description.length > 100 ? 'pointer' : undefined}
-              role={description && description.length > 100 ? 'button' : undefined}
-              tabIndex={description && description.length > 100 ? 0 : undefined}
             >
               {isExpanded ? description : displayDescription}
             </Text>
             {description && description.length > 100 && (
-              <Text
-                fontSize="xs"
-                color="blue.500"
-                cursor="pointer"
-                mt={1}
+              <button
                 onClick={() => setIsExpanded(!isExpanded)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
@@ -116,11 +102,21 @@ export function WishlistItem({
                     setIsExpanded(!isExpanded);
                   }
                 }}
-                role="button"
-                tabIndex={0}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#3182ce',
+                  fontSize: '0.75rem',
+                  cursor: 'pointer',
+                  marginTop: '0.25rem',
+                  padding: '0',
+                  textDecoration: 'none',
+                }}
+                aria-expanded={isExpanded}
+                aria-label={`${isExpanded ? 'Hide' : 'Show'} full description`}
               >
                 {isExpanded ? 'Show less' : 'Show more'}
-              </Text>
+              </button>
             )}
           </Box>
         )}

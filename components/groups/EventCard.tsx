@@ -69,6 +69,7 @@ export function EventCard({ event, userRsvpStatus, onClick }: EventCardProps) {
       transition="all 0.2s"
       width="100%"
       maxWidth="100%"
+      aria-label={onClick ? `View event: ${title}` : undefined}
     >
       <CardHeader pb={2}>
         <HStack justify="space-between" align="flex-start" flexWrap="wrap" gap={2}>
@@ -100,6 +101,7 @@ export function EventCard({ event, userRsvpStatus, onClick }: EventCardProps) {
             borderLeft="4px solid"
             borderColor="blue.500"
             aria-live="polite"
+            aria-atomic="true"
           >
             <Text fontSize={['14px', '16px']} color="gray.600" fontWeight="medium">
               RSVPs: {momentumText}
