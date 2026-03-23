@@ -1322,3 +1322,114 @@ export async function updateWishlistComment(
     [commentId, newContent]
   );
 }
+
+// ============================================================================
+// PUBLIC EVENT RSVP QUERIES (Story 7-3)
+// ============================================================================
+
+/**
+ * Create a public RSVP record or update existing one
+ * Handles duplicate email gracefully (upsert pattern)
+ */
+export async function createOrUpdatePublicRsvp(
+  eventId: string,
+  email: string,
+  name: string | null,
+  status: 'in' | 'maybe' | 'out'
+): Promise<{
+  id: string;
+  event_id: string;
+  email: string;
+  name: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}> {
+  return queryOne(
+    `INSERT INTO public_rsvps (event_id, email, name, status)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (event_id, email) DO UPDATE
+       SET status = $4, updated_at = CURRENT_TIMESTAMP, name = COALESCE($3, name)
+     RETURNING id, event_id, email, name, status, created_at, updated_at`,
+    [eventId, email, name, status]
+  );
+}
+
+/**
+ * Get public RSVPs for an event, grouped by status
+ */
+export async function getPublicRsvpsByEventId(eventId: string): Promise<{
+  in: number;
+  maybe: number;
+  out: number;
+}> {
+  const result = await query(
+    `SELECT status, COUNT(*) as count
+     FROM public_rsvps
+     WHERE event_id = $1
+     GROUP BY status`,
+    [eventId]
+  );
+
+  const counts = { in: 0, maybe: 0, out: 0 };
+  result.rows.forEach((row: any) => {
+    counts[row.status as keyof typeof counts] = parseInt(row.count, 10);
+  });
+  return counts;
+}
+
+/**
+ * Get event details by public token (for non-authenticated access)
+ */
+export async function getEventByPublicToken(publicToken: string): Promise<{
+  id: string;
+  group_id: string;
+  title: string;
+  description: string | null;
+  date: string;
+  threshold: number | null;
+  status: string;
+  created_at: string;
+} | null> {
+  return queryOne(
+    `SELECT id, group_id, title, description, date, threshold, status, created_at
+     FROM event_proposals
+     WHERE public_token = $1 AND deleted_at IS NULL`,
+    [publicToken]
+  );
+}
+
+/**
+ * Update event with public token
+ */
+export async function updateEventPublicToken(eventId: string, publicToken: string): Promise<void> {
+  await query(
+    `UPDATE event_proposals
+     SET public_token = $2, updated_at = CURRENT_TIMESTAMP
+     WHERE id = $1`,
+    [eventId, publicToken]
+  );
+}
+
+/**
+ * Get public RSVP details (for admin view)
+ */
+export async function getPublicRsvpsByEventIdFull(eventId: string): Promise<
+  Array<{
+    id: string;
+    email: string;
+    name: string | null;
+    status: string;
+    created_at: string;
+    updated_at: string;
+  }>
+> {
+  const result = await query(
+    `SELECT id, email, name, status, created_at, updated_at
+     FROM public_rsvps
+     WHERE event_id = $1
+     ORDER BY created_at DESC`,
+    [eventId]
+  );
+  return result.rows;
+}
