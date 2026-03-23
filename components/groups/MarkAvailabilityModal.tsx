@@ -230,7 +230,7 @@ export default function MarkAvailabilityModal({
   return (
     <Modal isOpen={isOpen} onClose={handleClose} size="lg">
       <ModalOverlay />
-      <ModalContent>
+      <ModalContent maxW={{ base: '95%', md: '90%' }} mx="auto">
         <ModalHeader>Mark Your Availability</ModalHeader>
         <ModalCloseButton isDisabled={isSubmitting} />
 

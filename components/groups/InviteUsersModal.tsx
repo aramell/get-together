@@ -128,7 +128,7 @@ export const InviteUsersModal: React.FC<InviteUsersModalProps> = ({
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="lg" closeOnEsc={false} closeOnOverlayClick={false}>
       <ModalOverlay />
-      <ModalContent>
+      <ModalContent maxW={{ base: '95%', md: '90%' }} mx="auto">
         <ModalHeader>Invite Members to {groupName}</ModalHeader>
         <ModalCloseButton isDisabled={isLoading} />
 

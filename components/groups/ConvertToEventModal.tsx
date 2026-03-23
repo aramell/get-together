@@ -156,7 +156,7 @@ export const ConvertToEventModal: React.FC<ConvertToEventModalProps> = ({
   return (
     <Modal isOpen={isOpen} onClose={handleClose} size="md" isCentered>
       <ModalOverlay />
-      <ModalContent>
+      <ModalContent maxW={{ base: '95%', md: '90%' }} mx="auto">
         <ModalHeader>
           Convert "{item.title}" to Event
           <Text fontSize="sm" color="gray.600" mt={1}>

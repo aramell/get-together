@@ -185,7 +185,7 @@ export const CommentEditModal = memo(function CommentEditModal({
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="lg" isCentered>
       <ModalOverlay />
-      <ModalContent>
+      <ModalContent maxW={{ base: '95%', md: '90%' }} mx="auto">
         <ModalHeader>{modalTitle}</ModalHeader>
 
         <ModalBody>

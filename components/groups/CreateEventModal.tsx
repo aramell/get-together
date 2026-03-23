@@ -145,9 +145,9 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
   return (
     <Modal isOpen={isOpen} onClose={handleClose} size="md" isCentered>
       <ModalOverlay />
-      <ModalContent>
+      <ModalContent maxW={{ base: '95%', md: '90%' }} mx="auto">
         <ModalHeader>Propose an Event</ModalHeader>
-        <ModalCloseButton isDisabled={isLoading} />
+        <ModalCloseButton minH="48px" minW="48px" isDisabled={isLoading} />
 
         <form onSubmit={handleSubmit}>
           <ModalBody>
@@ -165,6 +165,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
                   isDisabled={isLoading}
                   aria-label="Event title"
                   maxLength={255}
+                  minHeight="44px"
                 />
                 <Text fontSize="xs" color="gray.500" mt={1}>
                   {formData.title.length}/255 characters
@@ -182,6 +183,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
                   onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                   isDisabled={isLoading}
                   aria-label="Event date and time"
+                  minHeight="44px"
                 />
                 {errors.date && <FormErrorMessage>{errors.date}</FormErrorMessage>}
               </FormControl>
@@ -203,6 +205,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
                   aria-label="Commitment threshold"
                   min="1"
                   max="1000"
+                  minHeight="44px"
                 />
                 <Text fontSize="xs" color="gray.500" mt={1}>
                   Optional: Event auto-confirms when this many people say yes
@@ -226,6 +229,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
                   aria-label="Event description"
                   maxLength={2000}
                   rows={4}
+                  minHeight="120px"
                 />
                 <Text fontSize="xs" color="gray.500" mt={1}>
                   {formData.description.length}/2000 characters
@@ -240,6 +244,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
                 variant="ghost"
                 onClick={handleClose}
                 isDisabled={isLoading}
+                minHeight="48px"
               >
                 Cancel
               </Button>
@@ -249,6 +254,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
                 isDisabled={isLoading || !formData.title || !formData.date}
                 display="flex"
                 alignItems="center"
+                minHeight="48px"
               >
                 {isLoading && <Spinner size="sm" mr={2} />}
                 {isLoading ? 'Creating...' : 'Create Event'}

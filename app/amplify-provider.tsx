@@ -1,9 +1,10 @@
 'use client'
 
 import { ReactNode, useEffect } from 'react'
-import { ChakraProvider } from '@chakra-ui/react'
+import { ChakraProvider, Box } from '@chakra-ui/react'
 import { Amplify } from 'aws-amplify'
 import { AuthProvider } from '@/lib/contexts/AuthContext'
+import { BottomNav } from '@/components/layout/BottomNav'
 
 export function AmplifyProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
@@ -34,7 +35,14 @@ export function AmplifyProvider({ children }: { children: ReactNode }) {
   console.log('🔵 AmplifyProvider rendering with AuthProvider')
   return (
     <ChakraProvider>
-      <AuthProvider>{children}</AuthProvider>
+      <AuthProvider>
+        <Box display="flex" flexDirection="column" minH="100vh">
+          <Box flex={1} pb={{ base: '56px', md: 0 }}>
+            {children}
+          </Box>
+          <BottomNav />
+        </Box>
+      </AuthProvider>
     </ChakraProvider>
   )
 }

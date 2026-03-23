@@ -147,7 +147,7 @@ export function UpdateThresholdModal({
   return (
     <Modal isOpen={isOpen} onClose={handleClose} isCentered>
       <ModalOverlay />
-      <ModalContent>
+      <ModalContent maxW={{ base: '95%', md: '90%' }} mx="auto">
         <ModalHeader>Update Threshold</ModalHeader>
         <ModalCloseButton isDisabled={isLoading} />
 

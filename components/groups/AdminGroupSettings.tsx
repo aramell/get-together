@@ -286,7 +286,7 @@ export const AdminGroupSettings: React.FC<AdminGroupSettingsProps> = ({
       {/* Edit Modal */}
       <Modal isOpen={editModal.isOpen} onClose={handleEditCancel}>
         <ModalOverlay />
-        <ModalContent>
+        <ModalContent maxW={{ base: '95%', md: '90%' }} mx="auto">
           <ModalHeader>Edit Group Settings</ModalHeader>
           <ModalCloseButton isDisabled={isSaving} />
           <ModalBody>
@@ -352,7 +352,7 @@ export const AdminGroupSettings: React.FC<AdminGroupSettingsProps> = ({
       {/* Delete Confirmation Modal */}
       <Modal isOpen={deleteModal.isOpen} onClose={() => deleteModal.onClose()}>
         <ModalOverlay />
-        <ModalContent>
+        <ModalContent maxW={{ base: '95%', md: '90%' }} mx="auto">
           <ModalHeader color="red.600">Delete Group</ModalHeader>
           <ModalCloseButton isDisabled={isDeleting} />
           <ModalBody>
@@ -401,7 +401,7 @@ export const AdminGroupSettings: React.FC<AdminGroupSettingsProps> = ({
       {/* Regenerate Invite Link Modal */}
       <Modal isOpen={regenerateModal.isOpen} onClose={() => regenerateModal.onClose()}>
         <ModalOverlay />
-        <ModalContent>
+        <ModalContent maxW={{ base: '95%', md: '90%' }} mx="auto">
           <ModalHeader color="teal.600">Regenerate Invite Link</ModalHeader>
           <ModalCloseButton isDisabled={isRegenerating} />
           <ModalBody>

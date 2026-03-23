@@ -135,7 +135,7 @@ export function WishlistAddModal({
   return (
     <Modal isOpen={isOpen} onClose={onClose} isCentered>
       <ModalOverlay />
-      <ModalContent>
+      <ModalContent maxW={{ base: '95%', md: '90%' }} mx="auto">
         <ModalHeader>Add Item to Wishlist</ModalHeader>
         <ModalCloseButton isDisabled={isSubmitting} />
 

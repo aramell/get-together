@@ -189,7 +189,7 @@ const InviteUserModal: React.FC<InviteUserModalProps> = ({
   return (
     <Modal isOpen={isOpen} onClose={handleClose} size="lg">
       <ModalOverlay />
-      <ModalContent>
+      <ModalContent maxW={{ base: '95%', md: '90%' }} mx="auto">
         <ModalHeader>Invite Users to Group</ModalHeader>
         <ModalCloseButton isDisabled={inviting} />
 
