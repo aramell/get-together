@@ -1054,6 +1054,16 @@ export async function deleteWishlistComment(commentId: string): Promise<void> {
 }
 
 /**
+ * Soft delete an event comment
+ */
+export async function deleteEventComment(commentId: string): Promise<void> {
+  await query(
+    `UPDATE event_comments SET deleted_at = NOW() WHERE id = $1`,
+    [commentId]
+  );
+}
+
+/**
  * Get comments from both events and wishlist items for a group with filtering, search, and pagination
  * Supports: content_type filter (all|event|wishlist), author_id filter, full-text search, sorting, pagination
  */
@@ -1213,4 +1223,102 @@ export async function getGroupCommentsWithFilters(
     comments: comments || [],
     totalCount,
   };
+}
+
+// ============================================================================
+// Comment Editing (Story 6-4: Edit Comments)
+// ============================================================================
+
+/**
+ * Get a single event comment by ID (excludes soft-deleted comments)
+ */
+export async function getEventCommentById(
+  commentId: string
+): Promise<{
+  id: string;
+  event_id: string;
+  group_id: string;
+  created_by: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+  edited_at: string | null;
+  updated_count: number;
+  deleted_at: string | null;
+} | null> {
+  return queryOne(
+    `SELECT id, event_id, group_id, created_by, content, created_at, updated_at, edited_at, updated_count, deleted_at
+     FROM event_comments
+     WHERE id = $1 AND deleted_at IS NULL`,
+    [commentId]
+  );
+}
+
+/**
+ * Get a single wishlist comment by ID (excludes soft-deleted comments)
+ */
+export async function getWishlistCommentById(
+  commentId: string
+): Promise<{
+  id: string;
+  wishlist_item_id: string;
+  group_id: string;
+  created_by: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+  edited_at: string | null;
+  updated_count: number;
+  deleted_at: string | null;
+} | null> {
+  return queryOne(
+    `SELECT id, wishlist_item_id, group_id, created_by, content, created_at, updated_at, edited_at, updated_count, deleted_at
+     FROM wishlist_comments
+     WHERE id = $1 AND deleted_at IS NULL`,
+    [commentId]
+  );
+}
+
+/**
+ * Update an event comment with new content and edit tracking
+ * Returns null if comment not found
+ */
+export async function updateEventComment(
+  commentId: string,
+  newContent: string
+): Promise<{
+  id: string;
+  content: string;
+  edited_at: string;
+  updated_count: number;
+} | null> {
+  return queryOne(
+    `UPDATE event_comments
+     SET content = $2, edited_at = CURRENT_TIMESTAMP, updated_count = updated_count + 1, updated_at = CURRENT_TIMESTAMP
+     WHERE id = $1 AND deleted_at IS NULL
+     RETURNING id, content, edited_at, updated_count`,
+    [commentId, newContent]
+  );
+}
+
+/**
+ * Update a wishlist comment with new content and edit tracking
+ * Returns null if comment not found
+ */
+export async function updateWishlistComment(
+  commentId: string,
+  newContent: string
+): Promise<{
+  id: string;
+  content: string;
+  edited_at: string;
+  updated_count: number;
+} | null> {
+  return queryOne(
+    `UPDATE wishlist_comments
+     SET content = $2, edited_at = CURRENT_TIMESTAMP, updated_count = updated_count + 1, updated_at = CURRENT_TIMESTAMP
+     WHERE id = $1 AND deleted_at IS NULL
+     RETURNING id, content, edited_at, updated_count`,
+    [commentId, newContent]
+  );
 }

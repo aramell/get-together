@@ -77,12 +77,12 @@ export function EventCard({ event, userRsvpStatus, onClick }: EventCardProps) {
             </Text>
           </VStack>
           <Badge
-            colorScheme={status === 'confirmed' ? 'green' : 'yellow'}
+            colorScheme={status === 'confirmed' ? 'green' : status === 'cancelled' ? 'gray' : 'yellow'}
             fontSize="xs"
             px={2}
             py={1}
           >
-            {status === 'confirmed' ? '✓ Confirmed' : 'Proposed'}
+            {status === 'confirmed' ? '✓ Confirmed' : status === 'cancelled' ? 'Cancelled' : 'Proposed'}
           </Badge>
         </HStack>
       </CardHeader>

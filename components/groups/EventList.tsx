@@ -21,7 +21,7 @@ export interface EventWithMomentum {
   description?: string | null;
   date: string;
   threshold?: number | null;
-  status: 'proposal' | 'confirmed' | 'cancelled';
+  status: 'proposal' | 'confirmed';
   momentum: {
     in: number;
     maybe: number;
@@ -169,7 +169,7 @@ export const EventList: React.FC<EventListProps> = ({
         clearInterval(pollingIntervalRef.current);
       }
     };
-  }, [enablePolling, groupId, limit];
+  }, [enablePolling, groupId, limit]);
 
   const handleLoadMore = () => {
     fetchEvents(offset, true);

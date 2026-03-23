@@ -12,6 +12,8 @@ interface Comment {
   created_by: string;
   content: string;
   created_at: string;
+  edited_at?: string | null;
+  updated_count?: number;
   display_name: string | null;
   avatar_url: string | null;
   target_id: string;
@@ -26,14 +28,16 @@ interface Author {
 
 interface CommentsViewProps {
   groupId: string;
+  currentUserId?: string;
+  userRole?: 'admin' | 'member';
 }
 
 /**
  * CommentsView: Main container for viewing comments with filtering, search, pagination, and real-time updates
  * Combines: CommentFilterPanel, CommentSearchBox, CommentList, PaginationControls
- * Features: Real-time polling (5 seconds), dynamic filter state management
+ * Features: Real-time polling (5 seconds), dynamic filter state management, edit support
  */
-export function CommentsView({ groupId }: CommentsViewProps) {
+export function CommentsView({ groupId, currentUserId, userRole }: CommentsViewProps) {
   const toast = useToast();
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -161,6 +165,64 @@ export function CommentsView({ groupId }: CommentsViewProps) {
     setCurrentPage(1); // Reset to first page when search changes
   };
 
+  // Handle comment updates (edits)
+  const handleCommentUpdate = useCallback(
+    async (commentId: string, newContent: string) => {
+      // Find the comment to get its details
+      const comment = comments.find((c) => c.id === commentId);
+      if (!comment) {
+        throw new Error('Comment not found');
+      }
+
+      try {
+        const endpoint =
+          comment.target_type === 'event'
+            ? `/api/groups/${groupId}/events/${comment.target_id}/comments/${commentId}`
+            : `/api/groups/${groupId}/wishlist/${comment.target_id}/comments/${commentId}`;
+
+        const response = await fetch(endpoint, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ content: newContent }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to edit comment');
+        }
+
+        const result = await response.json();
+        if (!result.success) {
+          throw new Error(result.message || 'Failed to edit comment');
+        }
+
+        // Trigger a refetch to update the comment list with the edited version
+        await fetchComments();
+
+        toast({
+          title: 'Success',
+          description: 'Comment updated successfully',
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to edit comment';
+        toast({
+          title: 'Error',
+          description: message,
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+        throw error;
+      }
+    },
+    [comments, groupId, fetchComments, toast]
+  );
+
   return (
     <Box className="comments-view" role="region" aria-label="Comments view with filters">
       <VStack align="stretch" spacing={6}>
@@ -200,7 +262,14 @@ export function CommentsView({ groupId }: CommentsViewProps) {
         {/* Comments List */}
         {!error && (
           <>
-            <CommentList comments={comments} isLoading={isLoading && comments.length === 0} groupId={groupId} />
+            <CommentList
+              comments={comments}
+              isLoading={isLoading && comments.length === 0}
+              groupId={groupId}
+              currentUserId={currentUserId}
+              userRole={userRole}
+              onCommentUpdate={handleCommentUpdate}
+            />
 
             {/* Pagination Controls */}
             {totalPages > 1 && !isLoading && (

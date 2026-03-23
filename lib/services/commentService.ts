@@ -1,6 +1,16 @@
 'use server';
 
-import { getGroupCommentsWithFilters, isGroupMember } from '@/lib/db/queries';
+import {
+  getGroupCommentsWithFilters,
+  isGroupMember,
+  getUserGroupRole,
+  getEventCommentById,
+  getWishlistCommentById,
+  updateEventComment,
+  updateWishlistComment,
+  deleteEventComment,
+  deleteWishlistComment,
+} from '@/lib/db/queries';
 
 interface GetGroupCommentsOptions {
   content_type?: 'all' | 'event' | 'wishlist';
@@ -144,6 +154,386 @@ export async function getGroupCommentsService(
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to fetch comments';
     console.error('Error in getGroupCommentsService:', error);
+
+    return {
+      success: false,
+      message,
+      errorCode: 'INTERNAL_ERROR',
+    };
+  }
+}
+
+/**
+ * Edit an event comment (Story 6.4)
+ * Only comment author or group admin can edit
+ * Validates content (1-2000 chars), updates edited_at and increments updated_count
+ *
+ * @param groupId - Group ID
+ * @param commentId - Comment ID to edit
+ * @param userId - User attempting to edit (must be author or admin)
+ * @param newContent - New comment content
+ * @returns Success response with updated comment, or error response
+ */
+export async function editEventComment(
+  groupId: string,
+  commentId: string,
+  userId: string,
+  newContent: string
+): Promise<{
+  success: boolean;
+  message?: string;
+  data?: {
+    id: string;
+    content: string;
+    edited_at: string;
+    updated_count: number;
+  };
+  errorCode?: string;
+}> {
+  try {
+    // Step 1: Check if user is a group member
+    const userRole = await getUserGroupRole(groupId, userId);
+    if (!userRole) {
+      return {
+        success: false,
+        message: 'Not a member of this group',
+        errorCode: 'FORBIDDEN',
+      };
+    }
+
+    // Step 2: Validate content
+    const trimmedContent = newContent.trim();
+    if (!trimmedContent) {
+      return {
+        success: false,
+        message: 'Comment content cannot be empty',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    if (trimmedContent.length > 2000) {
+      return {
+        success: false,
+        message: 'Comment content exceeds 2000 character limit',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    // Step 3: Check if comment exists and get current state
+    const comment = await getEventCommentById(commentId);
+    if (!comment) {
+      return {
+        success: false,
+        message: 'Comment not found',
+        errorCode: 'NOT_FOUND',
+      };
+    }
+
+    // Step 4: Check authorization (author or admin)
+    const isAuthor = comment.created_by === userId;
+    const isAdmin = userRole === 'admin';
+
+    if (!isAuthor && !isAdmin) {
+      return {
+        success: false,
+        message: 'You do not have permission to edit this comment',
+        errorCode: 'FORBIDDEN',
+      };
+    }
+
+    // Step 5: Update comment in database
+    const updated = await updateEventComment(commentId, trimmedContent);
+
+    if (!updated) {
+      return {
+        success: false,
+        message: 'Comment was edited by another user. Please refresh and try again.',
+        errorCode: 'CONFLICT',
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        id: updated.id,
+        content: updated.content,
+        edited_at: updated.edited_at,
+        updated_count: updated.updated_count,
+      },
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to edit comment';
+    console.error('Error in editEventComment:', error);
+
+    return {
+      success: false,
+      message,
+      errorCode: 'INTERNAL_ERROR',
+    };
+  }
+}
+
+/**
+ * Edit a wishlist comment (Story 6.4)
+ * Only comment author or group admin can edit
+ * Validates content (1-2000 chars), updates edited_at and increments updated_count
+ *
+ * @param groupId - Group ID
+ * @param commentId - Comment ID to edit
+ * @param userId - User attempting to edit (must be author or admin)
+ * @param newContent - New comment content
+ * @returns Success response with updated comment, or error response
+ */
+export async function editWishlistComment(
+  groupId: string,
+  commentId: string,
+  userId: string,
+  newContent: string
+): Promise<{
+  success: boolean;
+  message?: string;
+  data?: {
+    id: string;
+    content: string;
+    edited_at: string;
+    updated_count: number;
+  };
+  errorCode?: string;
+}> {
+  try {
+    // Step 1: Check if user is a group member
+    const userRole = await getUserGroupRole(groupId, userId);
+    if (!userRole) {
+      return {
+        success: false,
+        message: 'Not a member of this group',
+        errorCode: 'FORBIDDEN',
+      };
+    }
+
+    // Step 2: Validate content
+    const trimmedContent = newContent.trim();
+    if (!trimmedContent) {
+      return {
+        success: false,
+        message: 'Comment content cannot be empty',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    if (trimmedContent.length > 2000) {
+      return {
+        success: false,
+        message: 'Comment content exceeds 2000 character limit',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    // Step 3: Check if comment exists
+    const comment = await getWishlistCommentById(commentId);
+    if (!comment) {
+      return {
+        success: false,
+        message: 'Comment not found',
+        errorCode: 'NOT_FOUND',
+      };
+    }
+
+    // Step 4: Check authorization (author or admin)
+    const isAuthor = comment.created_by === userId;
+    const isAdmin = userRole === 'admin';
+
+    if (!isAuthor && !isAdmin) {
+      return {
+        success: false,
+        message: 'You do not have permission to edit this comment',
+        errorCode: 'FORBIDDEN',
+      };
+    }
+
+    // Step 5: Update comment in database
+    const updated = await updateWishlistComment(commentId, trimmedContent);
+
+    if (!updated) {
+      return {
+        success: false,
+        message: 'Comment was edited by another user. Please refresh and try again.',
+        errorCode: 'CONFLICT',
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        id: updated.id,
+        content: updated.content,
+        edited_at: updated.edited_at,
+        updated_count: updated.updated_count,
+      },
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to edit comment';
+    console.error('Error in editWishlistComment:', error);
+
+    return {
+      success: false,
+      message,
+      errorCode: 'INTERNAL_ERROR',
+    };
+  }
+}
+
+/**
+ * Delete an event comment (Story 6.5)
+ * Only comment author or group admin can delete
+ * Uses soft delete pattern (sets deleted_at, no hard deletion)
+ *
+ * @param groupId - Group ID
+ * @param commentId - Comment ID to delete
+ * @param userId - User attempting to delete (must be author or admin)
+ * @returns Success response or error response
+ */
+export async function deleteEventComment(
+  groupId: string,
+  commentId: string,
+  userId: string
+): Promise<{
+  success: boolean;
+  message?: string;
+  errorCode?: string;
+}> {
+  try {
+    // Step 1: Check if user is a group member
+    const userRole = await getUserGroupRole(groupId, userId);
+    if (!userRole) {
+      return {
+        success: false,
+        message: 'Not a member of this group',
+        errorCode: 'FORBIDDEN',
+      };
+    }
+
+    // Step 2: Check if comment exists
+    const comment = await getEventCommentById(commentId);
+    if (!comment) {
+      return {
+        success: false,
+        message: 'Comment not found',
+        errorCode: 'NOT_FOUND',
+      };
+    }
+
+    // Step 3: Check if already deleted
+    if (comment.deleted_at) {
+      return {
+        success: false,
+        message: 'Comment has already been deleted',
+        errorCode: 'CONFLICT',
+      };
+    }
+
+    // Step 4: Check authorization (author or admin)
+    const isAuthor = comment.created_by === userId;
+    const isAdmin = userRole === 'admin';
+
+    if (!isAuthor && !isAdmin) {
+      return {
+        success: false,
+        message: 'You do not have permission to delete this comment',
+        errorCode: 'FORBIDDEN',
+      };
+    }
+
+    // Step 5: Soft delete comment in database
+    await deleteEventComment(commentId);
+
+    return {
+      success: true,
+      message: 'Comment deleted successfully',
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to delete comment';
+    console.error('Error in deleteEventComment:', error);
+
+    return {
+      success: false,
+      message,
+      errorCode: 'INTERNAL_ERROR',
+    };
+  }
+}
+
+/**
+ * Delete a wishlist comment (Story 6.5)
+ * Only comment author or group admin can delete
+ * Uses soft delete pattern (sets deleted_at, no hard deletion)
+ *
+ * @param groupId - Group ID
+ * @param commentId - Comment ID to delete
+ * @param userId - User attempting to delete (must be author or admin)
+ * @returns Success response or error response
+ */
+export async function deleteWishlistCommentService(
+  groupId: string,
+  commentId: string,
+  userId: string
+): Promise<{
+  success: boolean;
+  message?: string;
+  errorCode?: string;
+}> {
+  try {
+    // Step 1: Check if user is a group member
+    const userRole = await getUserGroupRole(groupId, userId);
+    if (!userRole) {
+      return {
+        success: false,
+        message: 'Not a member of this group',
+        errorCode: 'FORBIDDEN',
+      };
+    }
+
+    // Step 2: Check if comment exists
+    const comment = await getWishlistCommentById(commentId);
+    if (!comment) {
+      return {
+        success: false,
+        message: 'Comment not found',
+        errorCode: 'NOT_FOUND',
+      };
+    }
+
+    // Step 3: Check if already deleted
+    if (comment.deleted_at) {
+      return {
+        success: false,
+        message: 'Comment has already been deleted',
+        errorCode: 'CONFLICT',
+      };
+    }
+
+    // Step 4: Check authorization (author or admin)
+    const isAuthor = comment.created_by === userId;
+    const isAdmin = userRole === 'admin';
+
+    if (!isAuthor && !isAdmin) {
+      return {
+        success: false,
+        message: 'You do not have permission to delete this comment',
+        errorCode: 'FORBIDDEN',
+      };
+    }
+
+    // Step 5: Soft delete comment in database
+    await deleteWishlistComment(commentId);
+
+    return {
+      success: true,
+      message: 'Comment deleted successfully',
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to delete comment';
+    console.error('Error in deleteWishlistComment:', error);
 
     return {
       success: false,
