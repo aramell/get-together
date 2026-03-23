@@ -67,38 +67,41 @@ export function EventCard({ event, userRsvpStatus, onClick }: EventCardProps) {
         outlineOffset: '2px',
       }}
       transition="all 0.2s"
+      width="100%"
+      maxWidth="100%"
     >
       <CardHeader pb={2}>
-        <HStack justify="space-between" align="flex-start">
-          <VStack align="flex-start" spacing={1} flex={1}>
-            <Heading size="md">{title}</Heading>
-            <Text fontSize="sm" color="gray.600">
+        <HStack justify="space-between" align="flex-start" flexWrap="wrap" gap={2}>
+          <VStack align="flex-start" spacing={1} flex={1} minWidth="0">
+            <Heading size="md" fontSize={['20px', '24px', '28px']}>{title}</Heading>
+            <Text fontSize={['14px', '16px']} color="gray.600">
               {formattedDate} {formattedTime}
             </Text>
           </VStack>
           <Badge
             colorScheme={status === 'confirmed' ? 'green' : status === 'cancelled' ? 'gray' : 'yellow'}
-            fontSize="xs"
+            fontSize={['xs', 'sm']}
             px={2}
             py={1}
+            whiteSpace="nowrap"
           >
             {status === 'confirmed' ? '✓ Confirmed' : status === 'cancelled' ? 'Cancelled' : 'Proposed'}
           </Badge>
         </HStack>
       </CardHeader>
 
-      <CardBody spacing={3}>
-        <VStack align="stretch" spacing={3}>
+      <CardBody spacing={[3, 4]} px={[3, 4]} py={[3, 4]}>
+        <VStack align="stretch" spacing={[3, 4]}>
           {/* Momentum Counter */}
           <Box
-            p={3}
+            p={[3, 4]}
             bg="gray.50"
             borderRadius="md"
             borderLeft="4px solid"
             borderColor="blue.500"
             aria-live="polite"
           >
-            <Text fontSize="sm" color="gray.600" fontWeight="medium">
+            <Text fontSize={['14px', '16px']} color="gray.600" fontWeight="medium">
               RSVPs: {momentumText}
             </Text>
           </Box>
@@ -106,17 +109,17 @@ export function EventCard({ event, userRsvpStatus, onClick }: EventCardProps) {
           {/* Threshold Display */}
           {initialThreshold !== null && initialThreshold !== undefined && (
             <Box
-              p={3}
+              p={[3, 4]}
               bg="blue.50"
               borderRadius="md"
               borderLeft="4px solid"
               borderColor="blue.300"
             >
-              <HStack justify="space-between" mb={2}>
-                <Text fontSize="sm" color="gray.600" fontWeight="medium">
+              <HStack justify="space-between" mb={2} flexWrap="wrap" gap={2}>
+                <Text fontSize={['14px', '16px']} color="gray.600" fontWeight="medium">
                   Confirmation Status
                 </Text>
-                <Text fontSize="sm" fontWeight="bold">
+                <Text fontSize={['14px', '16px']} fontWeight="bold">
                   {inCount}/{initialThreshold}
                 </Text>
               </HStack>
@@ -125,14 +128,15 @@ export function EventCard({ event, userRsvpStatus, onClick }: EventCardProps) {
                 max={initialThreshold}
                 size="sm"
                 colorScheme={inCount >= initialThreshold ? 'green' : 'blue'}
+                height={['6px', '8px']}
               />
             </Box>
           )}
 
           {/* RSVP Status Indicator */}
           {userRsvpStatus && (
-            <Box p={2} bg="gray.100" borderRadius="md">
-              <Text fontSize="sm" fontWeight="medium">
+            <Box p={[2, 3]} bg="gray.100" borderRadius="md" minHeight="44px" display="flex" alignItems="center">
+              <Text fontSize={['14px', '16px']} fontWeight="medium">
                 Your RSVP: {userRsvpStatus.charAt(0).toUpperCase() + userRsvpStatus.slice(1)}
               </Text>
             </Box>
