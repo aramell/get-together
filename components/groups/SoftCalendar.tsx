@@ -49,7 +49,7 @@ export default function SoftCalendar({
   groupId,
   isGroupMember,
 }: SoftCalendarProps) {
-  const { user } = useAuth();
+  const { userId } = useAuth();
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [members, setMembers] = useState<MemberAvailabilities[]>([]);
   const [loading, setLoading] = useState(true);
@@ -172,7 +172,7 @@ export default function SoftCalendar({
 
   const handleEditAvailability = (availability: AvailabilityData, memberUserId: string) => {
     // Only allow editing own availability
-    if (user?.id !== memberUserId) {
+    if (userId !== memberUserId) {
       return;
     }
     setSelectedAvailability(availability);
@@ -378,7 +378,7 @@ export default function SoftCalendar({
                     ? 'busy'
                     : 'not specified';
 
-                const isOwnAvailability = user?.id === member.user_id;
+                const isOwnAvailability = userId === member.user_id;
                 const isClickable = isOwnAvailability && hasAvailability;
 
                 return (

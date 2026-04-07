@@ -772,12 +772,16 @@ export async function createWishlistItem(
   created_at: string;
   updated_at: string;
 }> {
-  return queryOne(
+  const result = await queryOne(
     `INSERT INTO wishlist_items (group_id, created_by, title, description, link)
      VALUES ($1, $2, $3, $4, $5)
      RETURNING id, group_id, created_by, title, description, link, created_at, updated_at`,
     [groupId, userId, title, description, link]
   );
+  if (!result) {
+    throw new Error('Failed to create wishlist item');
+  }
+  return result;
 }
 
 /**
@@ -798,7 +802,7 @@ export async function getWishlistItems(
   created_at: string;
   updated_at: string;
 }>> {
-  const result = await query(
+  return await query(
     `SELECT id, group_id, created_by, title, description, link, created_at, updated_at
      FROM wishlist_items
      WHERE group_id = $1 AND deleted_at IS NULL
@@ -806,7 +810,6 @@ export async function getWishlistItems(
      LIMIT $2 OFFSET $3`,
     [groupId, limit, offset]
   );
-  return result.rows;
 }
 
 /**
@@ -878,14 +881,13 @@ export async function getWishlistItemsSince(
   created_at: string;
   updated_at: string;
 }>> {
-  const result = await query(
+  return await query(
     `SELECT id, group_id, created_by, title, description, link, created_at, updated_at
      FROM wishlist_items
      WHERE group_id = $1 AND created_at > $2 AND deleted_at IS NULL
      ORDER BY created_at DESC`,
     [groupId, since]
   );
-  return result.rows;
 }
 
 /**
@@ -1345,7 +1347,7 @@ export async function createOrUpdatePublicRsvp(
   created_at: string;
   updated_at: string;
 }> {
-  return queryOne(
+  const result = await queryOne(
     `INSERT INTO public_rsvps (event_id, email, name, status)
      VALUES ($1, $2, $3, $4)
      ON CONFLICT (event_id, email) DO UPDATE
@@ -1353,6 +1355,10 @@ export async function createOrUpdatePublicRsvp(
      RETURNING id, event_id, email, name, status, created_at, updated_at`,
     [eventId, email, name, status]
   );
+  if (!result) {
+    throw new Error('Failed to create public RSVP');
+  }
+  return result;
 }
 
 /**
@@ -1372,7 +1378,7 @@ export async function getPublicRsvpsByEventId(eventId: string): Promise<{
   );
 
   const counts = { in: 0, maybe: 0, out: 0 };
-  result.rows.forEach((row: any) => {
+  result.forEach((row: any) => {
     counts[row.status as keyof typeof counts] = parseInt(row.count, 10);
   });
   return counts;
@@ -1424,12 +1430,11 @@ export async function getPublicRsvpsByEventIdFull(eventId: string): Promise<
     updated_at: string;
   }>
 > {
-  const result = await query(
+  return await query(
     `SELECT id, email, name, status, created_at, updated_at
      FROM public_rsvps
      WHERE event_id = $1
      ORDER BY created_at DESC`,
     [eventId]
   );
-  return result.rows;
 }

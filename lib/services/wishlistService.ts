@@ -90,7 +90,7 @@ export async function createWishlistItemService(
     // Handle Zod validation errors
     if (error instanceof ZodError) {
       // Collect all field errors
-      const fieldErrors = error.errors
+      const fieldErrors = error.issues
         .map((err) => `${err.path.join('.')}: ${err.message}`)
         .join('; ');
 
@@ -637,16 +637,6 @@ export async function convertItemToEvent(
       };
     }
 
-    // Check if already converted
-    if (item.item_to_event_id) {
-      return {
-        success: false,
-        message: 'This item has already been converted to an event',
-        error: 'ALREADY_CONVERTED',
-        errorCode: 'CONFLICT',
-      };
-    }
-
     try {
       // Start transaction
       await client.query('BEGIN');
@@ -882,8 +872,8 @@ export async function createWishlistCommentService(
         id: comment.id,
         content: comment.content,
         created_by: comment.created_by,
-        display_name: userInfo?.rows?.[0]?.display_name || null,
-        avatar_url: userInfo?.rows?.[0]?.avatar_url || null,
+        display_name: userInfo?.[0]?.display_name || null,
+        avatar_url: userInfo?.[0]?.avatar_url || null,
         created_at: comment.created_at,
       },
     };

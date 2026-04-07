@@ -214,7 +214,7 @@ export function EditAvailabilityModal({
     setIsLoading(true);
 
     // Security fix: Check user is authenticated
-    if (!user?.id) {
+    if (!userId) {
       toast({
         title: 'Error',
         description: 'You must be logged in to delete availability',

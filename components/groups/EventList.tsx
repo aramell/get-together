@@ -21,7 +21,7 @@ export interface EventWithMomentum {
   description?: string | null;
   date: string;
   threshold?: number | null;
-  status: 'proposal' | 'confirmed';
+  status: 'proposal' | 'confirmed' | 'cancelled';
   momentum: {
     in: number;
     maybe: number;
@@ -144,7 +144,7 @@ export const EventList: React.FC<EventListProps> = ({
         if (!result.success) return;
 
         const newEvents = result.data || [];
-        const newEventIds = new Set(newEvents.map((e: any) => e.id));
+        const newEventIds: Set<string> = new Set(newEvents.map((e: any) => e.id));
         const previousEventIds = previousEventIdsRef.current;
 
         // Check if new events were added

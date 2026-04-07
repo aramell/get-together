@@ -163,7 +163,7 @@ export const EventDetail: React.FC<EventDetailProps> = ({ groupId, eventId }) =>
           </VStack>
         </CardHeader>
 
-        <CardBody spacing={4}>
+        <CardBody>
           <VStack align="stretch" spacing={4}>
             {event.description && (
               <Box>
@@ -202,7 +202,6 @@ export const EventDetail: React.FC<EventDetailProps> = ({ groupId, eventId }) =>
           <EventCommentSection
             eventId={eventId}
             groupId={groupId}
-            initialComments={event.comments || []}
           />
         </CardBody>
       </Card>

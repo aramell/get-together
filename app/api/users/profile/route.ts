@@ -1,19 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withAuth } from '@/lib/api/auth';
+import { getUserIdFromRequest } from '@/lib/api/auth';
 import { getClient } from '@/lib/db/client';
 import { updateProfileSchema } from '@/lib/validation/profileSchema';
 
 /**
  * GET /api/users/profile
  * Retrieve current user's profile
- * Requires authentication (withAuth middleware)
+ * Requires authentication
  */
-interface AuthContext {
-  userId: string;
-}
-
-export const GET = withAuth(async (req: NextRequest, context: AuthContext) => {
-  const userId = context.userId;
+export async function GET(req: NextRequest) {
+  const userId = getUserIdFromRequest(req);
 
   if (!userId) {
     return NextResponse.json(
@@ -62,16 +58,16 @@ export const GET = withAuth(async (req: NextRequest, context: AuthContext) => {
   } finally {
     client.release();
   }
-});
+}
 
 /**
  * PATCH /api/users/profile
  * Update user's profile (display_name, avatar_url)
- * Requires authentication (withAuth middleware)
+ * Requires authentication
  * AC4: GDPR Right to Rectification - Users can correct their profile data
  */
-export const PATCH = withAuth(async (req: NextRequest, context: AuthContext) => {
-  const userId = context.userId;
+export async function PATCH(req: NextRequest) {
+  const userId = getUserIdFromRequest(req);
 
   if (!userId) {
     return NextResponse.json(
@@ -172,4 +168,4 @@ export const PATCH = withAuth(async (req: NextRequest, context: AuthContext) => 
       { status: 500 }
     );
   }
-});
+}

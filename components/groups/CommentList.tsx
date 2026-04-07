@@ -50,6 +50,18 @@ export function CommentList({
   const [editingCommentContent, setEditingCommentContent] = useState('');
   const [isEditingSaving, setIsEditingSaving] = useState(false);
   const { isOpen: isEditModalOpen, onOpen: onEditModalOpen, onClose: onEditModalClose } = useDisclosure();
+
+  const handleEditSave = async (newContent: string) => {
+    if (!onCommentUpdate || !editingCommentId) return;
+    setIsEditingSaving(true);
+    try {
+      await onCommentUpdate(editingCommentId, newContent);
+      onEditModalClose();
+    } finally {
+      setIsEditingSaving(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <Box display="flex" justifyContent="center" py={8}>
@@ -88,17 +100,6 @@ export function CommentList({
             setEditingCommentId(comment.id);
             setEditingCommentContent(comment.content);
             onEditModalOpen();
-          };
-
-          const handleEditSave = async (newContent: string) => {
-            if (!onCommentUpdate) return;
-            setIsEditingSaving(true);
-            try {
-              await onCommentUpdate(comment.id, newContent);
-              onEditModalClose();
-            } finally {
-              setIsEditingSaving(false);
-            }
           };
 
           return (

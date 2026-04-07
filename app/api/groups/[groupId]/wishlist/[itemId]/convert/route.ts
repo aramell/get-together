@@ -61,7 +61,7 @@ export async function POST(
     }
 
     // Call service to convert item to event
-    const result = await convertItemToEvent(groupId, itemId, userId, validation.data);
+    const result = await convertItemToEvent(groupId, itemId, userId, validation.data!);
 
     if (!result.success) {
       const statusCode =

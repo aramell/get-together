@@ -6,7 +6,7 @@
  * Implements cryptographic erasure through soft delete pattern
  */
 
-import { withAuth } from '@/lib/api/auth';
+import { getUserIdFromRequest } from '@/lib/api/auth';
 import { getClient } from '@/lib/db/client';
 import { enforceRateLimit } from '@/lib/api/rateLimiter';
 import { NextRequest, NextResponse } from 'next/server';
@@ -16,12 +16,8 @@ import { NextRequest, NextResponse } from 'next/server';
  * Delete all user data (cryptographic erasure via soft delete)
  * Sets deleted_at timestamp and NULLs sensitive fields
  */
-interface AuthContext {
-  userId: string;
-}
-
-export const DELETE = withAuth(async (req: NextRequest, context: AuthContext) => {
-  const userId = context.userId;
+export async function DELETE(req: NextRequest) {
+  const userId = getUserIdFromRequest(req);
 
   if (!userId) {
     return NextResponse.json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } }, { status: 401 });
@@ -123,4 +119,4 @@ export const DELETE = withAuth(async (req: NextRequest, context: AuthContext) =>
   } finally {
     client.release();
   }
-});
+}

@@ -1,7 +1,21 @@
 'use client';
 
-import { Box, Input, Button, HStack, Text, useDebounceValue } from '@chakra-ui/react';
+import { Box, Input, Button, HStack, Text } from '@chakra-ui/react';
 import { useState, useEffect } from 'react';
+
+function useDebounceValue(value: string, delay: number): string {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+
+  return debouncedValue;
+}
 
 interface CommentSearchBoxProps {
   onSearch: (query: string | null) => void;

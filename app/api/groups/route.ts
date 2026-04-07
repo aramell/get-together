@@ -186,6 +186,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Get database client for Mode 2
+    client = await getClient();
+
     // Verify user is a member of this group
     const memberCheckResult = await client.query(
       `SELECT role FROM group_memberships WHERE group_id = $1 AND user_id = $2`,

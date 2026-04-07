@@ -91,7 +91,7 @@ export function EventCard({ event, userRsvpStatus, onClick }: EventCardProps) {
         </HStack>
       </CardHeader>
 
-      <CardBody spacing={[3, 4]} px={[3, 4]} py={[3, 4]}>
+      <CardBody px={[3, 4]} py={[3, 4]}>
         <VStack align="stretch" spacing={[3, 4]}>
           {/* Momentum Counter */}
           <Box

@@ -90,6 +90,8 @@ export async function POST(
   { params }: { params: Promise<{ groupId: string }> }
 ) {
   try {
+    const { groupId } = await params;
+
     // Get user ID from JWT token
     const userId = await getUserIdFromRequest(request);
     if (!userId) {
@@ -135,7 +137,7 @@ export async function POST(
     }
 
     // Create the wishlist item
-    const result = await createWishlistItemService(resolvedParams.groupId, userId, data);
+    const result = await createWishlistItemService(groupId, userId, data);
 
     if (!result.success) {
       const statusCode =

@@ -299,19 +299,6 @@ export function WishlistDetail({ isOpen, onClose, itemId, groupId }: WishlistDet
                 </HStack>
               </Box>
 
-              {/* Conversion Status Indicator */}
-              {item.item_to_event_id && (
-                <Alert status="info" borderRadius="md">
-                  <AlertIcon />
-                  <VStack align="flex-start" spacing={0}>
-                    <Text fontWeight="600">Converted to Event</Text>
-                    <Text fontSize="sm">
-                      This item has been converted to an event proposal. Click the event
-                      link in the button below to view it.
-                    </Text>
-                  </VStack>
-                </Alert>
-              )}
 
               {/* Comments Section */}
               <CommentSection groupId={groupId} itemId={itemId} />
@@ -340,16 +327,7 @@ export function WishlistDetail({ isOpen, onClose, itemId, groupId }: WishlistDet
             </Button>
 
             {/* Convert to Event Button */}
-            {item?.item_to_event_id ? (
-              <Button
-                colorScheme="teal"
-                isDisabled
-                minH="48px"
-                title="This item has already been converted to an event"
-              >
-                Already Converted
-              </Button>
-            ) : userId && item && (userId === item.created_by || userRole === 'admin') ? (
+            {userId && item && (userId === item.created_by || userRole === 'admin') ? (
               <Button
                 colorScheme="teal"
                 onClick={() => setIsConvertModalOpen(true)}

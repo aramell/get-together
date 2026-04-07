@@ -18,7 +18,7 @@ async function getAuthenticatedMomentum(eventId: string) {
   );
 
   const counts = { in: 0, maybe: 0, out: 0 };
-  result.rows.forEach((row: any) => {
+  result.forEach((row: any) => {
     counts[row.status as keyof typeof counts] = parseInt(row.count, 10);
   });
   return counts;
@@ -32,10 +32,10 @@ async function getAuthenticatedMomentum(eventId: string) {
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { publicToken: string } }
+  { params }: { params: Promise<{ publicToken: string }> }
 ) {
   try {
-    const { publicToken } = params;
+    const { publicToken } = await params;
 
     // Validate token format
     if (!publicToken || publicToken.length < 32) {
@@ -103,10 +103,10 @@ export async function GET(
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { publicToken: string } }
+  { params }: { params: Promise<{ publicToken: string }> }
 ) {
   try {
-    const { publicToken } = params;
+    const { publicToken } = await params;
     const body = await request.json();
 
     // AC7: Validate token format
@@ -123,7 +123,7 @@ export async function POST(
       validated = publicRsvpSchema.parse(body);
     } catch (error) {
       if (error instanceof ZodError) {
-        const messages = error.errors.map(e => e.message).join('; ');
+        const messages = error.issues.map(e => e.message).join('; ');
         return NextResponse.json(
           { success: false, message: messages, errorCode: 'VALIDATION_ERROR' },
           { status: 400 }

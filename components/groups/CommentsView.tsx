@@ -105,7 +105,7 @@ export function CommentsView({ groupId, currentUserId, userRole }: CommentsViewP
               { id: c.created_by, display_name: c.display_name },
             ])
           ).values()
-        );
+        ) as Author[];
         setAuthors(uniqueAuthors);
       } else {
         throw new Error(data.message || 'Failed to fetch comments');

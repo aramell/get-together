@@ -31,8 +31,8 @@ export async function createUserProfile(
       [cognitoSub, email]
     );
 
-    if (result.length > 0) {
-      return result[0];
+    if (result.rows.length > 0) {
+      return result.rows[0];
     }
 
     return null;
@@ -55,7 +55,7 @@ export async function getUserProfile(cognitoSub: string): Promise<UserProfile | 
       [cognitoSub]
     );
 
-    return result.length > 0 ? result[0] : null;
+    return result.rows.length > 0 ? result.rows[0] : null;
   } catch (error) {
     console.error('Error getting user profile:', error);
     return null;
@@ -98,7 +98,7 @@ export async function updateUserProfile(
 
     const result = await client.query(query, values);
 
-    return result.length > 0 ? result[0] : null;
+    return result.rows.length > 0 ? result.rows[0] : null;
   } catch (error) {
     console.error('Error updating user profile:', error);
     return null;

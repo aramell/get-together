@@ -35,11 +35,26 @@ import { validateWishlistCommentInput } from '@/lib/validation/commentSchema';
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { groupId: string; itemId: string } }
+  { params }: { params: Promise<{ groupId: string; itemId: string }> }
 ) {
   try {
     // Extract user from JWT token
-    const userId = await getSubFromJWT(request);
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Unauthorized',
+          errorCode: 'UNAUTHORIZED',
+        },
+        { status: 401 }
+      );
+    }
+
+    const token = authHeader.substring(7);
+    const { groupId, itemId } = await params;
+
+    const userId = getSubFromJWT(token);
     if (!userId) {
       return NextResponse.json(
         {
@@ -57,8 +72,8 @@ export async function POST(
     // Validate input using Zod schema
     const validationResult = validateWishlistCommentInput({
       content: body.content,
-      wishlist_item_id: params.itemId,
-      group_id: params.groupId,
+      wishlist_item_id: itemId,
+      group_id: groupId,
     });
 
     if (!validationResult.success) {
@@ -74,8 +89,8 @@ export async function POST(
 
     // Call service to create comment
     const result = await createWishlistCommentService(
-      params.groupId,
-      params.itemId,
+      groupId,
+      itemId,
       userId,
       validationResult.data!.content
     );
@@ -142,11 +157,26 @@ export async function POST(
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { groupId: string; itemId: string } }
+  { params }: { params: Promise<{ groupId: string; itemId: string }> }
 ) {
   try {
     // Extract user from JWT token
-    const userId = await getSubFromJWT(request);
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Unauthorized',
+          errorCode: 'UNAUTHORIZED',
+        },
+        { status: 401 }
+      );
+    }
+
+    const token = authHeader.substring(7);
+    const { groupId, itemId } = await params;
+
+    const userId = getSubFromJWT(token);
     if (!userId) {
       return NextResponse.json(
         {
@@ -165,8 +195,8 @@ export async function GET(
 
     // Call service to fetch comments
     const result = await getWishlistCommentsService(
-      params.groupId,
-      params.itemId,
+      groupId,
+      itemId,
       userId,
       limit,
       offset

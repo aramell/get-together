@@ -8,7 +8,7 @@ export const publicRsvpSchema = z.object({
   email: z.string().email('Please enter a valid email address').trim().toLowerCase(),
   name: z.string().max(255, 'Name is too long').optional().or(z.literal('')),
   status: z.enum(['in', 'maybe', 'out'], {
-    errorMap: () => ({ message: 'Please select In, Maybe, or Out' }),
+    message: 'Please select In, Maybe, or Out',
   }),
 });
 

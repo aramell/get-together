@@ -50,7 +50,7 @@ export const EventCommentSection: React.FC<EventCommentSectionProps> = ({
   const [isPosting, setIsPosting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { authToken } = useAuth();
+  const { userId } = useAuth();
   const toastManager = useToast();
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -111,7 +111,6 @@ export const EventCommentSection: React.FC<EventCommentSectionProps> = ({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify({ content: newCommentContent }),
       });
@@ -185,7 +184,7 @@ export const EventCommentSection: React.FC<EventCommentSectionProps> = ({
               setNewCommentContent(e.target.value);
               setError(null);
             }}
-            disabled={isPosting || !authToken}
+            disabled={isPosting || !userId}
             rows={3}
             maxLength={2000}
             aria-label="Comment input"
@@ -208,7 +207,7 @@ export const EventCommentSection: React.FC<EventCommentSectionProps> = ({
         <HStack justify="flex-end" spacing={2}>
           <Button
             onClick={handlePostComment}
-            isDisabled={isPosting || !authToken || !newCommentContent.trim()}
+            isDisabled={isPosting || !userId || !newCommentContent.trim()}
             isLoading={isPosting}
             loadingText="Posting..."
             colorScheme="blue"

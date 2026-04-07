@@ -393,7 +393,7 @@ export async function editWishlistComment(
  * @param userId - User attempting to delete (must be author or admin)
  * @returns Success response or error response
  */
-export async function deleteEventComment(
+export async function deleteEventCommentWithAuth(
   groupId: string,
   commentId: string,
   userId: string
@@ -453,7 +453,7 @@ export async function deleteEventComment(
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to delete comment';
-    console.error('Error in deleteEventComment:', error);
+    console.error('Error in deleteEventCommentWithAuth:', error);
 
     return {
       success: false,

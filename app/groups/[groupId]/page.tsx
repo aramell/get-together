@@ -65,9 +65,14 @@ interface EventProposal {
   description: string | null;
   date: string;
   threshold: number | null;
-  status: string;
+  status: 'proposal' | 'confirmed';
   created_at: string;
   updated_at: string;
+  momentum: {
+    in: number;
+    maybe: number;
+    out: number;
+  };
 }
 
 export default function GroupDetailsPage() {
@@ -355,7 +360,7 @@ export default function GroupDetailsPage() {
   return (
     <Box bg="gray.50" minH="100vh">
       {/* Top Navigation Bar */}
-      <Box bg="white" borderBottom="1px" borderColor="gray.200" py={4} sticky top={0} zIndex={10}>
+      <Box bg="white" borderBottom="1px" borderColor="gray.200" py={4} position="sticky" top={0} zIndex={10}>
         <Container maxW="4xl">
           <Button
             variant="ghost"
@@ -531,14 +536,7 @@ export default function GroupDetailsPage() {
                 {events.map((event) => (
                   <EventCard
                     key={event.id}
-                    eventId={event.id}
-                    groupId={groupId}
-                    title={event.title}
-                    date={event.date}
-                    threshold={event.threshold}
-                    status={event.status}
-                    createdBy={event.created_by}
-                    currentUserId={userId}
+                    event={event}
                   />
                 ))}
               </VStack>

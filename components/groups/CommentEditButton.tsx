@@ -1,6 +1,6 @@
 'use client';
 
-import { Button } from '@chakra-ui/react';
+import { IconButton } from '@chakra-ui/react';
 import { EditIcon } from '@chakra-ui/icons';
 import { memo } from 'react';
 
@@ -71,7 +71,7 @@ export const CommentEditButton = memo(function CommentEditButton({
   }
 
   return (
-    <Button
+    <IconButton
       size={size}
       variant="ghost"
       icon={<EditIcon />}

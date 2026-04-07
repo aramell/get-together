@@ -6,7 +6,7 @@
  * Allows users to export their personal data in JSON format
  */
 
-import { withAuth } from '@/lib/api/auth';
+import { getUserIdFromRequest } from '@/lib/api/auth';
 import { getClient } from '@/lib/db/client';
 import { enforceRateLimit } from '@/lib/api/rateLimiter';
 import { NextRequest, NextResponse } from 'next/server';
@@ -16,12 +16,8 @@ import { NextRequest, NextResponse } from 'next/server';
  * Export all personal data for authenticated user
  * Returns: JSON object with all user data
  */
-interface AuthContext {
-  userId: string;
-}
-
-export const GET = withAuth(async (req: NextRequest, context: AuthContext) => {
-  const userId = context.userId;
+export async function GET(req: NextRequest) {
+  const userId = getUserIdFromRequest(req);
 
   if (!userId) {
     return NextResponse.json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } }, { status: 401 });
@@ -204,4 +200,4 @@ export const GET = withAuth(async (req: NextRequest, context: AuthContext) => {
   } finally {
     client.release();
   }
-});
+}

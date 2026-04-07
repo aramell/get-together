@@ -121,7 +121,8 @@ export function EventDetail({
         </VStack>
       </CardHeader>
 
-      <CardBody spacing={6}>
+      <CardBody>
+        <VStack spacing={6}>
         {/* Date and Time */}
         <VStack align="flex-start" spacing={2}>
           <Text fontWeight="semibold" fontSize="sm" color="gray.600">
@@ -229,6 +230,7 @@ export function EventDetail({
           onSuccess={loadEventData}
           isEventConfirmed={status === 'confirmed'}
         />
+        </VStack>
       </CardBody>
     </Card>
   );

@@ -10,7 +10,7 @@ import { getSubFromJWT } from '@/lib/auth/jwt';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { groupId: string; eventId: string } }
+  { params }: { params: Promise<{ groupId: string; eventId: string }> }
 ): Promise<NextResponse> {
   try {
     const resolvedParams = await Promise.resolve(params);
@@ -69,7 +69,7 @@ export async function GET(
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { groupId: string; eventId: string } }
+  { params }: { params: Promise<{ groupId: string; eventId: string }> }
 ): Promise<NextResponse> {
   try {
     const resolvedParams = await Promise.resolve(params);
