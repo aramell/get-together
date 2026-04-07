@@ -72,17 +72,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   /**
    * Logout user and clear tokens
+   * NOTE: HTTP-only cookies are cleared server-side via a logout API call or on token expiration.
+   * document.cookie cannot access HTTP-only cookies (security feature), so we only clear localStorage here.
    */
   const logout = useCallback(() => {
     // Clear localStorage
     localStorage.removeItem('accessToken');
     localStorage.removeItem('idToken');
     localStorage.removeItem('userId');
-
-    // Clear cookies by setting empty values
-    document.cookie = 'accessToken=; max-age=0; path=/';
-    document.cookie = 'idToken=; max-age=0; path=/';
-    document.cookie = 'refreshToken=; max-age=0; path=/';
 
     // Update state
     setIsAuthenticated(false);

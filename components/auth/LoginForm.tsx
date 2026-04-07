@@ -139,7 +139,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   };
 
   return (
-    <Box as="form" onSubmit={handleSubmit} w="100%" maxW="400px" mx="auto">
+    <form onSubmit={handleSubmit} style={{ width: '100%', maxWidth: '400px', margin: '0 auto' }}>
       <Stack spacing={4}>
         {/* Alert Messages */}
         {alert && (
@@ -232,6 +232,6 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
           </ChakraLink>
         </Text>
       </Stack>
-    </Box>
+    </form>
   );
 }

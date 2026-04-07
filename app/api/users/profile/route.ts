@@ -1,130 +1,175 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withAuth } from '@/lib/api/auth';
+import { getClient } from '@/lib/db/client';
 import { updateProfileSchema } from '@/lib/validation/profileSchema';
-import { ZodError } from 'zod';
 
 /**
  * GET /api/users/profile
  * Retrieve current user's profile
- * Requires authentication
+ * Requires authentication (withAuth middleware)
  */
-export async function GET(request: NextRequest) {
-  try {
-    // In production, this would:
-    // 1. Extract user ID from JWT token in cookies/headers
-    // 2. Query Postgres users table for profile data
-    // 3. Return user profile
+interface AuthContext {
+  userId: string;
+}
 
-    // For now, return a template response
-    const profile = {
-      id: 'user-id',
-      email: 'user@example.com',
-      display_name: 'User Name',
-      avatar_url: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
+export const GET = withAuth(async (req: NextRequest, context: AuthContext) => {
+  const userId = context.userId;
+
+  if (!userId) {
+    return NextResponse.json(
+      { error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } },
+      { status: 401 }
+    );
+  }
+
+  const client = await getClient();
+
+  try {
+    const result = await client.query(
+      `SELECT id, email, display_name, avatar_url, created_at, updated_at, update_timestamp
+       FROM users
+       WHERE id = $1 AND deleted_at IS NULL`,
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      return NextResponse.json(
+        { error: { code: 'USER_NOT_FOUND', message: 'User not found' } },
+        { status: 404 }
+      );
+    }
+
+    const user = result.rows[0];
 
     return NextResponse.json({
       success: true,
-      profile,
+      profile: {
+        id: user.id,
+        email: user.email,
+        displayName: user.display_name,
+        avatarUrl: user.avatar_url,
+        createdAt: user.created_at,
+        updatedAt: user.updated_at,
+        updateTimestamp: user.update_timestamp,
+      },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('GET profile error:', error);
     return NextResponse.json(
-      { success: false, message: 'Failed to retrieve profile' },
+      { error: { code: 'PROFILE_FETCH_FAILED', message: 'Failed to retrieve profile' } },
       { status: 500 }
     );
+  } finally {
+    client.release();
   }
-}
+});
 
 /**
  * PATCH /api/users/profile
- * Update user's profile (display_name, request email change, avatar_url)
- * Requires authentication
+ * Update user's profile (display_name, avatar_url)
+ * Requires authentication (withAuth middleware)
+ * AC4: GDPR Right to Rectification - Users can correct their profile data
  */
-export async function PATCH(request: NextRequest) {
+export const PATCH = withAuth(async (req: NextRequest, context: AuthContext) => {
+  const userId = context.userId;
+
+  if (!userId) {
+    return NextResponse.json(
+      { error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } },
+      { status: 401 }
+    );
+  }
+
   try {
-    const body = await request.json();
+    const body = await req.json();
 
     // Validate input
     const validationResult = updateProfileSchema.safeParse(body);
     if (!validationResult.success) {
       return NextResponse.json(
         {
-          success: false,
-          message: 'Validation error',
-          errorCode: 'VALIDATION_ERROR',
-          errors: validationResult.error.issues.map((issue) => ({
-            field: issue.path.join('.'),
-            message: issue.message,
-          })),
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Validation failed',
+            details: validationResult.error.issues.map((issue) => ({
+              field: issue.path.join('.'),
+              message: issue.message,
+            })),
+          },
         },
         { status: 422 }
       );
     }
 
-    const { display_name, new_email, avatar_url } = validationResult.data;
+    const { display_name, avatar_url } = validationResult.data;
 
-    // In production, this would:
-    // 1. Extract user ID from JWT token
-    // 2. Update display_name in Postgres users table if provided
-    // 3. Update avatar_url in Postgres if provided
-    // 4. Update Cognito user attributes if display_name changed
-    // 5. If new_email provided:
-    //    - Generate confirmation token
-    //    - Send confirmation email to new address
-    //    - Store pending email change (don't update yet)
-    // 6. Return updated profile
+    const client = await getClient();
 
-    const updatedProfile = {
-      id: 'user-id',
-      email: 'user@example.com',
-      display_name: display_name || 'User Name',
-      avatar_url: avatar_url || null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
+    try {
+      // Get current user profile for audit trail (before values)
+      const currentResult = await client.query(
+        `SELECT display_name, avatar_url, email FROM users WHERE id = $1 AND deleted_at IS NULL`,
+        [userId]
+      );
 
-    let message = 'Profile updated successfully';
-    if (new_email) {
-      message = `Profile updated. Confirmation email sent to ${new_email}`;
-    }
+      if (currentResult.rows.length === 0) {
+        return NextResponse.json(
+          { error: { code: 'USER_NOT_FOUND', message: 'User not found' } },
+          { status: 404 }
+        );
+      }
 
-    return NextResponse.json(
-      {
+      // Update profile with update_timestamp for audit trail (AC4: Right to Rectification)
+      // Note: Email changes require verification in future enhancement (Task 6)
+      const updateResult = await client.query(
+        `UPDATE users SET
+           display_name = COALESCE($1, display_name),
+           avatar_url = COALESCE($2, avatar_url),
+           update_timestamp = NOW(),
+           updated_at = NOW(),
+           last_activity_at = NOW()
+         WHERE id = $3 AND deleted_at IS NULL
+         RETURNING id, email, display_name, avatar_url, created_at, updated_at, update_timestamp`,
+        [display_name, avatar_url, userId]
+      );
+
+      if (updateResult.rows.length === 0) {
+        return NextResponse.json(
+          { error: { code: 'UPDATE_FAILED', message: 'Failed to update profile' } },
+          { status: 500 }
+        );
+      }
+
+      const updatedUser = updateResult.rows[0];
+
+      return NextResponse.json({
         success: true,
-        message,
-        profile: updatedProfile,
-      },
-      { status: 200 }
-    );
-  } catch (error) {
+        message: 'Profile updated successfully',
+        profile: {
+          id: updatedUser.id,
+          email: updatedUser.email,
+          displayName: updatedUser.display_name,
+          avatarUrl: updatedUser.avatar_url,
+          createdAt: updatedUser.created_at,
+          updatedAt: updatedUser.updated_at,
+          updateTimestamp: updatedUser.update_timestamp,
+        },
+      });
+    } finally {
+      client.release();
+    }
+  } catch (error: any) {
     if (error instanceof SyntaxError) {
       return NextResponse.json(
-        { success: false, message: 'Invalid JSON', errorCode: 'INVALID_REQUEST' },
+        { error: { code: 'INVALID_REQUEST', message: 'Invalid JSON' } },
         { status: 400 }
-      );
-    }
-
-    if (error instanceof ZodError) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Validation error',
-          errorCode: 'VALIDATION_ERROR',
-          errors: error.issues.map((issue) => ({
-            field: issue.path.join('.'),
-            message: issue.message,
-          })),
-        },
-        { status: 422 }
       );
     }
 
     console.error('PATCH profile error:', error);
     return NextResponse.json(
-      { success: false, message: 'Server error', errorCode: 'INTERNAL_SERVER_ERROR' },
+      { error: { code: 'INTERNAL_SERVER_ERROR', message: 'Server error' } },
       { status: 500 }
     );
   }
-}
+});
