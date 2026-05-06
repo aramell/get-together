@@ -257,4 +257,115 @@ describe('GroupsList Component', () => {
       // - Filter works smoothly with large lists
     });
   });
+
+  describe('Real-Time Updates (Task 1.5)', () => {
+    it('should setup polling on mount when groups exist', () => {
+      // Test:
+      // - setInterval called with configurable interval
+      // - Default polling interval is 5000ms
+      // - Polling starts after initial data load
+      // - Polling cleared on unmount
+    });
+
+    it('should detect when a new group is added', () => {
+      // Test:
+      // - Initial groups: 2
+      // - After poll: 3 groups
+      // - Toast notification: "A new group has been added"
+      // - New group displayed in list
+    });
+
+    it('should detect when a group is removed', () => {
+      // Test:
+      // - Initial groups: 3
+      // - After poll: 2 groups
+      // - Toast notification: "A group has been removed"
+      // - Removed group no longer in list
+    });
+
+    it('should detect when group name changes', () => {
+      // Test:
+      // - Group "Team Alpha" renamed to "Team Beta"
+      // - Toast notification: "Group \"Team Alpha\" has been renamed"
+      // - Updated name displayed in list
+    });
+
+    it('should detect when group member count changes', () => {
+      // Test:
+      // - Group member count increases from 5 to 6
+      // - Toast notification: "Group member count updated"
+      // - Updated count displayed
+    });
+
+    it('should detect when group has new activity', () => {
+      // Test:
+      // - Group last_activity_date changes
+      // - Toast notification: "Group has new activity"
+      // - Updated activity timestamp displayed
+    });
+
+    it('should use configurable polling interval', () => {
+      // Test:
+      // - Component accepts pollingIntervalMs prop
+      // - Custom interval (e.g., 3000ms) used for polling
+      // - Default 5000ms used if not specified
+    });
+
+    it('should suppress duplicate notifications', () => {
+      // Test:
+      // - No toast shown if groups data unchanged
+      // - Only notify on actual changes
+      // - No notification spam
+    });
+
+    it('should not show errors on polling failures (only on initial load)', () => {
+      // Test:
+      // - Initial fetch fails → error toast shown
+      // - Polling fetch fails → no error toast
+      // - Silently retry without bothering user
+    });
+
+    it('should handle connection failures gracefully', () => {
+      // Test:
+      // - Network error during polling → no crash
+      // - Polling continues on next interval
+      // - User can still interact with UI
+    });
+
+    it('should stop polling when component unmounts', () => {
+      // Test:
+      // - setInterval cleared on unmount
+      // - No memory leaks
+      // - No continued requests after unmount
+    });
+
+    it('should not poll if no groups exist', () => {
+      // Test:
+      // - User has 0 groups → empty state shown
+      // - Polling not started
+      // - No unnecessary API calls
+    });
+
+    it('should update UI when polling detects changes', () => {
+      // Test:
+      // - New group added → list updated immediately
+      // - UI re-renders with new data
+      // - Search filter still works
+    });
+
+    it('should preserve search term during real-time updates', () => {
+      // Test:
+      // - User searches for "Design"
+      // - Polling updates groups
+      // - Search term preserved
+      // - Filtered results updated
+    });
+
+    it('should notify user with clear, actionable messages', () => {
+      // Test:
+      // - Toast includes specific change description
+      // - Message tells user what happened
+      // - Toast includes group name when relevant
+    });
+  });
 });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
   Box,
   Button,
@@ -32,6 +32,7 @@ interface Group {
 
 interface GroupsListProps {
   onGroupSelect?: (groupId: string) => void;
+  pollingIntervalMs?: number;
 }
 
 /**
@@ -39,43 +40,135 @@ interface GroupsListProps {
  * Displays all groups the user belongs to with member counts and last activity date
  * Shows empty state if user has no groups
  * Includes admin badge for groups where user is admin
+ * Supports real-time updates via polling
  */
-export const GroupsList: React.FC<GroupsListProps> = ({ onGroupSelect }) => {
+export const GroupsList: React.FC<GroupsListProps> = ({
+  onGroupSelect,
+  pollingIntervalMs = 5000
+}) => {
   const router = useRouter();
   const toast = useToast();
   const { userId } = useAuth();
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const previousGroupsRef = useRef<Group[]>([]);
 
-  // Fetch groups on mount
-  useEffect(() => {
+  // Detect changes in groups data
+  const detectGroupChanges = (newGroups: Group[], oldGroups: Group[]): string | null => {
+    if (newGroups.length !== oldGroups.length) {
+      if (newGroups.length > oldGroups.length) {
+        return 'A new group has been added';
+      } else {
+        return 'A group has been removed';
+      }
+    }
+
+    for (const newGroup of newGroups) {
+      const oldGroup = oldGroups.find(g => g.id === newGroup.id);
+      if (!oldGroup) {
+        return `Group "${newGroup.name}" has been added`;
+      }
+      if (newGroup.name !== oldGroup.name) {
+        return `Group "${oldGroup.name}" has been renamed`;
+      }
+      if (newGroup.member_count !== oldGroup.member_count) {
+        return `"${newGroup.name}" member count updated`;
+      }
+      if (new Date(newGroup.last_activity_date).getTime() !== new Date(oldGroup.last_activity_date).getTime()) {
+        return `"${newGroup.name}" has new activity`;
+      }
+    }
+
+    return null;
+  };
+
+  // Fetch groups from API
+  const fetchGroups = async (isPolling = false) => {
     if (!userId) {
       setLoading(false);
       return;
     }
 
-    const fetchGroups = async () => {
-      setLoading(true);
+    try {
       const result = await getGroupsByUser(userId);
 
       if (result.success) {
-        setGroups(result.groups || []);
+        const newGroups = result.groups || [];
+
+        // Detect and notify changes if this is a polling update
+        if (isPolling && previousGroupsRef.current.length > 0) {
+          const changeMessage = detectGroupChanges(newGroups, previousGroupsRef.current);
+          if (changeMessage) {
+            toast({
+              title: 'Groups updated',
+              description: changeMessage,
+              status: 'info',
+              duration: 3000,
+              isClosable: true,
+            });
+          }
+        }
+
+        setGroups(newGroups);
+        previousGroupsRef.current = newGroups;
       } else {
+        // Only show error on initial load, suppress on polling to avoid spam
+        if (!isPolling) {
+          toast({
+            title: 'Error loading groups',
+            description: result.message || 'Could not load your groups',
+            status: 'error',
+            duration: 5000,
+            isClosable: true,
+          });
+        }
+      }
+
+      setLoading(false);
+    } catch (error) {
+      if (!isPolling) {
         toast({
-          title: 'Error loading groups',
-          description: result.message || 'Could not load your groups',
+          title: 'Connection error',
+          description: 'Failed to load groups. Please check your connection.',
           status: 'error',
           duration: 5000,
           isClosable: true,
         });
       }
-
       setLoading(false);
-    };
+    }
+  };
 
-    fetchGroups();
-  }, [userId, toast]);
+  // Initial fetch on mount
+  useEffect(() => {
+    fetchGroups(false);
+  }, [userId]);
+
+  // Setup polling for real-time updates
+  useEffect(() => {
+    if (!userId || groups.length === 0) {
+      return;
+    }
+
+    // Clear existing interval
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+    }
+
+    // Start polling
+    pollingIntervalRef.current = setInterval(() => {
+      fetchGroups(true);
+    }, pollingIntervalMs);
+
+    // Cleanup on unmount
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, [userId, groups.length, pollingIntervalMs]);
 
   // Handle group selection
   const handleGroupClick = (groupId: string) => {
