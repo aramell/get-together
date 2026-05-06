@@ -23,7 +23,8 @@ export function decodeJWT(token: string): DecodedToken | null {
     }
 
     const parts = token.split('.');
-    const decoded = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf-8'));
+    // Use atob for browser compatibility (works in both client and server environments)
+    const decoded = JSON.parse(atob(parts[1]));
     return decoded as DecodedToken;
   } catch (error) {
     console.error('Error decoding JWT:', error);
