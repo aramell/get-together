@@ -1,0 +1,1440 @@
+import { query, queryOne, getClient } from './client';
+
+/**
+ * Create a new group and add creator as admin
+ * Handles transaction: creates group then adds user as admin member
+ */
+export async function createGroupWithMembership(
+  name: string,
+  description: string | null,
+  createdBy: string,
+  inviteCode: string
+): Promise<{ id: string; name: string; description: string | null; created_by: string; invite_code: string; created_at: string; updated_at: string }> {
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+
+    // Insert group
+    const groupResult = await client.query(
+      `INSERT INTO groups (name, description, created_by, invite_code)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, name, description, created_by, invite_code, created_at, updated_at`,
+      [name, description, createdBy, inviteCode]
+    );
+
+    const group = groupResult.rows[0];
+    const groupId = group.id;
+
+    // Add creator as admin member
+    await client.query(
+      `INSERT INTO group_memberships (group_id, user_id, role)
+       VALUES ($1, $2, $3)`,
+      [groupId, createdBy, 'admin']
+    );
+
+    await client.query('COMMIT');
+    return group;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Get group by ID with full details (excludes soft-deleted groups)
+ */
+export async function getGroupById(groupId: string): Promise<{
+  id: string;
+  name: string;
+  description: string | null;
+  created_by: string;
+  invite_code: string;
+  created_at: string;
+  updated_at: string;
+} | null> {
+  return queryOne(
+    `SELECT id, name, description, created_by, invite_code, created_at, updated_at
+     FROM groups
+     WHERE id = $1 AND deleted_at IS NULL`,
+    [groupId]
+  );
+}
+
+/**
+ * Get group details with member list and current user's role (excludes soft-deleted groups)
+ */
+export async function getGroupDetailsWithMembers(
+  groupId: string,
+  userId: string
+): Promise<{
+  group: {
+    id: string;
+    name: string;
+    description: string | null;
+    created_by: string;
+    invite_code: string;
+    created_at: string;
+    updated_at: string;
+  };
+  members: Array<{
+    user_id: string;
+    name: string;
+    email: string;
+    role: 'admin' | 'member';
+    joined_at: string;
+  }>;
+  currentUserRole: 'admin' | 'member' | null;
+} | null> {
+  const client = await getClient();
+  try {
+    // Get group
+    const groupResult = await client.query(
+      `SELECT id, name, description, created_by, invite_code, created_at, updated_at
+       FROM groups
+       WHERE id = $1 AND deleted_at IS NULL`,
+      [groupId]
+    );
+
+    if (groupResult.rows.length === 0) {
+      return null;
+    }
+
+    const group = groupResult.rows[0];
+
+    // Get all members with user info (name, email)
+    const membersResult = await client.query(
+      `SELECT gm.user_id, u.name, u.email, gm.role, gm.joined_at
+       FROM group_memberships gm
+       JOIN users u ON gm.user_id = u.id
+       WHERE gm.group_id = $1
+       ORDER BY gm.joined_at ASC`,
+      [groupId]
+    );
+
+    // Get current user's role
+    const userRoleResult = await client.query(
+      `SELECT role
+       FROM group_memberships
+       WHERE group_id = $1 AND user_id = $2`,
+      [groupId, userId]
+    );
+
+    const currentUserRole = userRoleResult.rows.length > 0
+      ? (userRoleResult.rows[0].role as 'admin' | 'member')
+      : null;
+
+    return {
+      group,
+      members: membersResult.rows.map((row) => ({
+        user_id: row.user_id,
+        name: row.name,
+        email: row.email,
+        role: row.role,
+        joined_at: row.joined_at,
+      })),
+      currentUserRole,
+    };
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Get all groups for a user, sorted by last activity (excludes soft-deleted groups)
+ */
+export async function getGroupsByUserId(userId: string): Promise<Array<{
+  id: string;
+  name: string;
+  description: string | null;
+  created_by: string;
+  member_count: number;
+  user_role: 'admin' | 'member';
+  created_at: string;
+  updated_at: string;
+}>> {
+  return query(
+    `SELECT
+       g.id,
+       g.name,
+       g.description,
+       g.created_by,
+       COUNT(gm.id) as member_count,
+       gm.role as user_role,
+       g.created_at,
+       g.updated_at
+     FROM groups g
+     INNER JOIN group_memberships gm ON g.id = gm.group_id
+     WHERE gm.user_id = $1 AND g.deleted_at IS NULL
+     GROUP BY g.id, g.name, g.description, g.created_by, g.created_at, g.updated_at, gm.role
+     ORDER BY g.updated_at DESC`,
+    [userId]
+  );
+}
+
+/**
+ * Check if user is a member of a group and get their role
+ */
+export async function getUserGroupRole(
+  groupId: string,
+  userId: string
+): Promise<'admin' | 'member' | null> {
+  const result = await queryOne<{ role: 'admin' | 'member' }>(
+    `SELECT role FROM group_memberships WHERE group_id = $1 AND user_id = $2`,
+    [groupId, userId]
+  );
+  return result ? result.role : null;
+}
+
+/**
+ * Get group by invite code (excludes soft-deleted groups)
+ */
+export async function getGroupByInviteCode(inviteCode: string): Promise<{
+  id: string;
+  name: string;
+  description: string | null;
+  created_by: string;
+  invite_code: string;
+  created_at: string;
+  updated_at: string;
+} | null> {
+  return queryOne(
+    `SELECT id, name, description, created_by, invite_code, created_at, updated_at
+     FROM groups
+     WHERE invite_code = $1 AND deleted_at IS NULL`,
+    [inviteCode]
+  );
+}
+
+/**
+ * Add user to group
+ */
+export async function addUserToGroup(
+  groupId: string,
+  userId: string,
+  role: 'admin' | 'member' = 'member'
+): Promise<void> {
+  await query(
+    `INSERT INTO group_memberships (group_id, user_id, role)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (group_id, user_id) DO UPDATE
+     SET role = $3`,
+    [groupId, userId, role]
+  );
+}
+
+/**
+ * Remove user from group
+ */
+export async function removeUserFromGroup(groupId: string, userId: string): Promise<void> {
+  await query(
+    `DELETE FROM group_memberships WHERE group_id = $1 AND user_id = $2`,
+    [groupId, userId]
+  );
+}
+
+/**
+ * Update group
+ */
+export async function updateGroup(
+  groupId: string,
+  data: {
+    name?: string;
+    description?: string | null;
+  }
+): Promise<{
+  id: string;
+  name: string;
+  description: string | null;
+  created_by: string;
+  invite_code: string;
+  created_at: string;
+  updated_at: string;
+} | null> {
+  const updates: string[] = [];
+  const values: any[] = [groupId];
+  let paramIndex = 2;
+
+  if (data.name !== undefined) {
+    updates.push(`name = $${paramIndex}`);
+    values.push(data.name);
+    paramIndex++;
+  }
+
+  if (data.description !== undefined) {
+    updates.push(`description = $${paramIndex}`);
+    values.push(data.description);
+    paramIndex++;
+  }
+
+  if (updates.length === 0) {
+    return getGroupById(groupId);
+  }
+
+  updates.push(`updated_at = CURRENT_TIMESTAMP`);
+
+  return queryOne(
+    `UPDATE groups
+     SET ${updates.join(', ')}
+     WHERE id = $1
+     RETURNING id, name, description, created_by, invite_code, created_at, updated_at`,
+    values
+  );
+}
+
+/**
+ * Soft delete group by setting deleted_at timestamp
+ * GDPR compliant: preserves data for retention period before hard deletion
+ */
+export async function deleteGroup(groupId: string): Promise<void> {
+  await query(
+    `UPDATE groups SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1 AND deleted_at IS NULL`,
+    [groupId]
+  );
+}
+
+/**
+ * Check if user is a member of a group
+ */
+export async function isGroupMember(groupId: string, userId: string): Promise<boolean> {
+  const result = await queryOne<{ id: string }>(
+    `SELECT id FROM group_memberships WHERE group_id = $1 AND user_id = $2`,
+    [groupId, userId]
+  );
+  return !!result;
+}
+
+/**
+ * Get all members of a group with pagination
+ */
+export async function getGroupMembers(
+  groupId: string,
+  limit: number = 10,
+  offset: number = 0
+): Promise<{
+  members: Array<{
+    id: string;
+    email: string;
+    username: string;
+    role: 'admin' | 'member';
+    joinedAt: string;
+  }>;
+  total: number;
+}> {
+  // Get count
+  const countResult = await queryOne<{ count: number }>(
+    `SELECT COUNT(*) as count FROM group_memberships WHERE group_id = $1`,
+    [groupId]
+  );
+  const total = countResult?.count || 0;
+
+  // Get members with user info
+  const results = await query<{
+    user_id: string;
+    email: string;
+    username: string;
+    role: 'admin' | 'member';
+    joined_at: string;
+  }>(
+    `SELECT
+       gm.user_id as user_id,
+       u.email,
+       u.username,
+       gm.role,
+       gm.joined_at
+     FROM group_memberships gm
+     JOIN users u ON gm.user_id = u.id
+     WHERE gm.group_id = $1
+     ORDER BY gm.joined_at ASC
+     LIMIT $2 OFFSET $3`,
+    [groupId, limit, offset]
+  );
+
+  return {
+    members: results.map((row) => ({
+      id: row.user_id,
+      email: row.email,
+      username: row.username,
+      role: row.role,
+      joinedAt: row.joined_at,
+    })),
+    total,
+  };
+}
+
+/**
+ * Get count of admins in a group
+ */
+export async function getAdminCount(groupId: string): Promise<number> {
+  const result = await queryOne<{ count: number }>(
+    `SELECT COUNT(*) as count FROM group_memberships WHERE group_id = $1 AND role = 'admin'`,
+    [groupId]
+  );
+  return result?.count || 0;
+}
+
+/**
+ * Update member role
+ */
+export async function updateMemberRole(
+  groupId: string,
+  userId: string,
+  role: 'admin' | 'member'
+): Promise<void> {
+  await query(
+    `UPDATE group_memberships SET role = $3 WHERE group_id = $1 AND user_id = $2`,
+    [groupId, userId, role]
+  );
+}
+
+/**
+ * AVAILABILITIES TABLE STRUCTURE:
+ * id (UUID) - Primary key
+ * user_id (UUID) - FK to users, cascades on delete
+ * group_id (UUID) - FK to groups, cascades on delete
+ * start_time (TIMESTAMPTZ) - Start of availability block
+ * end_time (TIMESTAMPTZ) - End of availability block
+ * status (VARCHAR 20) - 'free' or 'busy'
+ * version (INTEGER) - Optimistic locking version
+ * recurring_pattern (VARCHAR 20) - 'daily', 'weekly', or NULL for one-time entries
+ * recurring_end_date (TIMESTAMPTZ) - Last date for recurring entries, NULL for one-time
+ * created_at (TIMESTAMPTZ) - Record creation timestamp
+ * updated_at (TIMESTAMPTZ) - Record update timestamp
+ */
+
+/**
+ * Create an availability entry (free/busy time block)
+ */
+export async function createAvailability(
+  userId: string,
+  groupId: string,
+  startTime: string,
+  endTime: string,
+  status: 'free' | 'busy'
+): Promise<{
+  id: string;
+  user_id: string;
+  group_id: string;
+  start_time: string;
+  end_time: string;
+  status: 'free' | 'busy';
+  version: number;
+  created_at: string;
+  updated_at: string;
+}> {
+  const result = await queryOne(
+    `INSERT INTO availabilities (user_id, group_id, start_time, end_time, status, version)
+     VALUES ($1, $2, $3, $4, $5, 1)
+     RETURNING id, user_id, group_id, start_time, end_time, status, version, created_at, updated_at`,
+    [userId, groupId, startTime, endTime, status]
+  );
+  return result!;
+}
+
+/**
+ * Check for duplicate/overlapping availability (same user/group/time)
+ * Detects range overlaps: NEW.start < EXISTING.end AND NEW.end > EXISTING.start
+ */
+export async function checkDuplicateAvailability(
+  userId: string,
+  groupId: string,
+  startTime: string,
+  endTime: string
+): Promise<{
+  id: string;
+  user_id: string;
+  group_id: string;
+  start_time: string;
+  end_time: string;
+  status: 'free' | 'busy';
+} | null> {
+  return queryOne(
+    `SELECT id, user_id, group_id, start_time, end_time, status
+     FROM availabilities
+     WHERE user_id = $1 AND group_id = $2
+       AND start_time < $4 AND end_time > $3`,
+    [userId, groupId, startTime, endTime]
+  );
+}
+
+/**
+ * Get all availabilities for a group within a date range
+ */
+export async function getGroupAvailabilities(
+  groupId: string,
+  startDate: string,
+  endDate: string
+): Promise<Array<{
+  id: string;
+  user_id: string;
+  group_id: string;
+  start_time: string;
+  end_time: string;
+  status: 'free' | 'busy';
+  version: number;
+  created_at: string;
+  updated_at: string;
+  user_name: string;
+  user_email: string;
+}>> {
+  return query(
+    `SELECT a.id, a.user_id, a.group_id, a.start_time, a.end_time, a.status, a.version, a.created_at, a.updated_at,
+            u.name as user_name, u.email as user_email
+     FROM availabilities a
+     JOIN users u ON a.user_id = u.id
+     WHERE a.group_id = $1 AND a.start_time >= $2 AND a.end_time <= $3 AND u.deleted_at IS NULL
+     ORDER BY a.start_time ASC`,
+    [groupId, startDate, endDate]
+  );
+}
+
+/**
+ * Get all availabilities for a group with recurring entries expanded
+ * Returns both non-recurring and materialized recurring entries
+ */
+export async function getGroupAvailabilitiesWithRecurring(
+  groupId: string,
+  startDate: string,
+  endDate: string
+): Promise<Array<{
+  id: string;
+  user_id: string;
+  group_id: string;
+  start_time: string;
+  end_time: string;
+  status: 'free' | 'busy';
+  version: number;
+  created_at: string;
+  updated_at: string;
+  user_name: string;
+  user_email: string;
+  is_recurring: boolean;
+}>> {
+  try {
+    // Get all availabilities (recurring and non-recurring)
+    const allAvailabilities = await query<{
+      id: string;
+      user_id: string;
+      group_id: string;
+      start_time: string;
+      end_time: string;
+      status: 'free' | 'busy';
+      version: number;
+      created_at: string;
+      updated_at: string;
+      user_name: string;
+      user_email: string;
+      recurring_pattern: string | null;
+      recurring_end_date: string | null;
+    }>(
+      `SELECT a.id, a.user_id, a.group_id, a.start_time, a.end_time, a.status, a.version,
+              a.created_at, a.updated_at, a.recurring_pattern, a.recurring_end_date,
+              u.name as user_name, u.email as user_email
+       FROM availabilities a
+       JOIN users u ON a.user_id = u.id
+       WHERE a.group_id = $1 AND u.deleted_at IS NULL
+       ORDER BY a.start_time ASC`,
+      [groupId]
+    );
+
+    const startDateTime = new Date(startDate);
+    const endDateTime = new Date(endDate);
+    const result: Array<any> = [];
+
+    // Process each availability
+    for (const avail of allAvailabilities) {
+      const availStart = new Date(avail.start_time);
+      const availEnd = new Date(avail.end_time);
+
+      // Skip if outside date range
+      if (availEnd < startDateTime || availStart > endDateTime) {
+        continue;
+      }
+
+      // Non-recurring entry - add as-is
+      if (!avail.recurring_pattern || !avail.recurring_end_date) {
+        result.push({
+          ...avail,
+          is_recurring: false,
+        });
+        continue;
+      }
+
+      // Recurring entry - expand and add occurrences
+      const recurringEnd = new Date(avail.recurring_end_date);
+      let currentDate = new Date(availStart);
+
+      while (currentDate <= recurringEnd && currentDate <= endDateTime) {
+        // Check if this occurrence is within the requested range
+        const occurrenceStart = new Date(currentDate);
+        const occurrenceEnd = new Date(currentDate);
+
+        occurrenceStart.setHours(availStart.getHours(), availStart.getMinutes(), availStart.getSeconds());
+        occurrenceEnd.setHours(availEnd.getHours(), availEnd.getMinutes(), availEnd.getSeconds());
+
+        if (occurrenceEnd >= startDateTime && occurrenceStart <= endDateTime) {
+          // Generate stable synthetic ID using hash of original ID + date to ensure uniqueness
+          // Format: {original-id}#{date-index} where date-index is days since pattern start
+          const daysFromStart = Math.floor((currentDate.getTime() - availStart.getTime()) / (1000 * 60 * 60 * 24));
+          const syntheticId = `${avail.id}#${daysFromStart}`;
+
+          result.push({
+            id: syntheticId,
+            user_id: avail.user_id,
+            group_id: avail.group_id,
+            start_time: occurrenceStart.toISOString(),
+            end_time: occurrenceEnd.toISOString(),
+            status: avail.status,
+            version: avail.version,
+            created_at: avail.created_at,
+            updated_at: avail.updated_at,
+            user_name: avail.user_name,
+            user_email: avail.user_email,
+            is_recurring: true,
+          });
+        }
+
+        // Move to next occurrence
+        if (avail.recurring_pattern === 'daily') {
+          currentDate.setDate(currentDate.getDate() + 1);
+        } else if (avail.recurring_pattern === 'weekly') {
+          currentDate.setDate(currentDate.getDate() + 7);
+        }
+      }
+    }
+
+    return result.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+  } catch (error) {
+    console.error('Error fetching availabilities with recurring:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get group availabilities organized by member for calendar view
+ * Returns all group members with their availability entries
+ * Useful for displaying a multi-member calendar grid
+ */
+export async function getGroupAvailabilitiesForCalendar(
+  groupId: string,
+  startDate: string,
+  endDate: string
+): Promise<Array<{
+  user_id: string;
+  user_name: string;
+  availabilities: Array<{
+    id: string;
+    user_id: string;
+    group_id: string;
+    start_time: string;
+    end_time: string;
+    status: 'free' | 'busy';
+    version: number;
+    created_at: string;
+    updated_at: string;
+  }>;
+}>> {
+  try {
+    // Get all group members (excludes deleted users)
+    const membersResult = await query<{
+      user_id: string;
+      name: string;
+    }>(
+      `SELECT DISTINCT gm.user_id, u.name
+       FROM group_memberships gm
+       JOIN users u ON gm.user_id = u.id
+       WHERE gm.group_id = $1 AND u.deleted_at IS NULL
+       ORDER BY u.name ASC`,
+      [groupId]
+    );
+
+    if (membersResult.length === 0) {
+      return [];
+    }
+
+    // Get all availabilities with recurring expanded
+    const availabilities = await getGroupAvailabilitiesWithRecurring(groupId, startDate, endDate);
+
+    // Group availabilities by user_id
+    const availabilityByUser = new Map<string, typeof availabilities>();
+    for (const avail of availabilities) {
+      if (!availabilityByUser.has(avail.user_id)) {
+        availabilityByUser.set(avail.user_id, []);
+      }
+      availabilityByUser.get(avail.user_id)!.push(avail);
+    }
+
+    // Build result: each member with their availabilities (or empty if no entries)
+    const result = membersResult.map((member) => ({
+      user_id: member.user_id,
+      user_name: member.name,
+      availabilities: (availabilityByUser.get(member.user_id) || []).map((avail) => ({
+        id: avail.id,
+        user_id: avail.user_id,
+        group_id: avail.group_id,
+        start_time: avail.start_time,
+        end_time: avail.end_time,
+        status: avail.status,
+        version: avail.version,
+        created_at: avail.created_at,
+        updated_at: avail.updated_at,
+      })),
+    }));
+
+    return result;
+  } catch (error) {
+    console.error('Error fetching group availabilities for calendar:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get a single availability by ID
+ */
+export async function getAvailabilityById(availabilityId: string): Promise<{
+  id: string;
+  user_id: string;
+  group_id: string;
+  start_time: string;
+  end_time: string;
+  status: 'free' | 'busy';
+  version: number;
+  created_at: string;
+  updated_at: string;
+} | null> {
+  return queryOne(
+    `SELECT id, user_id, group_id, start_time, end_time, status, version, created_at, updated_at
+     FROM availabilities
+     WHERE id = $1`,
+    [availabilityId]
+  );
+}
+
+/**
+ * Update an availability entry with optimistic locking (version field)
+ * Returns null if version mismatch (concurrent update detected)
+ */
+export async function updateAvailability(
+  availabilityId: string,
+  startTime: string,
+  endTime: string,
+  status: 'free' | 'busy',
+  currentVersion: number
+): Promise<{
+  id: string;
+  user_id: string;
+  group_id: string;
+  start_time: string;
+  end_time: string;
+  status: 'free' | 'busy';
+  version: number;
+  created_at: string;
+  updated_at: string;
+} | null> {
+  return queryOne(
+    `UPDATE availabilities
+     SET start_time = $2, end_time = $3, status = $4, version = version + 1, updated_at = CURRENT_TIMESTAMP
+     WHERE id = $1 AND version = $5
+     RETURNING id, user_id, group_id, start_time, end_time, status, version, created_at, updated_at`,
+    [availabilityId, startTime, endTime, status, currentVersion]
+  );
+}
+
+/**
+ * Delete an availability entry by ID
+ * Hard delete (removes the record completely)
+ */
+export async function deleteAvailability(availabilityId: string): Promise<void> {
+  await queryOne(
+    `DELETE FROM availabilities WHERE id = $1 RETURNING id`,
+    [availabilityId]
+  );
+}
+
+/**
+ * Create a new wishlist item for a group
+ * Returns the created item with all fields
+ */
+export async function createWishlistItem(
+  groupId: string,
+  userId: string,
+  title: string,
+  description: string | null,
+  link: string | null
+): Promise<{
+  id: string;
+  group_id: string;
+  created_by: string;
+  title: string;
+  description: string | null;
+  link: string | null;
+  created_at: string;
+  updated_at: string;
+}> {
+  const result = await queryOne(
+    `INSERT INTO wishlist_items (group_id, created_by, title, description, link)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING id, group_id, created_by, title, description, link, created_at, updated_at`,
+    [groupId, userId, title, description, link]
+  );
+  if (!result) {
+    throw new Error('Failed to create wishlist item');
+  }
+  return result;
+}
+
+/**
+ * Get wishlist items for a group with pagination, ordered by newest first
+ * Excludes soft-deleted items
+ */
+export async function getWishlistItems(
+  groupId: string,
+  limit: number = 20,
+  offset: number = 0
+): Promise<Array<{
+  id: string;
+  group_id: string;
+  created_by: string;
+  title: string;
+  description: string | null;
+  link: string | null;
+  created_at: string;
+  updated_at: string;
+}>> {
+  return await query(
+    `SELECT id, group_id, created_by, title, description, link, created_at, updated_at
+     FROM wishlist_items
+     WHERE group_id = $1 AND deleted_at IS NULL
+     ORDER BY created_at DESC
+     LIMIT $2 OFFSET $3`,
+    [groupId, limit, offset]
+  );
+}
+
+/**
+ * Get total count of active wishlist items for a group
+ * Used for pagination
+ */
+export async function getWishlistItemCount(groupId: string): Promise<number> {
+  const result = await queryOne(
+    `SELECT COUNT(*) as count FROM wishlist_items WHERE group_id = $1 AND deleted_at IS NULL`,
+    [groupId]
+  );
+  return result ? parseInt(result.count) : 0;
+}
+
+/**
+ * Get a single wishlist item by ID
+ * Includes creator information via join with users table
+ */
+export async function getWishlistItemById(
+  itemId: string
+): Promise<{
+  id: string;
+  group_id: string;
+  created_by: string;
+  title: string;
+  description: string | null;
+  link: string | null;
+  created_at: string;
+  updated_at: string;
+  creator_name?: string;
+  creator_email?: string;
+} | null> {
+  return queryOne(
+    `SELECT
+       wi.id, wi.group_id, wi.created_by, wi.title, wi.description, wi.link, wi.created_at, wi.updated_at,
+       u.name as creator_name, u.email as creator_email
+     FROM wishlist_items wi
+     LEFT JOIN users u ON wi.created_by = u.sub
+     WHERE wi.id = $1 AND wi.deleted_at IS NULL`,
+    [itemId]
+  );
+}
+
+/**
+ * Soft delete a wishlist item (marks with deleted_at timestamp)
+ * Used to preserve item history while removing from view
+ */
+export async function softDeleteWishlistItem(itemId: string): Promise<void> {
+  await queryOne(
+    `UPDATE wishlist_items SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1 RETURNING id`,
+    [itemId]
+  );
+}
+
+/**
+ * Get wishlist items created after a specific timestamp
+ * Used for real-time polling to detect new items
+ */
+export async function getWishlistItemsSince(
+  groupId: string,
+  since: string
+): Promise<Array<{
+  id: string;
+  group_id: string;
+  created_by: string;
+  title: string;
+  description: string | null;
+  link: string | null;
+  created_at: string;
+  updated_at: string;
+}>> {
+  return await query(
+    `SELECT id, group_id, created_by, title, description, link, created_at, updated_at
+     FROM wishlist_items
+     WHERE group_id = $1 AND created_at > $2 AND deleted_at IS NULL
+     ORDER BY created_at DESC`,
+    [groupId, since]
+  );
+}
+
+/**
+ * Mark a wishlist item as interesting to a user
+ * Creates a new interest record (fails if user already interested - unique constraint)
+ */
+export async function markInterest(
+  itemId: string,
+  userId: string
+): Promise<{ id: string }> {
+  const result = await queryOne(
+    `INSERT INTO wishlist_interests (user_id, wishlist_item_id)
+     VALUES ($1, $2)
+     RETURNING id`,
+    [userId, itemId]
+  );
+  if (!result) throw new Error('Failed to create interest record');
+  return result;
+}
+
+/**
+ * Unmark interest - soft delete the interest record
+ * Sets deleted_at timestamp to preserve data history
+ */
+export async function unmarkInterest(itemId: string, userId: string): Promise<void> {
+  await queryOne(
+    `UPDATE wishlist_interests
+     SET deleted_at = NOW()
+     WHERE wishlist_item_id = $1 AND user_id = $2 AND deleted_at IS NULL
+     RETURNING id`,
+    [itemId, userId]
+  );
+}
+
+/**
+ * Get count of active interests on a wishlist item
+ * Excludes soft-deleted (deleted_at IS NOT NULL) interests
+ */
+export async function getInterestCount(itemId: string): Promise<number> {
+  const result = await queryOne(
+    `SELECT COUNT(*) as count
+     FROM wishlist_interests
+     WHERE wishlist_item_id = $1 AND deleted_at IS NULL`,
+    [itemId]
+  );
+  return result ? parseInt(result.count, 10) : 0;
+}
+
+/**
+ * Check if a user has marked interest on a wishlist item
+ * Returns true if active interest exists, false otherwise
+ */
+export async function getUserInterestStatus(itemId: string, userId: string): Promise<boolean> {
+  const result = await queryOne(
+    `SELECT EXISTS(
+       SELECT 1 FROM wishlist_interests
+       WHERE wishlist_item_id = $1 AND user_id = $2 AND deleted_at IS NULL
+     ) as is_interested`,
+    [itemId, userId]
+  );
+  return result?.is_interested ?? false;
+}
+
+// ============================================================================
+// Wishlist Comments (Story 6-2: Add Comments to Wishlist Items)
+// ============================================================================
+
+/**
+ * Create a comment on a wishlist item
+ */
+export async function createWishlistComment(
+  itemId: string,
+  groupId: string,
+  userId: string,
+  content: string
+): Promise<{
+  id: string;
+  wishlist_item_id: string;
+  group_id: string;
+  created_by: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}> {
+  const result = await queryOne(
+    `INSERT INTO wishlist_comments (wishlist_item_id, group_id, created_by, content)
+     VALUES ($1, $2, $3, $4)
+     RETURNING id, wishlist_item_id, group_id, created_by, content, created_at, updated_at, deleted_at`,
+    [itemId, groupId, userId, content]
+  );
+
+  if (!result) {
+    throw new Error('Failed to create wishlist comment');
+  }
+
+  return result;
+}
+
+/**
+ * Get all comments for a wishlist item with pagination
+ */
+export async function getWishlistComments(
+  itemId: string,
+  limit: number = 50,
+  offset: number = 0
+): Promise<{
+  comments: Array<{
+    id: string;
+    wishlist_item_id: string;
+    created_by: string;
+    content: string;
+    created_at: string;
+    updated_at: string;
+    display_name: string | null;
+    avatar_url: string | null;
+  }>;
+  totalCount: number;
+}> {
+  const comments = await query(
+    `SELECT
+       c.id, c.wishlist_item_id, c.created_by, c.content, c.created_at, c.updated_at,
+       u.display_name, u.avatar_url
+     FROM wishlist_comments c
+     LEFT JOIN users u ON c.created_by = u.id
+     WHERE c.wishlist_item_id = $1 AND c.deleted_at IS NULL
+     ORDER BY c.created_at ASC
+     LIMIT $2 OFFSET $3`,
+    [itemId, limit, offset]
+  );
+
+  const countResult = await queryOne(
+    `SELECT COUNT(*) as count FROM wishlist_comments
+     WHERE wishlist_item_id = $1 AND deleted_at IS NULL`,
+    [itemId]
+  );
+
+  const totalCount = countResult ? parseInt(countResult.count, 10) : 0;
+
+  return {
+    comments: comments || [],
+    totalCount,
+  };
+}
+
+/**
+ * Get comment count for a wishlist item
+ */
+export async function getWishlistCommentCount(itemId: string): Promise<number> {
+  const result = await queryOne(
+    `SELECT COUNT(*) as count FROM wishlist_comments
+     WHERE wishlist_item_id = $1 AND deleted_at IS NULL`,
+    [itemId]
+  );
+  return result ? parseInt(result.count, 10) : 0;
+}
+
+/**
+ * Soft delete a wishlist comment
+ */
+export async function deleteWishlistComment(commentId: string): Promise<void> {
+  await query(
+    `UPDATE wishlist_comments SET deleted_at = NOW() WHERE id = $1`,
+    [commentId]
+  );
+}
+
+/**
+ * Soft delete an event comment
+ */
+export async function deleteEventComment(commentId: string): Promise<void> {
+  await query(
+    `UPDATE event_comments SET deleted_at = NOW() WHERE id = $1`,
+    [commentId]
+  );
+}
+
+/**
+ * Get comments from both events and wishlist items for a group with filtering, search, and pagination
+ * Supports: content_type filter (all|event|wishlist), author_id filter, full-text search, sorting, pagination
+ */
+export async function getGroupCommentsWithFilters(
+  groupId: string,
+  options: {
+    content_type?: 'all' | 'event' | 'wishlist';
+    author_id?: string | null;
+    search_query?: string | null;
+    sort_by?: 'newest' | 'oldest' | 'author';
+    limit?: number;
+    offset?: number;
+  } = {}
+): Promise<{
+  comments: Array<{
+    id: string;
+    created_by: string;
+    content: string;
+    created_at: string;
+    display_name: string | null;
+    avatar_url: string | null;
+    target_id: string;
+    target_type: 'event' | 'wishlist';
+    target_name: string;
+  }>;
+  totalCount: number;
+}> {
+  const {
+    content_type = 'all',
+    author_id = null,
+    search_query = null,
+    sort_by = 'newest',
+    limit = 20,
+    offset = 0,
+  } = options;
+
+  // Build base queries for event and wishlist comments
+  const eventBase = `
+    SELECT
+      c.id, c.created_by, c.content, c.created_at,
+      u.display_name, u.avatar_url,
+      c.event_id as target_id,
+      'event'::text as target_type,
+      e.title as target_name
+    FROM event_comments c
+    LEFT JOIN users u ON c.created_by = u.id
+    LEFT JOIN event_proposals e ON c.event_id = e.id
+    WHERE c.group_id = $1 AND c.deleted_at IS NULL
+  `;
+
+  const wishlistBase = `
+    SELECT
+      c.id, c.created_by, c.content, c.created_at,
+      u.display_name, u.avatar_url,
+      c.wishlist_item_id as target_id,
+      'wishlist'::text as target_type,
+      w.title as target_name
+    FROM wishlist_comments c
+    LEFT JOIN users u ON c.created_by = u.id
+    LEFT JOIN wishlist_items w ON c.wishlist_item_id = w.id
+    WHERE c.group_id = $1 AND c.deleted_at IS NULL
+  `;
+
+  // Build union query based on content type
+  let unionQueryBase = '';
+  if (content_type === 'event') {
+    unionQueryBase = eventBase;
+  } else if (content_type === 'wishlist') {
+    unionQueryBase = wishlistBase;
+  } else {
+    unionQueryBase = `${eventBase} UNION ALL ${wishlistBase}`;
+  }
+
+  // Build WHERE clause for additional filters
+  let whereExtension = '';
+  const params: (string | number)[] = [groupId];
+
+  if (author_id) {
+    whereExtension += ` AND c.created_by = $2`;
+    params.push(author_id);
+  }
+
+  if (search_query) {
+    const paramIdx = params.length + 1;
+    const searchTerm = `%${search_query}%`;
+    whereExtension += ` AND (c.content ILIKE $${paramIdx} OR u.display_name ILIKE $${paramIdx} OR COALESCE(e.title, w.title) ILIKE $${paramIdx})`;
+    params.push(searchTerm);
+  }
+
+  // If we have extended WHERE conditions and it's a UNION, we need to wrap each subquery
+  let finalQueryBase = unionQueryBase;
+  if (whereExtension && content_type === 'all') {
+    // Wrap each part of the union with the additional filters
+    const eventWithFilter = eventBase + whereExtension;
+    const wishlistWithFilter = wishlistBase + whereExtension;
+    finalQueryBase = `${eventWithFilter} UNION ALL ${wishlistWithFilter}`;
+  } else if (whereExtension) {
+    finalQueryBase = unionQueryBase + whereExtension;
+  }
+
+  // Add sorting
+  let orderBy = 'created_at DESC'; // newest first
+  if (sort_by === 'oldest') {
+    orderBy = 'created_at ASC';
+  } else if (sort_by === 'author') {
+    orderBy = 'display_name ASC, created_at DESC';
+  }
+
+  // Build final query with sorting and pagination
+  const paramIdx = params.length + 1;
+  const finalQuery = `
+    SELECT * FROM (${finalQueryBase}) as all_comments
+    ORDER BY ${orderBy}
+    LIMIT $${paramIdx} OFFSET $${paramIdx + 1}
+  `;
+
+  params.push(limit, offset);
+
+  // Get comments
+  const comments = await query(finalQuery, params);
+
+  // Get total count
+  let countQuery = '';
+  const countParams = [groupId] as (string | null)[];
+
+  if (content_type === 'event') {
+    countQuery = `SELECT COUNT(*) as count FROM event_comments c
+                 LEFT JOIN users u ON c.created_by = u.id
+                 LEFT JOIN event_proposals e ON c.event_id = e.id
+                 WHERE c.group_id = $1 AND c.deleted_at IS NULL`;
+  } else if (content_type === 'wishlist') {
+    countQuery = `SELECT COUNT(*) as count FROM wishlist_comments c
+                 LEFT JOIN users u ON c.created_by = u.id
+                 LEFT JOIN wishlist_items w ON c.wishlist_item_id = w.id
+                 WHERE c.group_id = $1 AND c.deleted_at IS NULL`;
+  } else {
+    countQuery = `
+      SELECT (
+        (SELECT COUNT(*) FROM event_comments WHERE group_id = $1 AND deleted_at IS NULL) +
+        (SELECT COUNT(*) FROM wishlist_comments WHERE group_id = $1 AND deleted_at IS NULL)
+      ) as count
+    `;
+  }
+
+  // Add author filter to count
+  if (author_id) {
+    if (content_type === 'event' || content_type === 'wishlist') {
+      countQuery = countQuery.replace('WHERE c.group_id = $1', `WHERE c.group_id = $1 AND c.created_by = $2`);
+      countParams.push(author_id);
+    }
+  }
+
+  const countResult = await queryOne(countQuery, countParams);
+  const totalCount = countResult ? parseInt(countResult.count, 10) : 0;
+
+  return {
+    comments: comments || [],
+    totalCount,
+  };
+}
+
+// ============================================================================
+// Comment Editing (Story 6-4: Edit Comments)
+// ============================================================================
+
+/**
+ * Get a single event comment by ID (excludes soft-deleted comments)
+ */
+export async function getEventCommentById(
+  commentId: string
+): Promise<{
+  id: string;
+  event_id: string;
+  group_id: string;
+  created_by: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+  edited_at: string | null;
+  updated_count: number;
+  deleted_at: string | null;
+} | null> {
+  return queryOne(
+    `SELECT id, event_id, group_id, created_by, content, created_at, updated_at, edited_at, updated_count, deleted_at
+     FROM event_comments
+     WHERE id = $1 AND deleted_at IS NULL`,
+    [commentId]
+  );
+}
+
+/**
+ * Get a single wishlist comment by ID (excludes soft-deleted comments)
+ */
+export async function getWishlistCommentById(
+  commentId: string
+): Promise<{
+  id: string;
+  wishlist_item_id: string;
+  group_id: string;
+  created_by: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+  edited_at: string | null;
+  updated_count: number;
+  deleted_at: string | null;
+} | null> {
+  return queryOne(
+    `SELECT id, wishlist_item_id, group_id, created_by, content, created_at, updated_at, edited_at, updated_count, deleted_at
+     FROM wishlist_comments
+     WHERE id = $1 AND deleted_at IS NULL`,
+    [commentId]
+  );
+}
+
+/**
+ * Update an event comment with new content and edit tracking
+ * Returns null if comment not found
+ */
+export async function updateEventComment(
+  commentId: string,
+  newContent: string
+): Promise<{
+  id: string;
+  content: string;
+  edited_at: string;
+  updated_count: number;
+} | null> {
+  return queryOne(
+    `UPDATE event_comments
+     SET content = $2, edited_at = CURRENT_TIMESTAMP, updated_count = updated_count + 1, updated_at = CURRENT_TIMESTAMP
+     WHERE id = $1 AND deleted_at IS NULL
+     RETURNING id, content, edited_at, updated_count`,
+    [commentId, newContent]
+  );
+}
+
+/**
+ * Update a wishlist comment with new content and edit tracking
+ * Returns null if comment not found
+ */
+export async function updateWishlistComment(
+  commentId: string,
+  newContent: string
+): Promise<{
+  id: string;
+  content: string;
+  edited_at: string;
+  updated_count: number;
+} | null> {
+  return queryOne(
+    `UPDATE wishlist_comments
+     SET content = $2, edited_at = CURRENT_TIMESTAMP, updated_count = updated_count + 1, updated_at = CURRENT_TIMESTAMP
+     WHERE id = $1 AND deleted_at IS NULL
+     RETURNING id, content, edited_at, updated_count`,
+    [commentId, newContent]
+  );
+}
+
+// ============================================================================
+// PUBLIC EVENT RSVP QUERIES (Story 7-3)
+// ============================================================================
+
+/**
+ * Create a public RSVP record or update existing one
+ * Handles duplicate email gracefully (upsert pattern)
+ */
+export async function createOrUpdatePublicRsvp(
+  eventId: string,
+  email: string,
+  name: string | null,
+  status: 'in' | 'maybe' | 'out'
+): Promise<{
+  id: string;
+  event_id: string;
+  email: string;
+  name: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}> {
+  const result = await queryOne(
+    `INSERT INTO public_rsvps (event_id, email, name, status)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (event_id, email) DO UPDATE
+       SET status = $4, updated_at = CURRENT_TIMESTAMP, name = COALESCE($3, name)
+     RETURNING id, event_id, email, name, status, created_at, updated_at`,
+    [eventId, email, name, status]
+  );
+  if (!result) {
+    throw new Error('Failed to create public RSVP');
+  }
+  return result;
+}
+
+/**
+ * Get public RSVPs for an event, grouped by status
+ */
+export async function getPublicRsvpsByEventId(eventId: string): Promise<{
+  in: number;
+  maybe: number;
+  out: number;
+}> {
+  const result = await query(
+    `SELECT status, COUNT(*) as count
+     FROM public_rsvps
+     WHERE event_id = $1
+     GROUP BY status`,
+    [eventId]
+  );
+
+  const counts = { in: 0, maybe: 0, out: 0 };
+  result.forEach((row: any) => {
+    counts[row.status as keyof typeof counts] = parseInt(row.count, 10);
+  });
+  return counts;
+}
+
+/**
+ * Get event details by public token (for non-authenticated access)
+ */
+export async function getEventByPublicToken(publicToken: string): Promise<{
+  id: string;
+  group_id: string;
+  title: string;
+  description: string | null;
+  date: string;
+  threshold: number | null;
+  status: string;
+  created_at: string;
+} | null> {
+  return queryOne(
+    `SELECT id, group_id, title, description, date, threshold, status, created_at
+     FROM event_proposals
+     WHERE public_token = $1 AND deleted_at IS NULL`,
+    [publicToken]
+  );
+}
+
+/**
+ * Update event with public token
+ */
+export async function updateEventPublicToken(eventId: string, publicToken: string): Promise<void> {
+  await query(
+    `UPDATE event_proposals
+     SET public_token = $2, updated_at = CURRENT_TIMESTAMP
+     WHERE id = $1`,
+    [eventId, publicToken]
+  );
+}
+
+/**
+ * Get public RSVP details (for admin view)
+ */
+export async function getPublicRsvpsByEventIdFull(eventId: string): Promise<
+  Array<{
+    id: string;
+    email: string;
+    name: string | null;
+    status: string;
+    created_at: string;
+    updated_at: string;
+  }>
+> {
+  return await query(
+    `SELECT id, email, name, status, created_at, updated_at
+     FROM public_rsvps
+     WHERE event_id = $1
+     ORDER BY created_at DESC`,
+    [eventId]
+  );
+}

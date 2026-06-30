@@ -1,0 +1,81 @@
+'use client';
+
+import React, { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Box, Container, Heading, Text, Stack, VStack, Spinner } from '@chakra-ui/react';
+import { useAuth } from '@/lib/contexts/AuthContext';
+import LoginForm from '@/components/auth/LoginForm';
+
+export default function LoginPage() {
+  const router = useRouter();
+  const { isAuthenticated } = useAuth();
+
+  // Auto-redirect if already logged in
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push('/groups');
+    }
+  }, [isAuthenticated, router]);
+
+  const handleLoginSuccess = (tokens: { accessToken: string; idToken: string; userId?: string }) => {
+    console.log('[LoginPage] handleLoginSuccess called with tokens');
+    console.log('[LoginPage] accessToken:', tokens.accessToken ? 'set' : 'missing');
+    console.log('[LoginPage] idToken:', tokens.idToken ? 'set' : 'missing');
+    console.log('[LoginPage] userId:', tokens.userId);
+
+    // Store tokens in localStorage (in addition to HTTP-only cookies)
+    // This allows the frontend to access the tokens for API calls
+    localStorage.setItem('accessToken', tokens.accessToken);
+    localStorage.setItem('idToken', tokens.idToken);
+    console.log('[LoginPage] Tokens stored in localStorage');
+
+    if (tokens.userId) {
+      localStorage.setItem('userId', tokens.userId);
+    }
+
+    console.log('[LoginPage] Verifying tokens were stored...');
+    console.log('[LoginPage] accessToken in localStorage:', !!localStorage.getItem('accessToken'));
+    console.log('[LoginPage] idToken in localStorage:', !!localStorage.getItem('idToken'));
+
+    // Redirect to groups page after a brief delay to ensure tokens are synced
+    console.log('[LoginPage] Redirecting to /groups in 100ms');
+    setTimeout(() => {
+      console.log('[LoginPage] Performing redirect');
+      router.push('/groups');
+    }, 100);
+  };
+
+  // Show loading spinner while checking auth status
+  if (isAuthenticated) {
+    return (
+      <Container maxW="md" py={{ base: '12', md: '24' }} suppressHydrationWarning>
+        <VStack spacing={4} justify="center" minH="400px">
+          <Spinner size="lg" color="blue.500" />
+          <Text>Redirecting to your groups...</Text>
+        </VStack>
+      </Container>
+    );
+  }
+
+  return (
+    <Container maxW="md" py={{ base: '12', md: '24' }} suppressHydrationWarning>
+      <VStack spacing={{ base: '8', md: '10' }}>
+        {/* Header */}
+        <Stack spacing="2" textAlign="center">
+          <Heading size="lg">Welcome back</Heading>
+          <Text color="fg.muted">Sign in to your get-together account</Text>
+        </Stack>
+
+        {/* Login Form */}
+        <Box w="100%">
+          <LoginForm onSuccess={handleLoginSuccess} />
+        </Box>
+
+        {/* Additional Info */}
+        <Text fontSize="sm" color="fg.muted" textAlign="center">
+          By signing in, you agree to our Terms of Service and Privacy Policy
+        </Text>
+      </VStack>
+    </Container>
+  );
+}
