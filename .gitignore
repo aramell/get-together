@@ -1,68 +1,186 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
 
-# dependencies
-/node_modules
-/.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
+# Testing
+coverage/
+.nyc_output/
 
-# testing
-/coverage
+# Production
+build/
+dist/
+.next/
+out/
 
-# next.js
-/.next/
-/out/
+# Environment variables (NEVER commit these!)
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
 
-# production
-/build
+# Amplify backend outputs (contains sensitive AWS config)
+amplify_outputs.json
+amplify_outputs.mjs
+amplify_outputs.ts
+amplify_outputs.dart
+amplify_outputs.json-mobile
 
-# misc
+# Amplify build artifacts
+get-together-web/get-together/.amplify/artifacts/
+get-together-web/get-together/dist/
+get-together-web/get-together/node_modules/
+get-together-web/get-together/.amplifyconfiguration.json
+
+# AWS/Amplify sandbox
+.amplify/
+amplify/.env.local
+amplify/**/.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+*~
 .DS_Store
-*.pem
+.AppleDouble
+.LSOverride
+*.sublime-workspace
+*.sublime-project
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
 
-# debug
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+logs/
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+lerna-debug.log*
 .pnpm-debug.log*
+pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# Package manager lock files (optional - uncomment if desired)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
 
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-
-# Amplify
-amplify/.env*
-amplify/dist/
-amplify/node_modules/
-
-#amplify-do-not-edit-begin
-amplify/\#current-cloud-backend
-amplify/.config/local-*
-amplify/logs
-amplify/mock-data
-amplify/mock-api-resources
-amplify/backend/amplify-meta.json
-amplify/backend/.temp
-build/
+# Build outputs
+.turbo/
+.next/
 dist/
-node_modules/
+build/
+
+# Cache
+.cache/
+.eslintcache
+.stylelintcache
+.prettier-ignore
+
+# Database
+*.sqlite
+*.sqlite3
+*.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# AWS credentials and local development
+~/.aws/credentials
 aws-exports.js
 awsconfiguration.json
 amplifyconfiguration.json
 amplifyconfiguration.dart
-amplify-build-config.json
-amplify-gradle-config.json
-amplifytools.xcconfig
-.secret-*
-**.sample
-#amplify-do-not-edit-end
+
+# Mobile/Native
+ios/
+android/
+Pods/
+.gradle/
+
+# IDE generated files
+*.iml
+*.ics
+*.iws
+*.ipr
+
+# Misc
+.vite/
+.wrangler/
+dist-ssr/
+
+# Backend-specific
+get-together-web/get-together/cdk.out/
+get-together-web/get-together/amplify/.env*
+get-together-web/get-together/amplify/dist/
+get-together-web/get-together/.aws-amplify/
+get-together-web/get-together/amplify-assets/
+
+# Local Amplify sandbox
+sandbox-outputs/
+local-amplify/
+.amplify-cli/
+
+# Generated files that shouldn't be committed
+generated/
+codegen/
+*.generated.ts
+*.generated.tsx
+
+# TypeScript
+*.tsbuildinfo
+
+# Node
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+pnpm-debug.log
+
+# DynamoDB local
+dynamodb_local_latest.tar.gz
+DynamoDBLocal.jar
+.dynamodb/
+
+# GraphQL
+schema.graphql
+graphql.schema.json
+
+# Testing
+.nyc_output
+coverage
+
+# CI/CD
+.github/workflows/secrets/
+.gitlab-ci.yml.local
+
+# Documentation
+docs/generated/
+
+# Deployment files
+.serverless/
+sam-tests/
+sam-tests.json
+
+# Keep these important files
+!.gitkeep
+!.claude/settings.local.json
