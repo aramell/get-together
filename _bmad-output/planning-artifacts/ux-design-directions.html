@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Get-Together Design Directions</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif;
+            background: #f3f4f6;
+            color: #374151;
+        }
+
+        .header {
+            background: white;
+            padding: 40px;
+            border-bottom: 1px solid #e5e7eb;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+            color: #1f2937;
+        }
+
+        .header p {
+            font-size: 16px;
+            color: #6b7280;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .nav-tabs button {
+            padding: 12px 24px;
+            border: 2px solid #e5e7eb;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .nav-tabs button:hover {
+            border-color: #6366f1;
+            color: #6366f1;
+        }
+
+        .nav-tabs button.active {
+            background: #6366f1;
+            color: white;
+            border-color: #6366f1;
+        }
+
+        .mockup {
+            display: none;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .mockup.active {
+            display: block;
+        }
+
+        .mockup-header {
+            background: #f9fafb;
+            padding: 24px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .mockup-header h2 {
+            font-size: 24px;
+            margin-bottom: 8px;
+            color: #1f2937;
+        }
+
+        .mockup-header p {
+            font-size: 14px;
+            color: #6b7280;
+            line-height: 1.6;
+        }
+
+        .mockup-preview {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 30px;
+        }
+
+        .mockup-preview.full {
+            grid-template-columns: 1fr;
+        }
+
+        .device-frame {
+            background: #000;
+            border-radius: 16px;
+            padding: 12px;
+            box-shadow: 0 20px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .device-screen {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            aspect-ratio: 9 / 16;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .screen-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        .event-card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .event-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 8px;
+        }
+
+        .event-meta {
+            font-size: 13px;
+            color: #9ca3af;
+            margin-bottom: 12px;
+        }
+
+        .momentum-bar {
+            display: flex;
+            gap: 8px;
+            font-size: 13px;
+            margin-bottom: 12px;
+        }
+
+        .momentum-item {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+
+        .momentum-in { background: #e0e7ff; color: #4338ca; }
+        .momentum-maybe { background: #fce7f3; color: #be185d; }
+        .momentum-out { background: #f3f4f6; color: #9ca3af; }
+
+        .button-group {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-in { background: #6366f1; color: white; }
+        .btn-maybe { background: #ec4899; color: white; }
+        .btn-out { background: #d1d5db; color: #6b7280; }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .modal {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            margin: 0 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            position: relative;
+            z-index: 10;
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #1f2937;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #374151;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .btn-primary {
+            width: 100%;
+            padding: 12px;
+            background: #6366f1;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .soft-calendar {
+            background: #f9fafb;
+            border-radius: 8px;
+            padding: 12px;
+            margin: 16px 0;
+            font-size: 13px;
+        }
+
+        .calendar-item {
+            padding: 8px;
+            margin-bottom: 4px;
+            background: white;
+            border-left: 3px solid #6366f1;
+        }
+
+        .calendar-name {
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .calendar-time {
+            font-size: 12px;
+            color: #9ca3af;
+        }
+
+        .device-header {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            color: white;
+            padding: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .info-box {
+            background: #f0f9ff;
+            border-left: 4px solid #3b82f6;
+            padding: 12px;
+            margin: 16px 0;
+            font-size: 13px;
+            color: #1e40af;
+            border-radius: 4px;
+        }
+
+        .direction-label {
+            display: inline-block;
+            background: #fef3c7;
+            color: #92400e;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        @media (max-width: 900px) {
+            .mockup-preview {
+                grid-template-columns: 1fr;
+            }
+
+            .nav-tabs {
+                flex-direction: column;
+            }
+
+            .nav-tabs button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎨 Get-Together Design Directions</h1>
+        <p>Six visual approaches to choose from. Click tabs to explore each direction.</p>
+    </div>
+
+    <div class="container">
+        <div class="nav-tabs">
+            <button class="tab-btn active" onclick="switchTab('direction1')">Direction 1: Clean Minimal</button>
+            <button class="tab-btn" onclick="switchTab('direction2')">Direction 2: Card-Heavy</button>
+            <button class="tab-btn" onclick="switchTab('direction3')">Direction 3: Bold & Vibrant</button>
+            <button class="tab-btn" onclick="switchTab('direction4')">Direction 4: Calendar First</button>
+            <button class="tab-btn" onclick="switchTab('direction5')">Direction 5: List Focused</button>
+            <button class="tab-btn" onclick="switchTab('direction6')">Direction 6: Gesture Rich</button>
+        </div>
+
+        <!-- Direction 1: Clean Minimal -->
+        <div id="direction1" class="mockup active">
+            <div class="mockup-header">
+                <h2>Direction 1: Clean Minimal</h2>
+                <p>Emphasizes content over chrome. Plenty of whitespace. Momentum counter is subtle but present. Best for: Professionals who want clarity without visual noise.</p>
+            </div>
+            <div class="mockup-preview">
+                <div class="device-frame">
+                    <div class="device-screen">
+                        <div class="device-header">Get-Together</div>
+                        <div class="screen-content">
+                            <div style="text-align: center; padding: 20px 0;">
+                                <p style="font-size: 12px; color: #9ca3af; margin-bottom: 16px;">SOFT CALENDAR</p>
+                                <div class="soft-calendar">
+                                    <div class="calendar-item">
+                                        <div class="calendar-name">Sarah</div>
+                                        <div class="calendar-time">Tue-Wed free</div>
+                                    </div>
+                                    <div class="calendar-item">
+                                        <div class="calendar-name">Mike</div>
+                                        <div class="calendar-time">All week free</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="event-card">
+                                <div class="event-title">Hiking Trip</div>
+                                <div class="event-meta">Proposed by Alex • Tue-Thu</div>
+                                <div class="momentum-bar">
+                                    <div class="momentum-item momentum-in">3 in</div>
+                                    <div class="momentum-item momentum-maybe">1 maybe</div>
+                                    <div class="momentum-item momentum-out">0 out</div>
+                                </div>
+                                <div class="button-group">
+                                    <button class="btn btn-in">In</button>
+                                    <button class="btn btn-maybe">Maybe</button>
+                                    <button class="btn btn-out">Out</button>
+                                </div>
+                            </div>
+
+                            <div class="event-card">
+                                <div class="event-title">Coffee Tomorrow</div>
+                                <div class="event-meta">Proposed by Jordan • Tomorrow</div>
+                                <div class="momentum-bar">
+                                    <div class="momentum-item momentum-in">2 in</div>
+                                    <div class="momentum-item momentum-maybe">2 maybe</div>
+                                </div>
+                                <div class="button-group">
+                                    <button class="btn btn-in">In</button>
+                                    <button class="btn btn-maybe">Maybe</button>
+                                    <button class="btn btn-out">Out</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="device-frame">
+                    <div class="device-screen">
+                        <div class="device-header">Create Event</div>
+                        <div style="padding: 16px; display: flex; flex-direction: column; justify-content: center; height: 100%;">
+                            <div class="modal">
+                                <div class="modal-title">New Event</div>
+                                <div class="form-group">
+                                    <label class="form-label">Event title</label>
+                                    <input class="form-input" type="text" placeholder="What's the plan?">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Date & time</label>
+                                    <input class="form-input" type="date">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">People needed (optional)</label>
+                                    <input class="form-input" type="number" placeholder="e.g. 5">
+                                </div>
+                                <button class="btn-primary">Create Event</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Direction 2: Card-Heavy -->
+        <div id="direction2" class="mockup">
+            <div class="mockup-header">
+                <h2>Direction 2: Card-Heavy</h2>
+                <p>Each element is a distinct card with shadow depth. Creates visual interest through layering. Best for: Users who like clear visual separation and delight in details.</p>
+            </div>
+            <div class="mockup-preview">
+                <div class="device-frame">
+                    <div class="device-screen">
+                        <div class="device-header">Get-Together</div>
+                        <div class="screen-content">
+                            <div style="padding: 8px; background: #f9fafb; border-radius: 8px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                                <p style="font-size: 11px; font-weight: 600; color: #9ca3af; text-transform: uppercase; padding: 8px; margin: 0;">Calendar</p>
+                                <div style="background: white; margin: 4px; padding: 12px; border-radius: 8px; font-size: 13px;">
+                                    <span style="font-weight: 600; color: #6366f1;">Sarah:</span> Tue-Wed
+                                </div>
+                                <div style="background: white; margin: 4px; padding: 12px; border-radius: 8px; font-size: 13px;">
+                                    <span style="font-weight: 600; color: #ec4899;">Mike:</span> All week
+                                </div>
+                            </div>
+
+                            <div style="padding: 12px; background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 12px;">
+                                <div class="event-title">Hiking Trip</div>
+                                <div class="event-meta">Proposed by Alex • Tue-Thu</div>
+                                <div style="background: #f9fafb; padding: 12px; border-radius: 8px; margin: 12px 0; text-align: center;">
+                                    <div style="font-size: 24px; font-weight: 700; color: #6366f1;">3</div>
+                                    <div style="font-size: 12px; color: #9ca3af;">people in</div>
+                                </div>
+                                <div class="button-group">
+                                    <button class="btn btn-in">In</button>
+                                    <button class="btn btn-maybe">Maybe</button>
+                                    <button class="btn btn-out">Out</button>
+                                </div>
+                            </div>
+
+                            <div style="padding: 12px; background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
+                                <div class="event-title">Coffee Tomorrow</div>
+                                <div class="event-meta">Proposed by Jordan</div>
+                                <div style="background: #f9fafb; padding: 12px; border-radius: 8px; margin: 12px 0; text-align: center;">
+                                    <div style="font-size: 24px; font-weight: 700; color: #6366f1;">2</div>
+                                    <div style="font-size: 12px; color: #9ca3af;">people in</div>
+                                </div>
+                                <div class="button-group">
+                                    <button class="btn btn-in">In</button>
+                                    <button class="btn btn-maybe">Maybe</button>
+                                    <button class="btn btn-out">Out</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="device-frame">
+                    <div class="device-screen">
+                        <div class="device-header">Create Event</div>
+                        <div style="padding: 16px; display: flex; flex-direction: column; justify-content: center; height: 100%;">
+                            <div class="modal" style="box-shadow: 0 10px 40px rgba(0,0,0,0.15);">
+                                <div class="modal-title">New Event</div>
+                                <div class="form-group">
+                                    <label class="form-label">Event title</label>
+                                    <input class="form-input" type="text" placeholder="What's the plan?" style="background: #f9fafb;">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Date & time</label>
+                                    <input class="form-input" type="date" style="background: #f9fafb;">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">People needed</label>
+                                    <input class="form-input" type="number" placeholder="e.g. 5" style="background: #f9fafb;">
+                                </div>
+                                <button class="btn-primary" style="box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);">Create Event</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Direction 3: Bold & Vibrant -->
+        <div id="direction3" class="mockup">
+            <div class="mockup-header">
+                <h2>Direction 3: Bold & Vibrant</h2>
+                <p>Uses full-saturation colors prominently. Gradient headers. Strong visual personality. Best for: Younger users, social-first products, celebration-focused UX.</p>
+            </div>
+            <div class="mockup-preview">
+                <div class="device-frame">
+                    <div class="device-screen">
+                        <div style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: white; padding: 16px; font-weight: 600;">
+                            Get-Together
+                        </div>
+                        <div class="screen-content">
+                            <div style="background: linear-gradient(135deg, #ec4899 0%, #f472b6 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px; text-align: center;">
+                                <div style="font-size: 12px; opacity: 0.9;">YOUR AVAILABILITY</div>
+                                <div style="font-size: 18px; font-weight: 700; margin-top: 4px;">Free Tue-Thu</div>
+                            </div>
+
+                            <div style="background: white; border: 2px solid #6366f1; border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+                                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px;">
+                                    <div class="event-title">Hiking Trip</div>
+                                    <span style="background: #ec4899; color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600;">3 IN!</span>
+                                </div>
+                                <div class="event-meta">Proposed by Alex • Tue-Thu</div>
+                                <div class="button-group" style="margin-top: 16px;">
+                                    <button class="btn btn-in" style="font-size: 16px;">✓ In</button>
+                                    <button class="btn btn-maybe" style="font-size: 16px;">? Maybe</button>
+                                    <button class="btn btn-out" style="font-size: 16px;">✕ Out</button>
+                                </div>
+                            </div>
+
+                            <div style="background: white; border: 2px solid #ec4899; border-radius: 12px; padding: 16px;">
+                                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px;">
+                                    <div class="event-title">Coffee Tomorrow</div>
+                                    <span style="background: #6366f1; color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600;">2 IN</span>
+                                </div>
+                                <div class="event-meta">Proposed by Jordan</div>
+                                <div class="button-group" style="margin-top: 16px;">
+                                    <button class="btn btn-in">In</button>
+                                    <button class="btn btn-maybe">Maybe</button>
+                                    <button class="btn btn-out">Out</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="device-frame">
+                    <div class="device-screen">
+                        <div style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: white; padding: 16px; font-weight: 600;">
+                            Create Event
+                        </div>
+                        <div style="padding: 16px; display: flex; flex-direction: column; justify-content: center; height: 100%;">
+                            <div class="modal" style="border: 2px solid #6366f1; box-shadow: 0 10px 40px rgba(99, 102, 241, 0.2);">
+                                <div style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: white; margin: -24px -24px 20px -24px; padding: 20px;">
+                                    <div class="modal-title" style="color: white; margin-bottom: 0;">New Event</div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Event title</label>
+                                    <input class="form-input" type="text" placeholder="What's the plan?" style="border: 2px solid #6366f1;">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Date & time</label>
+                                    <input class="form-input" type="date" style="border: 2px solid #6366f1;">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">People needed</label>
+                                    <input class="form-input" type="number" placeholder="e.g. 5" style="border: 2px solid #6366f1;">
+                                </div>
+                                <button class="btn-primary" style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); font-size: 16px;">Create Event</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Direction 4: Calendar First -->
+        <div id="direction4" class="mockup">
+            <div class="mockup-header">
+                <h2>Direction 4: Calendar First</h2>
+                <p>Soft calendar is the hero element, takes up 50% of home screen. Events listed below. Best for: Users who primarily think in terms of availability/scheduling.</p>
+            </div>
+            <div class="mockup-preview">
+                <div class="device-frame">
+                    <div class="device-screen">
+                        <div class="device-header">Get-Together</div>
+                        <div class="screen-content">
+                            <p style="font-size: 12px; font-weight: 600; color: #9ca3af; text-transform: uppercase; margin: 12px 0 8px 0;">This Week's Availability</p>
+                            <div style="background: #f9fafb; border-radius: 12px; padding: 16px; margin-bottom: 20px; border: 2px solid #e5e7eb;">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                                    <div>
+                                        <div style="font-size: 11px; color: #9ca3af; margin-bottom: 4px;">SARAH</div>
+                                        <div style="font-size: 13px; font-weight: 600; color: #6366f1;">Tue-Wed</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 11px; color: #9ca3af; margin-bottom: 4px;">MIKE</div>
+                                        <div style="font-size: 13px; font-weight: 600; color: #6366f1;">All week</div>
+                                    </div>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                                    <div>
+                                        <div style="font-size: 11px; color: #9ca3af; margin-bottom: 4px;">JESSICA</div>
+                                        <div style="font-size: 13px; font-weight: 600; color: #ec4899;">Tue only</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 11px; color: #9ca3af; margin-bottom: 4px;">CASEY</div>
+                                        <div style="font-size: 13px; font-weight: 600; color: #9ca3af;">TBD</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <p style="font-size: 12px; font-weight: 600; color: #9ca3af; text-transform: uppercase; margin: 16px 0 8px 0;">Upcoming Events</p>
+                            <div class="event-card">
+                                <div style="display: flex; justify-content: space-between; align-items: start;">
+                                    <div>
+                                        <div class="event-title">Hiking Trip</div>
+                                        <div class="event-meta">Tue-Thu • Alex</div>
+                                    </div>
+                                    <div style="background: #e0e7ff; color: #4338ca; padding: 8px 12px; border-radius: 6px; font-size: 13px; font-weight: 600;">3 IN</div>
+                                </div>
+                                <div class="button-group" style="margin-top: 12px;">
+                                    <button class="btn btn-in">In</button>
+                                    <button class="btn btn-maybe">Maybe</button>
+                                    <button class="btn btn-out">Out</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="device-frame">
+                    <div class="device-screen">
+                        <div class="device-header">Create Event</div>
+                        <div style="padding: 16px; display: flex; flex-direction: column; justify-content: center; height: 100%;">
+                            <div class="modal">
+                                <div class="modal-title">New Event</div>
+                                <div class="form-group">
+                                    <label class="form-label">What's the plan?</label>
+                                    <input class="form-input" type="text" placeholder="e.g. Dinner, hiking, games...">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">When?</label>
+                                    <input class="form-input" type="date">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Need how many people?</label>
+                                    <input class="form-input" type="number" placeholder="Leave blank if flexible">
+                                </div>
+                                <div class="info-box">
+                                    💡 The soft calendar will show availability
+                                </div>
+                                <button class="btn-primary">Create Event</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Direction 5: List Focused -->
+        <div id="direction5" class="mockup">
+            <div class="mockup-header">
+                <h2>Direction 5: List Focused</h2>
+                <p>Dense list of events with inline RSVP. Soft calendar available but collapsed. Best for: Power users, high-volume events, efficiency-focused.</p>
+            </div>
+            <div class="mockup-preview">
+                <div class="device-frame">
+                    <div class="device-screen">
+                        <div class="device-header">Get-Together</div>
+                        <div class="screen-content">
+                            <div style="display: flex; gap: 8px; margin-bottom: 16px; padding: 0 4px;">
+                                <button style="flex: 1; padding: 8px; background: #6366f1; color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">Events</button>
+                                <button style="flex: 1; padding: 8px; background: #f3f4f6; color: #6b7280; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">Calendar</button>
+                            </div>
+
+                            <div style="padding: 12px; background: white; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+                                <div style="flex: 1;">
+                                    <div style="font-size: 14px; font-weight: 600; color: #1f2937;">Hiking Trip</div>
+                                    <div style="font-size: 12px; color: #9ca3af;">Tue-Thu • Alex</div>
+                                </div>
+                                <div style="display: flex; gap: 4px;">
+                                    <button class="btn btn-in" style="width: 40px; padding: 6px; font-size: 12px;">In</button>
+                                    <button class="btn btn-maybe" style="width: 40px; padding: 6px; font-size: 12px;">?</button>
+                                    <button class="btn btn-out" style="width: 40px; padding: 6px; font-size: 12px;">✕</button>
+                                </div>
+                            </div>
+
+                            <div style="padding: 12px; background: white; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+                                <div style="flex: 1;">
+                                    <div style="font-size: 14px; font-weight: 600; color: #1f2937;">Coffee Tomorrow</div>
+                                    <div style="font-size: 12px; color: #9ca3af;">Tomorrow • Jordan</div>
+                                </div>
+                                <div style="display: flex; gap: 4px;">
+                                    <button class="btn btn-in" style="width: 40px; padding: 6px; font-size: 12px;">In</button>
+                                    <button class="btn btn-maybe" style="width: 40px; padding: 6px; font-size: 12px;">?</button>
+                                    <button class="btn btn-out" style="width: 40px; padding: 6px; font-size: 12px;">✕</button>
+                                </div>
+                            </div>
+
+                            <div style="padding: 12px; background: white; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+                                <div style="flex: 1;">
+                                    <div style="font-size: 14px; font-weight: 600; color: #1f2937;">Game Night</div>
+                                    <div style="font-size: 12px; color: #9ca3af;">Sunday • Sarah</div>
+                                </div>
+                                <div style="display: flex; gap: 4px;">
+                                    <button class="btn btn-in" style="width: 40px; padding: 6px; font-size: 12px;">In</button>
+                                    <button class="btn btn-maybe" style="width: 40px; padding: 6px; font-size: 12px;">?</button>
+                                    <button class="btn btn-out" style="width: 40px; padding: 6px; font-size: 12px;">✕</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="device-frame">
+                    <div class="device-screen">
+                        <div class="device-header">Create Event</div>
+                        <div style="padding: 16px; display: flex; flex-direction: column; justify-content: center; height: 100%;">
+                            <div class="modal">
+                                <div class="modal-title">New Event</div>
+                                <div class="form-group">
+                                    <input class="form-input" type="text" placeholder="Event title" autofocus>
+                                </div>
+                                <div class="form-group">
+                                    <input class="form-input" type="date">
+                                </div>
+                                <div class="form-group">
+                                    <input class="form-input" type="number" placeholder="Min people (optional)">
+                                </div>
+                                <button class="btn-primary">Create</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Direction 6: Gesture Rich -->
+        <div id="direction6" class="mockup">
+            <div class="mockup-header">
+                <h2>Direction 6: Gesture Rich</h2>
+                <p>Emphasizes swipe and gesture interactions. Animated transitions. Playful micro-interactions throughout. Best for: Users who like tactile, animated experiences.</p>
+            </div>
+            <div class="mockup-preview full">
+                <div class="device-frame" style="max-width: 380px; margin: 0 auto;">
+                    <div class="device-screen">
+                        <div class="device-header">Get-Together</div>
+                        <div class="screen-content">
+                            <div style="text-align: center; padding: 20px 0; background: linear-gradient(135deg, #f0f9ff 0%, #fef3c7 100%); border-radius: 12px; margin-bottom: 16px;">
+                                <div style="font-size: 11px; color: #9ca3af; font-weight: 600;">SWIPE LEFT TO CREATE</div>
+                                <div style="margin-top: 8px;">
+                                    <span style="display: inline-block; background: #6366f1; color: white; padding: 8px 16px; border-radius: 20px; font-size: 13px; font-weight: 600;">+ New Event</span>
+                                </div>
+                            </div>
+
+                            <div style="padding: 16px; background: linear-gradient(135deg, #e0e7ff 0%, #f3e8ff 100%); border-radius: 12px; margin-bottom: 16px; border-left: 4px solid #6366f1;">
+                                <div style="font-size: 11px; color: #6366f1; font-weight: 600; text-transform: uppercase;">You're in 3 events this week</div>
+                                <div style="font-size: 13px; color: #4338ca; margin-top: 4px;">Keep swiping to join more →</div>
+                            </div>
+
+                            <div style="padding: 16px; background: white; border-radius: 12px; margin-bottom: 12px; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1); border-left: 4px solid #6366f1; transform: translateX(-5px); animation: slideInLeft 0.3s ease;">
+                                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+                                    <div>
+                                        <div class="event-title">Hiking Trip</div>
+                                        <div class="event-meta">Tue-Thu • Alex</div>
+                                    </div>
+                                    <div style="font-size: 24px; font-weight: 700; color: #6366f1;">3</div>
+                                </div>
+                                <div style="text-align: center; padding: 12px; background: #f0f9ff; border-radius: 8px; margin-bottom: 12px; font-size: 13px; color: #6366f1; font-weight: 600;">TAP TO VIEW • SWIPE TO RSVP</div>
+                                <div class="button-group">
+                                    <button class="btn btn-in">✓ In</button>
+                                    <button class="btn btn-maybe">? Maybe</button>
+                                    <button class="btn btn-out">✕ Out</button>
+                                </div>
+                            </div>
+
+                            <div style="padding: 16px; background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(236, 72, 153, 0.1); border-left: 4px solid #ec4899;">
+                                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+                                    <div>
+                                        <div class="event-title">Coffee Tomorrow</div>
+                                        <div class="event-meta">Tomorrow • Jordan</div>
+                                    </div>
+                                    <div style="font-size: 24px; font-weight: 700; color: #ec4899;">2</div>
+                                </div>
+                                <div class="button-group">
+                                    <button class="btn btn-in">✓ In</button>
+                                    <button class="btn btn-maybe">? Maybe</button>
+                                    <button class="btn btn-out">✕ Out</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function switchTab(tabId) {
+            // Hide all mockups
+            document.querySelectorAll('.mockup').forEach(mockup => {
+                mockup.classList.remove('active');
+            });
+
+            // Remove active class from all buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // Show selected mockup
+            document.getElementById(tabId).classList.add('active');
+
+            // Add active class to clicked button
+            event.target.classList.add('active');
+
+            // Scroll to mockup
+            document.getElementById(tabId).scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    </script>
+</body>
+</html>
