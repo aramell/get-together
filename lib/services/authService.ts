@@ -1,37 +1,14 @@
 'use server';
 
-import { CognitoIdentityProviderClient, AdminCreateUserCommand, AdminInitiateAuthCommand, ForgotPasswordCommand, ConfirmForgotPasswordCommand, AdminSetUserPasswordCommand, AdminRespondToAuthChallengeCommand } from '@aws-sdk/client-cognito-identity-provider';
-import { defaultProvider } from '@aws-sdk/credential-provider-node';
+import { CognitoIdentityProviderClient, SignUpCommand, InitiateAuthCommand, ForgotPasswordCommand, ConfirmForgotPasswordCommand } from '@aws-sdk/client-cognito-identity-provider';
 import { getSubFromJWT } from '@/lib/auth/jwt';
 
-/**
- * Get a fresh Cognito client with current environment credentials
- * Creates a new client on each call to ensure credentials are always up-to-date
- * Uses AWS SDK's default credential provider chain which checks:
- * 1. Environment variables (ACCESS_KEY_ID, SECRET_ACCESS_KEY for Amplify)
- * 2. ~/.aws/credentials file (created by aws configure)
- * 3. AWS credential providers (EC2, ECS, etc.)
- */
-async function getCognitoClient(): Promise<CognitoIdentityProviderClient> {
-  const config: any = {
+// Public Cognito APIs (SignUpCommand, InitiateAuthCommand, ForgotPasswordCommand,
+// ConfirmForgotPasswordCommand) only need the client ID — no IAM credentials required.
+function getCognitoClient(): CognitoIdentityProviderClient {
+  return new CognitoIdentityProviderClient({
     region: process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-1',
-  };
-
-  // First check for explicit env vars (Amplify uses ACCESS_KEY_ID and SECRET_ACCESS_KEY)
-  const accessKeyId = process.env.ACCESS_KEY_ID;
-  const secretAccessKey = process.env.SECRET_ACCESS_KEY;
-
-  if (accessKeyId && secretAccessKey) {
-    config.credentials = {
-      accessKeyId,
-      secretAccessKey,
-    };
-  } else {
-    // Fall back to default credential provider chain (~/.aws/credentials, env vars, etc.)
-    config.credentials = defaultProvider();
-  }
-
-  return new CognitoIdentityProviderClient(config);
+  });
 }
 
 const USER_POOL_ID = process.env.NEXT_PUBLIC_USER_POOL_ID || '';
@@ -246,41 +223,22 @@ export async function signupUser(email: string, password: string): Promise<Signu
       };
     }
 
-    // Create user in Cognito
-    const command = new AdminCreateUserCommand({
-      UserPoolId: USER_POOL_ID,
+    // Create user via public SignUp API (auto-confirmed by pre-signup Lambda trigger)
+    const command = new SignUpCommand({
+      ClientId: CLIENT_ID,
       Username: email,
-      MessageAction: 'SUPPRESS', // Don't send welcome message (we'll handle in app)
-      TemporaryPassword: password, // Will be changed on first login
-      UserAttributes: [
-        {
-          Name: 'email',
-          Value: email,
-        },
-        {
-          Name: 'email_verified',
-          Value: 'true',
-        },
-      ],
+      Password: password,
+      UserAttributes: [{ Name: 'email', Value: email }],
     });
 
-    const client = await getCognitoClient();
+    const client = getCognitoClient();
     const response = await client.send(command);
 
-    if (response.User?.Username) {
-      // Set the password as permanent so user doesn't need to change it on first login
-      const setPasswordCommand = new AdminSetUserPasswordCommand({
-        UserPoolId: USER_POOL_ID,
-        Username: email,
-        Password: password,
-        Permanent: true,
-      });
-      await client.send(setPasswordCommand);
-
+    if (response.UserSub) {
       return {
         success: true,
-        message: 'Signup successful! Check your email to verify your account.',
-        userId: response.User.Username,
+        message: 'Signup successful!',
+        userId: response.UserSub,
       };
     }
 
@@ -353,33 +311,19 @@ export async function loginUser(email: string, password: string): Promise<LoginR
       };
     }
 
-    // Authenticate with Cognito using AdminInitiateAuth
-    console.log('[loginUser] Login attempt:', {
-      userPoolId: USER_POOL_ID,
-      clientId: CLIENT_ID,
-      email,
-      authFlow: 'ADMIN_USER_PASSWORD_AUTH',
-    });
-
-    const command = new AdminInitiateAuthCommand({
-      UserPoolId: USER_POOL_ID,
+    const command = new InitiateAuthCommand({
       ClientId: CLIENT_ID,
-      AuthFlow: 'ADMIN_USER_PASSWORD_AUTH',
+      AuthFlow: 'USER_PASSWORD_AUTH',
       AuthParameters: {
         USERNAME: email,
         PASSWORD: password,
       },
     });
 
-    console.log('[loginUser] Getting Cognito client...');
-    const client = await getCognitoClient();
-    console.log('[loginUser] Sending auth command...');
+    const client = getCognitoClient();
     const response = await client.send(command);
-    console.log('[loginUser] Full Cognito response:', JSON.stringify(response, null, 2));
-    console.log('[loginUser] Has AccessToken:', !!response.AuthenticationResult?.AccessToken);
 
     if (response.AuthenticationResult?.AccessToken) {
-      // Extract Cognito's sub (user ID) from the access token
       const sub = getSubFromJWT(response.AuthenticationResult.AccessToken);
       return {
         success: true,
@@ -387,42 +331,8 @@ export async function loginUser(email: string, password: string): Promise<LoginR
         accessToken: response.AuthenticationResult.AccessToken,
         idToken: response.AuthenticationResult.IdToken,
         refreshToken: response.AuthenticationResult.RefreshToken,
-        userId: sub || email, // Fallback to email if sub not found
+        userId: sub || email,
       };
-    }
-
-    // Handle NEW_PASSWORD_REQUIRED challenge (from temporary passwords)
-    if (response.ChallengeName === 'NEW_PASSWORD_REQUIRED' && response.Session) {
-      console.log('[loginUser] Handling NEW_PASSWORD_REQUIRED challenge');
-      const challengeResponse = new AdminRespondToAuthChallengeCommand({
-        UserPoolId: USER_POOL_ID,
-        ClientId: CLIENT_ID,
-        ChallengeName: 'NEW_PASSWORD_REQUIRED',
-        Session: response.Session,
-        ChallengeResponses: {
-          USERNAME: email,
-          PASSWORD: password,
-          NEW_PASSWORD: password,
-        },
-      });
-
-      const challengeResult = await client.send(challengeResponse);
-      console.log('[loginUser] Challenge response:', {
-        hasAccessToken: !!challengeResult.AuthenticationResult?.AccessToken,
-      });
-
-      if (challengeResult.AuthenticationResult?.AccessToken) {
-        // Extract Cognito's sub (user ID) from the access token
-        const sub = getSubFromJWT(challengeResult.AuthenticationResult.AccessToken);
-        return {
-          success: true,
-          message: 'Login successful',
-          accessToken: challengeResult.AuthenticationResult.AccessToken,
-          idToken: challengeResult.AuthenticationResult.IdToken,
-          refreshToken: challengeResult.AuthenticationResult.RefreshToken,
-          userId: sub || email, // Fallback to email if sub not found
-        };
-      }
     }
 
     return {
@@ -481,7 +391,7 @@ export async function forgotPassword(email: string): Promise<ForgotPasswordRespo
       Username: email,
     });
 
-    const client = await getCognitoClient();
+    const client = getCognitoClient();
     const response = await client.send(command);
 
     if (response.CodeDeliveryDetails) {
@@ -568,7 +478,7 @@ export async function resetPassword(
       Password: newPassword,
     });
 
-    const client = await getCognitoClient();
+    const client = getCognitoClient();
     await client.send(command);
 
     return {
