@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(npm install:*)",
+      "Bash(npx amplify:*)",
+      "Bash(node:*)",
+      "Bash(npm_config_user_agent=\"npm/10.2.0 node/v25.0.0\" npx amplify:*)",
+      "Bash(git init:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run:*)",
+      "Bash(git:*)",
+      "Bash(ls:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(cat:*)",
+      "Bash(npm test:*)",
+      "Bash(npx jest:*)",
+      "Bash(npm view:*)",
+      "Bash(curl:*)",
+      "Bash(test:*)",
+      "Bash(python3:*)",
+      "Bash(/Users/andrewramell/code/get-together/_bmad-output/planning-artifacts/epics.md:*)",
+      "Bash(brew install:*)",
+      "Bash(tmux new-window:*)",
+      "Bash(chmod +x /tmp/validate-sprint.sh)",
+      "Bash(/tmp/validate-sprint.sh)",
+      "Bash(amplify status:*)",
+      "Bash(wc:*)",
+      "Bash(chmod +x /tmp/fix-params.sh)",
+      "Bash(/tmp/fix-params.sh)"
+    ]
+  }
+}
