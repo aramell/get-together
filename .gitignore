@@ -181,6 +181,13 @@ docs/generated/
 sam-tests/
 sam-tests.json
 
+# BMAD editor tooling (local slash-command/agent entrypoints, not app code)
+.claude/*
+.cursor/
+.github/agents/
+.github/prompts/
+.github/copilot-instructions.md
+
 # Keep these important files
 !.gitkeep
 !.claude/settings.local.json
