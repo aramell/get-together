@@ -26,6 +26,7 @@ import {
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { EventWithMomentum } from './EventList';
 import { EventCommentSection } from './EventCommentSection';
+import { PublicLinkModal } from './PublicLinkModal';
 
 interface EventDetailProps {
   groupId: string;
@@ -39,6 +40,7 @@ export const EventDetail: React.FC<EventDetailProps> = ({ groupId, eventId }) =>
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const { isOpen: isShareOpen, onOpen: onShareOpen, onClose: onShareClose } = useDisclosure();
   const cancelRef = React.useRef(null);
   const toast = useToast();
 
@@ -184,6 +186,11 @@ export const EventDetail: React.FC<EventDetailProps> = ({ groupId, eventId }) =>
             {/* Action Buttons */}
             <HStack spacing={3} pt={4}>
               {isCreator && (
+                <Button colorScheme="blue" variant="outline" onClick={onShareOpen}>
+                  Share Event
+                </Button>
+              )}
+              {isCreator && (
                 <Button colorScheme="red" variant="outline" onClick={onOpen}>
                   Cancel Event
                 </Button>
@@ -205,6 +212,15 @@ export const EventDetail: React.FC<EventDetailProps> = ({ groupId, eventId }) =>
           />
         </CardBody>
       </Card>
+
+      {/* Share Event Modal */}
+      <PublicLinkModal
+        isOpen={isShareOpen}
+        onClose={onShareClose}
+        eventId={eventId}
+        eventTitle={event.title}
+        userRole={isCreator ? 'creator' : 'member'}
+      />
 
       {/* Confirmation Modal */}
       <AlertDialog isOpen={isOpen} leastDestructiveRef={cancelRef} onClose={onClose}>
