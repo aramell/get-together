@@ -5,6 +5,7 @@ import { ChakraProvider, Box } from '@chakra-ui/react'
 import { Amplify } from 'aws-amplify'
 import { AuthProvider } from '@/lib/contexts/AuthContext'
 import { BottomNav } from '@/components/layout/BottomNav'
+import theme from '@/lib/theme'
 
 export function AmplifyProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
@@ -34,7 +35,7 @@ export function AmplifyProvider({ children }: { children: ReactNode }) {
 
   console.log('🔵 AmplifyProvider rendering with AuthProvider')
   return (
-    <ChakraProvider>
+    <ChakraProvider theme={theme}>
       <AuthProvider>
         <Box display="flex" flexDirection="column" minH="100vh">
           <Box flex={1} pb={{ base: '56px', md: 0 }}>

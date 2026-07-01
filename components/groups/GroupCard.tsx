@@ -101,8 +101,8 @@ export const GroupCard: React.FC<GroupCardProps> = ({
     <>
       <Card
         borderWidth="1px"
-        borderColor="gray.200"
-        _hover={{ shadow: 'md', borderColor: 'blue.300' }}
+        borderColor="cork.100"
+        _hover={{ shadow: 'md', borderColor: 'coral.300' }}
         transition="all 0.2s"
         h="full"
         display="flex"
@@ -115,14 +115,14 @@ export const GroupCard: React.FC<GroupCardProps> = ({
               <Heading
                 size="md"
                 cursor="pointer"
-                _hover={{ color: 'blue.500' }}
+                _hover={{ color: 'coral.600' }}
                 onClick={handleViewGroup}
                 noOfLines={2}
               >
                 {group.name}
               </Heading>
               {truncatedDescription && (
-                <Text fontSize="sm" color="gray.600" noOfLines={2}>
+                <Text fontSize="sm" color="ink.500" noOfLines={2}>
                   {truncatedDescription}
                 </Text>
               )}
@@ -138,9 +138,9 @@ export const GroupCard: React.FC<GroupCardProps> = ({
           </HStack>
 
           {/* Stats */}
-          <HStack spacing={4} fontSize="sm" color="gray.600">
+          <HStack spacing={4} fontSize="sm" color="ink.500">
             <Box>
-              <Text fontWeight="semibold">{group.member_count}</Text>
+              <Text fontWeight="semibold" fontFamily="mono">{group.member_count}</Text>
               <Text fontSize="xs">
                 {group.member_count === 1 ? 'member' : 'members'}
               </Text>
@@ -154,7 +154,7 @@ export const GroupCard: React.FC<GroupCardProps> = ({
           {/* Action Buttons */}
           <HStack spacing={2} mt="auto" pt={2}>
             <Button
-              colorScheme="blue"
+              colorScheme="coral"
               size="sm"
               flex={1}
               onClick={handleViewGroup}

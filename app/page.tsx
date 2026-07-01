@@ -5,6 +5,12 @@ import { useRouter } from 'next/navigation';
 import { Box, Container, Heading, Text, Button, VStack, HStack, Spinner } from '@chakra-ui/react';
 import { useAuth } from '@/lib/contexts/AuthContext';
 
+const PINNED_NOTES: Array<{ label: string; rotate: string; color: string }> = [
+  { label: 'Mark when you’re free', rotate: '-2deg', color: 'cork.400' },
+  { label: 'Watch momentum build', rotate: '1.5deg', color: 'marigold.500' },
+  { label: 'It locks in — automatically', rotate: '-1deg', color: 'meadow.500' },
+];
+
 export default function Home() {
   const router = useRouter();
   const { isAuthenticated, isLoading } = useAuth();
@@ -21,7 +27,7 @@ export default function Home() {
     return (
       <Container maxW="lg" py={{ base: '12', md: '24' }}>
         <VStack spacing={4} justify="center" minH="400px">
-          <Spinner size="lg" color="blue.500" />
+          <Spinner size="lg" color="coral.500" />
           <Text>Loading...</Text>
         </VStack>
       </Container>
@@ -33,7 +39,7 @@ export default function Home() {
     return (
       <Container maxW="lg" py={{ base: '12', md: '24' }}>
         <VStack spacing={4} justify="center" minH="400px">
-          <Spinner size="lg" color="blue.500" />
+          <Spinner size="lg" color="coral.500" />
           <Text>Redirecting to your groups...</Text>
         </VStack>
       </Container>
@@ -42,56 +48,76 @@ export default function Home() {
 
   // Landing page for unauthenticated users
   return (
-    <Box minH="100vh" bg="gray.50">
+    <Box minH="100vh" bg="paper.200">
       <Container maxW="lg" py={{ base: '16', md: '24' }}>
         <VStack spacing={{ base: '12', md: '16' }} align="stretch">
-          {/* Header */}
+          {/* Hero */}
           <VStack spacing="4" textAlign="center">
-            <Heading as="h1" size="2xl">
+            <Heading as="h1" fontSize={['36px', '48px']} color="ink.800">
               Get Together
             </Heading>
-            <Text fontSize="lg" color="gray.600" maxW="2xl">
-              Plan group events with ease. Mark your availability and coordinate with friends instantly.
+            <Text fontSize="lg" color="ink.600" maxW="2xl">
+              No more "does Tuesday work?" threads. Everyone pins their availability,
+              you watch the plan firm up, and it confirms itself the moment enough
+              people are in.
             </Text>
           </VStack>
 
-          {/* Features */}
-          <Box bg="white" borderRadius="lg" p={{ base: '6', md: '8' }} boxShadow="sm">
-            <VStack spacing="8" align="stretch">
-              <VStack spacing="4">
-                <Heading size="md">Features</Heading>
-                <VStack spacing="3" align="start" pl="4">
-                  <Text>✓ Create and manage groups</Text>
-                  <Text>✓ Mark your availability on a soft calendar</Text>
-                  <Text>✓ See when group members are free</Text>
-                  <Text>✓ Plan events when everyone is available</Text>
-                </VStack>
-              </VStack>
+          {/* How it works — three pinned notes, each less "soft" than the last */}
+          <HStack
+            spacing={{ base: '4', md: '6' }}
+            justify="center"
+            align="stretch"
+            flexWrap="wrap"
+          >
+            {PINNED_NOTES.map((note, i) => (
+              <Box
+                key={note.label}
+                bg="white"
+                borderRadius="lg"
+                borderLeft="6px solid"
+                borderColor={note.color}
+                boxShadow="0 3px 10px rgba(42, 33, 64, 0.08)"
+                p={5}
+                minW={{ base: '100%', sm: '220px' }}
+                maxW="260px"
+                transform={`rotate(${note.rotate})`}
+                transition="transform 0.2s"
+                _hover={{ transform: 'rotate(0deg)' }}
+              >
+                <Text fontFamily="mono" fontSize="xs" color="ink.400" mb={2}>
+                  step {i + 1}
+                </Text>
+                <Text fontWeight="600" color="ink.800">
+                  {note.label}
+                </Text>
+              </Box>
+            ))}
+          </HStack>
 
-              {/* CTA Buttons */}
-              <HStack spacing="4" justify="center" pt="4">
-                <Button
-                  colorScheme="blue"
-                  size="lg"
-                  onClick={() => router.push('/auth/login')}
-                >
-                  Sign In
-                </Button>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  onClick={() => router.push('/auth/signup')}
-                >
-                  Create Account
-                </Button>
-              </HStack>
-            </VStack>
-          </Box>
-
-          {/* Footer text */}
-          <Text fontSize="sm" color="gray.600" textAlign="center">
-            Join your friends and start planning together
-          </Text>
+          {/* CTA */}
+          <VStack spacing="4">
+            <HStack spacing="4" justify="center">
+              <Button
+                colorScheme="coral"
+                size="lg"
+                onClick={() => router.push('/auth/login')}
+              >
+                Sign In
+              </Button>
+              <Button
+                variant="outline"
+                colorScheme="coral"
+                size="lg"
+                onClick={() => router.push('/auth/signup')}
+              >
+                Create Account
+              </Button>
+            </HStack>
+            <Text fontSize="sm" color="ink.500" textAlign="center">
+              Join your friends and start planning together
+            </Text>
+          </VStack>
         </VStack>
       </Container>
     </Box>
