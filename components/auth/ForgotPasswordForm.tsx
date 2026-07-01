@@ -15,6 +15,7 @@ import {
   Spinner,
 } from '@chakra-ui/react';
 import NextLink from 'next/link';
+import { useRouter } from 'next/navigation';
 import { forgotPasswordSchema, type ForgotPasswordFormData } from '@/lib/validation/resetSchema';
 import { forgotPassword } from '@/lib/services/authService';
 import { ZodError } from 'zod';
@@ -27,6 +28,7 @@ export default function ForgotPasswordForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const toast = useToast();
+  const router = useRouter();
 
   // Validate individual field
   const validateField = (name: keyof ForgotPasswordFormData, value: string) => {
@@ -123,9 +125,18 @@ export default function ForgotPasswordForm() {
       <Box w="100%" maxW="400px" mx="auto">
         <Stack spacing={4} textAlign="center">
           <Text fontSize="lg" fontWeight="medium" color="green.600">
-            ✓ Reset link sent!
+            ✓ Reset code sent!
           </Text>
-          <Text color="gray.600">Check your email for instructions to reset your password.</Text>
+          <Text color="gray.600">
+            Check your email for a verification code, then enter it on the next screen along with your new password.
+          </Text>
+          <Button
+            colorScheme="blue"
+            width="100%"
+            onClick={() => router.push(`/auth/reset-password?email=${encodeURIComponent(formData.email)}`)}
+          >
+            Enter reset code
+          </Button>
           <Text fontSize="sm" color="gray.500">
             Didn't receive the email? Check your spam folder or{' '}
             <ChakraLink
@@ -173,7 +184,7 @@ export default function ForgotPasswordForm() {
 
         {/* Help Text */}
         <Text fontSize="sm" color="gray.600">
-          We'll send you a link to reset your password if an account exists with this email.
+          We'll send you a verification code to reset your password if an account exists with this email.
         </Text>
 
         {/* Submit Button */}
@@ -182,7 +193,7 @@ export default function ForgotPasswordForm() {
           colorScheme="blue"
           width="100%"
           isDisabled={!isFormValid() || isLoading}
-          aria-label="Send reset link"
+          aria-label="Send reset code"
         >
           {isLoading ? (
             <>
@@ -190,7 +201,7 @@ export default function ForgotPasswordForm() {
               Sending...
             </>
           ) : (
-            'Send Reset Link'
+            'Send Reset Code'
           )}
         </Button>
 

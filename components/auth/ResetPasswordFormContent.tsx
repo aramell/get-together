@@ -22,7 +22,7 @@ export default function ResetPasswordFormContent() {
       {!email && (
         <Alert status="warning" borderRadius="md">
           <AlertIcon />
-          <Text fontSize="sm">Please use the reset link from your email</Text>
+          <Text fontSize="sm">Enter the email address you requested the reset code for</Text>
         </Alert>
       )}
 
