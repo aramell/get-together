@@ -3,6 +3,14 @@ node_modules/
 .pnp
 .pnp.js
 
+# Next.js generated
+next-env.d.ts
+
+# Stray nested project copies (each has its own .git; get-together-web/
+# also contains a real .env.local with live credentials — never commit)
+/get-together/
+/get-together-web/
+
 # Testing
 coverage/
 .nyc_output/
