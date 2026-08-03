@@ -1,17 +1,18 @@
 'use client';
 
-import { Box, Heading, Text, VStack } from '@chakra-ui/react';
+import { Box, VStack } from '@chakra-ui/react';
+import { EventChecklist } from './EventChecklist';
 
-export function EventPlanningTab() {
+interface EventPlanningTabProps {
+  eventId: string;
+  groupId: string;
+}
+
+export function EventPlanningTab({ eventId, groupId }: EventPlanningTabProps) {
   return (
-    <Box p={6} textAlign="center">
-      <VStack spacing={2}>
-        <Heading size="md" color="ink.700">
-          Planning tools coming soon
-        </Heading>
-        <Text color="ink.500">
-          Photos, checklists, a timeline, and coordination tools will live here.
-        </Text>
+    <Box p={6}>
+      <VStack spacing={8} align="stretch">
+        <EventChecklist eventId={eventId} groupId={groupId} />
       </VStack>
     </Box>
   );

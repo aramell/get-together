@@ -263,11 +263,22 @@ describe('EventDetail Component', () => {
       expect(screen.getByText('Team Lunch')).toBeInTheDocument();
     });
 
-    test('switching to Planning tab shows placeholder and does not trigger additional fetches', async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, data: mockEvent }),
-      });
+    test('switching to Planning tab shows the checklist section and fires its own fetches (Story 12.3)', async () => {
+      // Story 12.1's original version of this test asserted ZERO additional
+      // fetches, because the Planning tab had no content yet. Story 12.3 gave
+      // it a real checklist section that fetches on open (isLazy): one call
+      // for checklist items, one for the group's member list (assignee
+      // dropdown) — that premise no longer holds, updated to assert exactly
+      // those two new calls rather than an unbounded/unexpected number.
+      (global.fetch as jest.Mock)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ success: true, data: mockEvent }),
+        })
+        .mockResolvedValue({
+          ok: true,
+          json: async () => ({ success: true, data: [] }),
+        });
 
       renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
 
@@ -280,12 +291,12 @@ describe('EventDetail Component', () => {
       fireEvent.click(screen.getByRole('tab', { name: /planning/i }));
 
       await waitFor(() => {
-        expect(screen.getByText(/planning tools coming soon/i)).toBeInTheDocument();
+        expect(screen.getByText('Checklist')).toBeInTheDocument();
       });
 
       expect(screen.getByRole('tab', { name: /planning/i })).toHaveAttribute('aria-selected', 'true');
       expect(screen.getByRole('tab', { name: /details/i })).toHaveAttribute('aria-selected', 'false');
-      expect((global.fetch as jest.Mock).mock.calls.length).toBe(fetchCallsBeforeSwitch);
+      expect((global.fetch as jest.Mock).mock.calls.length).toBe(fetchCallsBeforeSwitch + 2);
     });
 
     test('keyboard: arrow key moves selection between tabs', async () => {

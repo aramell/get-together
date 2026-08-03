@@ -175,7 +175,7 @@ export const EventDetail: React.FC<EventDetailProps> = ({ groupId, eventId }) =>
   } as const;
 
   return (
-    <Tabs orientation={tabOrientation} defaultIndex={0} variant="unstyled">
+    <Tabs orientation={tabOrientation} defaultIndex={0} variant="unstyled" isLazy>
       <TabList
         borderColor="cork.200"
         borderBottomWidth={tabOrientation === 'vertical' ? 0 : '1px'}
@@ -290,7 +290,7 @@ export const EventDetail: React.FC<EventDetailProps> = ({ groupId, eventId }) =>
         </TabPanel>
 
         <TabPanel px={0} py={0}>
-          <EventPlanningTab />
+          <EventPlanningTab eventId={eventId} groupId={groupId} />
         </TabPanel>
       </TabPanels>
     </Tabs>
