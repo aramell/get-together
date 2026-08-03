@@ -1,6 +1,6 @@
 # Story 12.2: Pre-Event Photo Uploads
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -24,39 +24,40 @@ so that the group has a shared visual reference while deciding on a venue, theme
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Database migration (AC: #2)
-  - [ ] Add `lib/db/migrations/014_create_event_photos_table.sql`: `event_photos(id UUID PK, event_id UUID NOT NULL REFERENCES event_proposals(id) ON DELETE CASCADE, group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE, uploaded_by VARCHAR(128) NOT NULL, s3_key VARCHAR(512) NOT NULL, url TEXT NOT NULL, caption VARCHAR(255), created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`, index on `event_id`, `ENABLE ROW LEVEL SECURITY`, no policies.
-  - [ ] **Deliberately no `REFERENCES users(id)` on `uploaded_by`** — see Dev Notes for why (unlike the type-mismatch reason in Story 11.1, this is a different, new reason: no code path in this app currently guarantees a `users` row exists for every authenticated user).
-  - [ ] Run `npm run db:migrate` against local dev DB; confirm it applies cleanly on top of the existing 14 migrations.
-- [ ] Task 2: S3 client + upload/delete helpers (AC: #1, #3, #5)
-  - [ ] Add `@aws-sdk/client-s3` as a new dependency (`npm install @aws-sdk/client-s3`) — pre-approved for this story, matches the "AWS S3" decision made when this story was scoped.
-  - [ ] Add `lib/storage/s3.ts`: instantiate `new S3Client({ region: process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-1' })` — no explicit credentials block, matching the existing pattern in `lib/logging/alarms.ts`/`lib/services/authService.ts` (default AWS credential provider chain). Export `uploadEventPhoto(buffer, key, contentType)` (→ `PutObjectCommand`) and `deleteEventPhoto(key)` (→ `DeleteObjectCommand`).
-  - [ ] S3 key convention: `event-photos/{eventId}/{timestamp}-{sanitized-filename}` (mirrors the `avatars/{userId}/{timestamp}-{filename}` shape already sketched — but never implemented — in `app/api/users/avatar/route.ts:68`, for consistency if that stub is ever fixed later).
-  - [ ] Public URL shape: `` `https://${bucket}.s3.${region}.amazonaws.com/${key}` `` — store this in `event_photos.url` at insert time.
-- [ ] Task 3: Service layer (AC: #3, #4, #5)
-  - [ ] Add `lib/services/eventPhotoService.ts` with `addEventPhoto`, `getEventPhotos`, `deleteEventPhoto` functions, following the exact shape of `addEventComment`/`getEventComments` in `lib/services/eventService.ts` (`{ success, message, data?, error?, errorCode? }`, event-exists check, group-membership check via the same inline `group_memberships` query pattern or `getUserGroupRole`).
-  - [ ] `deleteEventPhoto` must check `uploaded_by === userId` before deleting — return `errorCode: 'FORBIDDEN'` otherwise (same shape as other ownership checks in this codebase).
-- [ ] Task 4: API routes (AC: #1, #3, #4, #5)
-  - [ ] Add `app/api/groups/[groupId]/events/[eventId]/photos/route.ts` with `GET`/`POST`, following `app/api/groups/[groupId]/events/[eventId]/comments/route.ts` line-for-line for: `params` resolution, Bearer-header + `getSubFromJWT` auth (**not** the avatar route's insecure "trust a `userId` form field" pattern), and the `errorCode` → HTTP status mapping (`VALIDATION_ERROR`→400, `FORBIDDEN`→403, `NOT_FOUND`→404, else→500; success→201 for POST).
-  - [ ] Add `app/api/groups/[groupId]/events/[eventId]/photos/[photoId]/route.ts` with `DELETE`, same auth/error-mapping conventions.
-  - [ ] `POST` reads the file via `request.formData()` (same native API the avatar route already uses — no `multer`/`formidable` needed), validates type/size **server-side** (do not trust the client), converts to a `Buffer` via `Buffer.from(await file.arrayBuffer())` before calling `uploadEventPhoto`.
-- [ ] Task 5: Planning tab UI (AC: #6, #7)
-  - [ ] In `components/groups/EventDetail.tsx`, add `isLazy` to the `<Tabs>` component (Story 12.1 flagged this as needed exactly when Planning tab content starts fetching data — that's now).
-  - [ ] Rewrite `components/groups/EventPlanningTab.tsx`: accept `eventId`/`groupId` props (currently takes none), fetch photos on mount (safe now that `isLazy` means this only mounts when the tab is actually opened), render a responsive grid (Chakra `SimpleGrid` or `Wrap` + `Image`), a file `input[type=file]` + upload `Button`, per-photo delete `Button` (only rendered when `photo.uploaded_by === userId`, via `useAuth()`).
-  - [ ] Update the `<EventPlanningTab />` usage in `EventDetail.tsx` to pass `eventId`/`groupId`.
-  - [ ] Add `images.remotePatterns` to `next.config.ts`? **No** — deliberately using Chakra's plain `<Image>` (already a dependency, zero config), not `next/image`, so no `next.config.ts` change needed. Do not introduce `next/image` in this story.
-- [ ] Task 6: Tests (AC: #3, #4, #5, #6, #7)
-  - [ ] `__tests__/services/eventPhotoService.test.ts`: add/get/delete, ownership check, group-membership check, not-found handling.
-  - [ ] `__tests__/api/groups/events/photos.test.ts` (or colocated `__tests__` per existing convention, e.g. `app/api/groups/[groupId]/wishlist/[itemId]/comments/__tests__/route.test.ts`'s pattern): auth required, validation errors (bad type/size), 201 on success, 403 on delete-by-non-uploader.
-  - [ ] `__tests__/components/EventPlanningTab.test.tsx` (extend the file from Story 12.1): fetches on mount, renders grid, upload flow (mock `fetch`), delete button visibility gated by uploader, error toast on failed upload.
-  - [ ] Update `lib/storage/s3.ts` tests to mock `@aws-sdk/client-s3`'s `S3Client`/`PutObjectCommand`/`DeleteObjectCommand` — do not hit real AWS in tests.
-  - [ ] **Fix a test this story will legitimately break:** `__tests__/components/EventDetail.test.tsx`'s Story-12.1 test `'switching to Planning tab shows placeholder and does not trigger additional fetches'` asserted zero fetches on switching tabs, because 12.1's Planning tab had no content. That assumption is no longer true — update the assertion to expect exactly one additional `fetch` call (the photos `GET`), not zero. Don't just delete the test; fix its premise and keep the "no *extra* unexpected fetches" intent.
-- [ ] Task 7: Docs (AC: #1, #8)
-  - [ ] Add `AWS_S3_EVENT_PHOTOS_BUCKET=` (placeholder/empty) to `.env.local.example`.
-  - [ ] Add a short README note under the existing "Configure environment variables" section (added in Story 11.1) pointing at the new var and what it's for.
-- [ ] Task 8: Verify no regressions
-  - [ ] Run the full test suite scoped away from `get-together-web/` (per established convention); confirm 0 new failures beyond already-known pre-existing ones.
-  - [ ] Manual end-to-end verification against a real S3 bucket requires Task/AC #1 (bucket provisioning) to be done first by the user — flag this dependency explicitly rather than silently skipping it.
+- [x] Task 1: Database migration (AC: #2)
+  - [x] Checked `lib/db/migrations/` first — `014` was already taken by Story 12.3's checklist migration (which landed first). Used `015` instead.
+  - [x] Added `event_photos` per spec. Index on `event_id`, `ENABLE ROW LEVEL SECURITY`, no policies. Verified via `psql \d event_photos`.
+  - [x] No FK on `uploaded_by`, per Dev Notes.
+  - [x] Ran `npm run db:migrate` against local dev DB — applied cleanly on top of the existing 17 migrations.
+- [x] Task 2: S3 client + upload/delete helpers (AC: #1, #3, #5)
+  - [x] Installed `@aws-sdk/client-s3` — checked `npm audit` after; no new vulnerabilities traced to this package.
+  - [x] Added `lib/storage/s3.ts`. **Used `NEXT_PUBLIC_AWS_REGION`, not the story's assumed pattern** — found `lib/logging/alarms.ts` actually uses a *different* env var (`AWS_REGION`) than `lib/services/authService.ts` (`NEXT_PUBLIC_AWS_REGION`), a small inconsistency the story didn't catch. Used `NEXT_PUBLIC_AWS_REGION` since it's the one actually set in `amplify.yml` and used by the closer sibling (auth/app-config), not monitoring.
+  - [x] S3 key convention and public URL shape implemented as specified.
+  - [x] Bucket name read per-call (not into a module-level constant) — makes the module testable without `jest.resetModules()` gymnastics; a small deviation from the story's literal wording, functionally identical.
+- [x] Task 3: Service layer (AC: #3, #4, #5)
+  - [x] Added `lib/services/eventPhotoService.ts`: `addEventPhoto`, `getEventPhotos`, `deleteEventPhoto`.
+  - [x] `deleteEventPhoto` implements uploader-**or-admin** (not strictly uploader-only) — the AC's own text cites "same authorization shape as comment edit/delete," which is creator-or-admin; implemented to match that cited shape.
+  - [x] DB row deleted before the S3 object, not after — an orphaned S3 object (wasted storage) is a more benign failure mode than an orphaned DB row pointing at a deleted file (broken image in the UI). S3 delete failures are logged, not surfaced as a user-facing error, since the DB delete already succeeded.
+- [x] Task 4: API routes (AC: #1, #3, #4, #5)
+  - [x] Added `photos/route.ts` (`GET`, `POST`) and `photos/[photoId]/route.ts` (`DELETE`), matching the comments route's conventions exactly.
+  - [x] `POST` validates server-side, converts to `Buffer`, delegates to the service.
+- [x] Task 5: Planning tab UI (AC: #6, #7)
+  - [x] **`isLazy` and `eventId`/`groupId` props already existed** — Story 12.3 landed first and added both. No duplicate work; checked current file state first, per the story's own instruction.
+  - [x] Added `components/groups/EventPhotoGrid.tsx` as an independent sibling section (alongside 12.3's `EventChecklist`), wired into `EventPlanningTab.tsx`.
+  - [x] Chakra `SimpleGrid` + `Image`, file input (hidden, triggered via a `Button as="label"`), delete button gated to `photo.uploaded_by === userId`.
+  - [x] No `next/image`, no `next.config.ts` change, as scoped.
+- [x] Task 6: Tests (AC: #3, #4, #5, #6, #7)
+  - [x] `__tests__/services/eventPhotoService.test.ts` — 12 tests.
+  - [x] Route tests at `photos/__tests__/route.test.ts` and `photos/[photoId]/__tests__/route.test.ts` — 11 tests, `@jest-environment node` (same fix Story 12.3 needed for `NextResponse.json()`).
+  - [x] `__tests__/components/EventPhotoGrid.test.tsx` — 5 tests (grid render, delete-button gating, upload flow, client-side type rejection, optimistic delete with revert).
+  - [x] `lib/storage/__tests__/s3.test.ts` — 5 tests, explicit mock factory for `@aws-sdk/client-s3` (automocking it pulled in the real package and hit an ESM parse error in this Jest config — same class of issue, different cause, as 12.3's `@jest-environment node` fix).
+  - [x] Fixed the test this story broke: `EventDetail.test.tsx`'s Planning-tab-switch test, already updated once by Story 12.3 (0→2 fetches), updated again here (2→3, for the added photos fetch) and its assertions extended to check for both "Checklist" and "Photos" text. Also extended `EventPlanningTab.test.tsx` to assert both sections render and both fetch calls fire.
+- [x] Task 7: Docs (AC: #1, #8)
+  - [x] Added `AWS_S3_EVENT_PHOTOS_BUCKET=` (empty) to `.env.local.example`.
+  - [x] Added a README note.
+- [x] Task 8: Verify no regressions
+  - [x] Full-suite comparison (`git stash -u` against current HEAD, which already includes Stories 12.1/12.3): 7 suites showed as newly-failing, all `Exceeded timeout of 5000ms` — re-ran those exact 7 in isolation and all passed cleanly (7/7 suites, 81/81 tests), confirming environmental resource contention from running the full ~150-file/3137-test suite in one process, not real regressions. See Completion Notes.
+  - [x] Manual end-to-end verification against a real S3 bucket **not done** — depends on AC #1 (bucket provisioning), a manual step for the user. Flagged, not silently skipped.
 
 ## Dev Notes
 
@@ -100,10 +101,46 @@ so that the group has a shared visual reference while deciding on a venue, theme
 
 ### Agent Model Used
 
+claude-sonnet-5
+
 ### Debug Log References
+
+- `npm run db:migrate` — applied `015_create_event_photos_table.sql` cleanly on top of 17 existing migrations.
+- `npx jest lib/storage/__tests__/s3.test.ts` — 5/5 passed.
+- `npx jest __tests__/services/eventPhotoService.test.ts` — 12/12 passed.
+- `npx jest "app/api/groups/[groupId]/events/[eventId]/photos"` — 11/11 passed.
+- `npx jest __tests__/components/EventPhotoGrid.test.tsx` — 5/5 passed.
+- `npx jest __tests__/components/EventDetail.test.tsx __tests__/components/EventPlanningTab.test.tsx __tests__/components/EventPhotoGrid.test.tsx __tests__/components/EventChecklist.test.tsx` — 30/30 passed.
+- Full-suite regression check via `git stash -u` against current HEAD (`f20edf7`, which already includes Stories 12.1/12.3): baseline 71 failing suites, after-change run showed 77 (7 new). Re-ran those 7 exact suites in isolation — **all 7 passed cleanly** (81/81 non-skipped tests), confirming the delta was `Exceeded timeout of 5000ms` flakiness from full-suite resource contention (~150 test files in one process), not real regressions. True new-regression count: 0.
 
 ### Completion Notes List
 
 - Ultimate context engine analysis completed - comprehensive developer guide created
+- All 9 ACs implemented and covered by passing tests, except AC #1's manual bucket-provisioning step (not implementable by a dev agent, as the story itself said) and the end-to-end verification that depends on it.
+- **Story 12.3 landed first**, as the story anticipated might happen — `EventPlanningTab.tsx` already had `eventId`/`groupId` props and `isLazy` was already on `EventDetail.tsx`'s `Tabs`. No duplicate work; added the photo grid as an independent sibling section next to 12.3's checklist, exactly as both stories were scoped to compose.
+- **Migration number**: used `015`, not the story's assumed `014` — `014` was already taken by 12.3.
+- **Two small deviations from the story's literal wording, both explained inline in the Tasks checklist above**: (1) used `NEXT_PUBLIC_AWS_REGION` for the S3 client's region, not blindly copying whichever "reference" file was cited first — found `alarms.ts` and `authService.ts` actually use two different env var names for region, and picked the one that's actually configured in `amplify.yml`; (2) `deleteEventPhoto` allows uploader-**or-admin**, since the AC's own text cites the comment edit/delete shape (creator-or-admin) as the model, even though its first sentence reads uploader-only in isolation.
+- **Found and fixed one more Jest/ESM friction point**, same root cause as Story 12.3's `@jest-environment node` fix but a different trigger: automocking `lib/storage/s3` (`jest.mock('@/lib/storage/s3')` with no factory) still loads the real module to inspect its shape, which transitively pulled in `@aws-sdk/client-s3` and hit a raw `export` syntax error (an ESM-only submodule Jest's default transform config doesn't parse). Fixed by giving `eventPhotoService.test.ts`'s mock an explicit factory instead of relying on automock.
+- **Full-suite regression verification surfaced a real environmental characteristic of this test suite**, not a story-specific problem: running all ~150 test files/3137 tests in one `npx jest` invocation on this machine produces `Exceeded timeout of 5000ms` failures under load, on files that pass cleanly in isolation every time. Confirmed this is pre-existing (the same pattern of failing-suite-count noise likely affected earlier baseline comparisons too) — documenting it here since it means a raw "before vs after failing-suite count" diff isn't reliable on its own; the isolation re-run step is the one that actually proves no regression.
+- Did not touch `app/api/users/avatar/route.ts`, per AC #9.
 
 ### File List
+
+- `lib/db/migrations/015_create_event_photos_table.sql` (new)
+- `lib/storage/s3.ts` (new)
+- `lib/storage/__tests__/s3.test.ts` (new)
+- `lib/services/eventPhotoService.ts` (new)
+- `__tests__/services/eventPhotoService.test.ts` (new)
+- `app/api/groups/[groupId]/events/[eventId]/photos/route.ts` (new)
+- `app/api/groups/[groupId]/events/[eventId]/photos/[photoId]/route.ts` (new)
+- `app/api/groups/[groupId]/events/[eventId]/photos/__tests__/route.test.ts` (new)
+- `app/api/groups/[groupId]/events/[eventId]/photos/[photoId]/__tests__/route.test.ts` (new)
+- `components/groups/EventPhotoGrid.tsx` (new)
+- `__tests__/components/EventPhotoGrid.test.tsx` (new)
+- `components/groups/EventPlanningTab.tsx` (modified — added `EventPhotoGrid` as a sibling section to 12.3's `EventChecklist`)
+- `__tests__/components/EventPlanningTab.test.tsx` (modified — asserts both sections render and fetch)
+- `__tests__/components/EventDetail.test.tsx` (modified — fetch-count assertion updated 2→3 for the added photos fetch)
+- `__tests__/scripts/migrate.test.ts` (modified — bumped hardcoded migration count 17→18, directly caused by this story's new migration)
+- `.env.local.example` (modified — added `AWS_S3_EVENT_PHOTOS_BUCKET`)
+- `README.md` (modified — env var note)
+- `package.json` / `package-lock.json` (modified — added `@aws-sdk/client-s3`)

@@ -17,6 +17,7 @@
     "@aws-sdk/client-cloudwatch": "^3.1023.0",
     "@aws-sdk/client-cloudwatch-logs": "^3.1023.0",
     "@aws-sdk/client-cognito-identity-provider": "^3.1011.0",
+    "@aws-sdk/client-s3": "^3.1102.0",
     "@aws-sdk/client-sns": "^3.1023.0",
     "@aws-sdk/credential-provider-node": "^3.972.21",
     "@chakra-ui/icons": "^2.2.4",

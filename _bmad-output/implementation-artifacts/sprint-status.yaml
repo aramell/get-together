@@ -122,7 +122,7 @@ development_status:
   # EPIC 12: Event Planning Dashboard (added ad hoc 2026-08-03, see epics.md — not derived from an FR in the PRD)
   epic-12: in-progress
   12-1-event-page-tab-navigation: review
-  12-2-pre-event-photo-uploads: ready-for-dev
+  12-2-pre-event-photo-uploads: review
   12-3-event-checklists: review
   12-4-event-timeline-agenda: ready-for-dev
   12-5-logistics-coordination: ready-for-dev
@@ -141,8 +141,8 @@ summary:
   epics_backlog: 0
   stories_done: 37
   stories_in_progress: 0
-  stories_review: 2
+  stories_review: 3
   stories_backlog: 0
-  stories_ready_for_dev: 5
+  stories_ready_for_dev: 4
   retrospectives_optional: 10
   retrospectives_done: 0

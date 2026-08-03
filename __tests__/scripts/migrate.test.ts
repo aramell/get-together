@@ -34,8 +34,8 @@ describe('sortMigrationFiles', () => {
     );
     const sorted = sortMigrationFiles(files);
     expect(sorted[0]).toBe('000_create_groups_schema.sql');
-    expect(sorted[sorted.length - 1]).toBe('014_create_event_checklist_items_table.sql');
-    expect(sorted).toHaveLength(17);
+    expect(sorted[sorted.length - 1]).toBe('015_create_event_photos_table.sql');
+    expect(sorted).toHaveLength(18);
   });
 });
 

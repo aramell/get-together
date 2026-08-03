@@ -39,15 +39,20 @@ describe('EventPlanningTab Component', () => {
     jest.clearAllMocks();
   });
 
-  it('renders the checklist section, passing eventId/groupId through', async () => {
+  it('renders the checklist and photos sections, passing eventId/groupId through to both', async () => {
     renderWithProviders(<EventPlanningTab eventId="event-1" groupId="group-1" />);
 
     await waitFor(() => {
       expect(screen.getByText('Checklist')).toBeInTheDocument();
+      expect(screen.getByText('Photos')).toBeInTheDocument();
     });
 
     expect(global.fetch).toHaveBeenCalledWith(
       expect.stringContaining('/api/groups/group-1/events/event-1/checklist'),
+      expect.anything()
+    );
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/api/groups/group-1/events/event-1/photos'),
       expect.anything()
     );
   });

@@ -263,13 +263,13 @@ describe('EventDetail Component', () => {
       expect(screen.getByText('Team Lunch')).toBeInTheDocument();
     });
 
-    test('switching to Planning tab shows the checklist section and fires its own fetches (Story 12.3)', async () => {
+    test('switching to Planning tab shows its sections and fires their fetches (Stories 12.3, 12.2)', async () => {
       // Story 12.1's original version of this test asserted ZERO additional
-      // fetches, because the Planning tab had no content yet. Story 12.3 gave
-      // it a real checklist section that fetches on open (isLazy): one call
-      // for checklist items, one for the group's member list (assignee
-      // dropdown) — that premise no longer holds, updated to assert exactly
-      // those two new calls rather than an unbounded/unexpected number.
+      // fetches, because the Planning tab had no content yet. Story 12.3 added
+      // a checklist section (items + group members for the assignee dropdown
+      // = 2 fetches on open). Story 12.2 added a photo grid alongside it
+      // (+1 more, for the photos list) — updated again to assert exactly
+      // those three new calls rather than an unbounded/unexpected number.
       (global.fetch as jest.Mock)
         .mockResolvedValueOnce({
           ok: true,
@@ -292,11 +292,12 @@ describe('EventDetail Component', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Checklist')).toBeInTheDocument();
+        expect(screen.getByText('Photos')).toBeInTheDocument();
       });
 
       expect(screen.getByRole('tab', { name: /planning/i })).toHaveAttribute('aria-selected', 'true');
       expect(screen.getByRole('tab', { name: /details/i })).toHaveAttribute('aria-selected', 'false');
-      expect((global.fetch as jest.Mock).mock.calls.length).toBe(fetchCallsBeforeSwitch + 2);
+      expect((global.fetch as jest.Mock).mock.calls.length).toBe(fetchCallsBeforeSwitch + 3);
     });
 
     test('keyboard: arrow key moves selection between tabs', async () => {
