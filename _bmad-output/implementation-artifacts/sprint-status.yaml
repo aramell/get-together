@@ -111,14 +111,24 @@ development_status:
   8-4-backups-disaster-recovery: done
   epic-8-retrospective: optional
 
+  # EPIC 11: Production Database & Local Dev Environment (added ad hoc — not in epics.md, fast-tracked 2026-07-28)
+  epic-11: done
+  11-1-supabase-production-db-local-dev-setup: done
+  epic-11-retrospective: optional
+
+  # NOTE: Epics 9 (SMS Magic Link) and 10 (Social Circles) exist in epics.md and have
+  # story files on disk (9-1..9-3, 10-1..10-5) but were never registered here — this
+  # file was stale before this edit. Recommend running sprint-planning to reconcile.
+
 summary:
-  total_epics: 8
-  total_stories: 36
-  epics_done: 8
+  total_epics: 9
+  total_stories: 37
+  epics_done: 9
   epics_in_progress: 0
   epics_backlog: 0
-  stories_done: 36
+  stories_done: 37
   stories_in_progress: 0
+  stories_review: 0
   stories_backlog: 0
-  retrospectives_optional: 8
+  retrospectives_optional: 9
   retrospectives_done: 0

@@ -105,7 +105,7 @@ export async function getGroupDetailsWithMembers(
 
     // Get all members with user info (name, email)
     const membersResult = await client.query(
-      `SELECT gm.user_id, u.name, u.email, gm.role, gm.joined_at
+      `SELECT gm.user_id, u.display_name AS name, u.email, gm.role, gm.joined_at
        FROM group_memberships gm
        JOIN users u ON gm.user_id = u.id
        WHERE gm.group_id = $1
@@ -480,7 +480,7 @@ export async function getGroupAvailabilities(
 }>> {
   return query(
     `SELECT a.id, a.user_id, a.group_id, a.start_time, a.end_time, a.status, a.version, a.created_at, a.updated_at,
-            u.name as user_name, u.email as user_email
+            u.display_name as user_name, u.email as user_email
      FROM availabilities a
      JOIN users u ON a.user_id = u.id
      WHERE a.group_id = $1 AND a.start_time >= $2 AND a.end_time <= $3 AND u.deleted_at IS NULL
@@ -530,7 +530,7 @@ export async function getGroupAvailabilitiesWithRecurring(
     }>(
       `SELECT a.id, a.user_id, a.group_id, a.start_time, a.end_time, a.status, a.version,
               a.created_at, a.updated_at, a.recurring_pattern, a.recurring_end_date,
-              u.name as user_name, u.email as user_email
+              u.display_name as user_name, u.email as user_email
        FROM availabilities a
        JOIN users u ON a.user_id = u.id
        WHERE a.group_id = $1 AND u.deleted_at IS NULL
@@ -641,11 +641,11 @@ export async function getGroupAvailabilitiesForCalendar(
       user_id: string;
       name: string;
     }>(
-      `SELECT DISTINCT gm.user_id, u.name
+      `SELECT DISTINCT gm.user_id, u.display_name AS name
        FROM group_memberships gm
        JOIN users u ON gm.user_id = u.id
        WHERE gm.group_id = $1 AND u.deleted_at IS NULL
-       ORDER BY u.name ASC`,
+       ORDER BY u.display_name ASC`,
       [groupId]
     );
 
@@ -845,9 +845,9 @@ export async function getWishlistItemById(
   return queryOne(
     `SELECT
        wi.id, wi.group_id, wi.created_by, wi.title, wi.description, wi.link, wi.created_at, wi.updated_at,
-       u.name as creator_name, u.email as creator_email
+       u.display_name as creator_name, u.email as creator_email
      FROM wishlist_items wi
-     LEFT JOIN users u ON wi.created_by = u.sub
+     LEFT JOIN users u ON wi.created_by = u.id
      WHERE wi.id = $1 AND wi.deleted_at IS NULL`,
     [itemId]
   );

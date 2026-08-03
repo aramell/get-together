@@ -6,7 +6,7 @@
 CREATE TABLE IF NOT EXISTS wishlist_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
-  created_by UUID NOT NULL REFERENCES users(id),
+  created_by UUID NOT NULL, -- Cognito sub; no local users table (see lib/api/auth.ts)
   title VARCHAR(255) NOT NULL,
   description TEXT,
   link VARCHAR(2048),

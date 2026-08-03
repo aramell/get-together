@@ -981,7 +981,7 @@ export async function getEventComments(
         u.email,
         u.avatar_url
        FROM event_comments ec
-       LEFT JOIN users u ON ec.created_by = u.sub
+       LEFT JOIN users u ON ec.created_by = u.id
        WHERE ec.event_id = $1 AND ec.deleted_at IS NULL
        ORDER BY ec.created_at ASC`,
       [eventId]

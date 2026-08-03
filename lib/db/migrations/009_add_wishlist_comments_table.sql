@@ -7,7 +7,7 @@ CREATE TABLE wishlist_comments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   wishlist_item_id UUID NOT NULL REFERENCES wishlist_items(id) ON DELETE CASCADE,
   group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
-  created_by UUID NOT NULL REFERENCES users(id),
+  created_by UUID NOT NULL, -- Cognito sub; no local users table (see lib/api/auth.ts)
   content TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
