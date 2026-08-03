@@ -7,13 +7,12 @@ import { AuthProvider } from '@/lib/contexts/AuthContext';
 // Mock the fetch API
 global.fetch = jest.fn();
 
-// Mock router
-jest.mock('next/router', () => ({
+// Mock router (App Router — AuthContext calls useRouter()/usePathname() from next/navigation)
+jest.mock('next/navigation', () => ({
   useRouter: () => ({
     push: jest.fn(),
-    pathname: '/groups/test-group-id/events/test-event-id',
-    query: { groupId: 'test-group-id', eventId: 'test-event-id' },
   }),
+  usePathname: () => '/groups/test-group-id/events/test-event-id',
 }));
 
 // Mock useAuth from AuthContext
@@ -225,7 +224,7 @@ describe('EventDetail Component', () => {
 
       renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
 
-      expect(screen.getByText(/loading/i)).toBeInTheDocument();
+      expect(screen.getByText('Loading event...')).toBeInTheDocument();
     });
 
     test('shows error message on fetch failure', async () => {
@@ -239,6 +238,86 @@ describe('EventDetail Component', () => {
       await waitFor(() => {
         expect(screen.getByText(/Event not found/)).toBeInTheDocument();
       });
+    });
+  });
+
+  describe('Tab Navigation', () => {
+    test('renders Details and Planning tabs, with Details selected by default', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, data: mockEvent }),
+      });
+
+      renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
+
+      await waitFor(() => {
+        const detailsTab = screen.getByRole('tab', { name: /details/i });
+        const planningTab = screen.getByRole('tab', { name: /planning/i });
+        expect(detailsTab).toBeInTheDocument();
+        expect(planningTab).toBeInTheDocument();
+        expect(detailsTab).toHaveAttribute('aria-selected', 'true');
+        expect(planningTab).toHaveAttribute('aria-selected', 'false');
+      });
+
+      // Existing Details content still renders unscoped, by default
+      expect(screen.getByText('Team Lunch')).toBeInTheDocument();
+    });
+
+    test('switching to Planning tab shows placeholder and does not trigger additional fetches', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, data: mockEvent }),
+      });
+
+      renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('tab', { name: /planning/i })).toBeInTheDocument();
+      });
+
+      const fetchCallsBeforeSwitch = (global.fetch as jest.Mock).mock.calls.length;
+
+      fireEvent.click(screen.getByRole('tab', { name: /planning/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText(/planning tools coming soon/i)).toBeInTheDocument();
+      });
+
+      expect(screen.getByRole('tab', { name: /planning/i })).toHaveAttribute('aria-selected', 'true');
+      expect(screen.getByRole('tab', { name: /details/i })).toHaveAttribute('aria-selected', 'false');
+      expect((global.fetch as jest.Mock).mock.calls.length).toBe(fetchCallsBeforeSwitch);
+    });
+
+    test('keyboard: arrow key moves selection between tabs', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, data: mockEvent }),
+      });
+
+      renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
+
+      let detailsTab: HTMLElement;
+      await waitFor(() => {
+        detailsTab = screen.getByRole('tab', { name: /details/i });
+      });
+
+      detailsTab!.focus();
+      expect(detailsTab!).toHaveFocus();
+
+      fireEvent.keyDown(detailsTab!, { key: 'ArrowRight' });
+
+      await waitFor(() => {
+        expect(screen.getByRole('tab', { name: /planning/i })).toHaveAttribute('aria-selected', 'true');
+      });
+    });
+
+    test('does not render tab chrome during loading or error states', () => {
+      (global.fetch as jest.Mock).mockImplementation(() => new Promise(() => {}));
+
+      renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
+
+      expect(screen.queryByRole('tab', { name: /details/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('tab', { name: /planning/i })).not.toBeInTheDocument();
     });
   });
 
@@ -271,7 +350,7 @@ describe('EventDetail Component', () => {
 
       await waitFor(() => {
         const confirmButton = screen.getByRole('button', { name: /confirm/i });
-        expect(confirmButton).toHaveAttribute('role', 'button');
+        expect(confirmButton).toBeVisible();
       });
     });
   });

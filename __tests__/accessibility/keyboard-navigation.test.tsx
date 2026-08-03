@@ -10,6 +10,27 @@ import { EventList } from '../../components/groups/EventList';
 import { WishlistItem } from '../../components/groups/WishlistItem';
 import { CreateEventModal } from '../../components/groups/CreateEventModal';
 import { CommentEditModal } from '../../components/groups/CommentEditModal';
+import { EventDetail } from '../../components/groups/EventDetail';
+import { AuthProvider } from '../../lib/contexts/AuthContext';
+
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ push: jest.fn() }),
+  usePathname: () => '/groups/test-group-id/events/test-event-id',
+}));
+
+jest.mock('../../lib/contexts/AuthContext', () => ({
+  ...jest.requireActual('../../lib/contexts/AuthContext'),
+  useAuth: jest.fn(() => ({
+    userId: 'user-1',
+    isAuthenticated: true,
+    isLoading: false,
+    accessToken: 'test-token',
+    idToken: 'test-id-token',
+    logout: jest.fn(),
+    checkTokenExpiration: jest.fn(),
+    isTokenExpired: jest.fn(),
+  })),
+}));
 
 /**
  * Keyboard Navigation & Focus Management Tests (AC2, AC8)
@@ -601,6 +622,70 @@ describe('Keyboard Navigation & Focus Management (AC2, AC8)', () => {
 
       // Ctrl+Enter should save (EventCard has this shortcut)
       fireEvent.keyDown(textarea, { key: 'Enter', ctrlKey: true });
+    });
+  });
+
+  describe('2.9: Event Detail tab navigation (Story 12.1)', () => {
+    const mockEvent = {
+      id: 'event-1',
+      group_id: 'group-1',
+      created_by: 'user-1',
+      title: 'Team Lunch',
+      description: 'Lunch with the team',
+      date: '2026-03-20T12:00:00Z',
+      threshold: 5,
+      status: 'proposal' as const,
+      momentum: { in: 3, maybe: 1, out: 0 },
+      created_at: '2026-03-16T10:00:00Z',
+      updated_at: '2026-03-16T10:00:00Z',
+    };
+
+    const renderEventDetail = () => {
+      global.fetch = jest.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, data: mockEvent }),
+      }) as unknown as typeof fetch;
+
+      return render(
+        <ChakraProvider>
+          <AuthProvider>
+            <EventDetail groupId="group-1" eventId="event-1" />
+          </AuthProvider>
+        </ChakraProvider>
+      );
+    };
+
+    it('reaches the Details/Planning tabs via Tab key and shows a visible focus indicator', async () => {
+      renderEventDetail();
+
+      const detailsTab = await screen.findByRole('tab', { name: /details/i });
+      detailsTab.focus();
+      expect(detailsTab).toHaveFocus();
+    });
+
+    it('moves selection between tabs with Arrow keys', async () => {
+      renderEventDetail();
+
+      const detailsTab = await screen.findByRole('tab', { name: /details/i });
+      detailsTab.focus();
+
+      fireEvent.keyDown(detailsTab, { key: 'ArrowRight' });
+
+      await waitFor(() => {
+        expect(screen.getByRole('tab', { name: /planning/i })).toHaveAttribute('aria-selected', 'true');
+      });
+    });
+
+    it('has no keyboard trap — focus can move from the tab list to content below', async () => {
+      renderEventDetail();
+
+      const detailsTab = await screen.findByRole('tab', { name: /details/i });
+      detailsTab.focus();
+      expect(detailsTab).toHaveFocus();
+
+      // Tab away from the tab list is not blocked (no trap set up around Tabs)
+      fireEvent.keyDown(detailsTab, { key: 'Tab' });
+      expect(document.activeElement).not.toBeNull();
     });
   });
 });

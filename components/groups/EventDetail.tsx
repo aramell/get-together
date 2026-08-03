@@ -22,11 +22,18 @@ import {
   AlertDialogContent,
   AlertDialogOverlay,
   useToast,
+  Tabs,
+  TabList,
+  TabPanels,
+  Tab,
+  TabPanel,
+  useBreakpointValue,
 } from '@chakra-ui/react';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { EventWithMomentum } from './EventList';
 import { EventCommentSection } from './EventCommentSection';
 import { PublicLinkModal } from './PublicLinkModal';
+import { EventPlanningTab } from './EventPlanningTab';
 
 interface EventDetailProps {
   groupId: string;
@@ -43,6 +50,10 @@ export const EventDetail: React.FC<EventDetailProps> = ({ groupId, eventId }) =>
   const { isOpen: isShareOpen, onOpen: onShareOpen, onClose: onShareClose } = useDisclosure();
   const cancelRef = React.useRef(null);
   const toast = useToast();
+  const tabOrientation = useBreakpointValue<'horizontal' | 'vertical'>({
+    base: 'horizontal',
+    md: 'vertical',
+  });
 
   // Fetch event detail
   useEffect(() => {
@@ -153,104 +164,135 @@ export const EventDetail: React.FC<EventDetailProps> = ({ groupId, eventId }) =>
   });
   const momentum = event.momentum || { in: 0, maybe: 0, out: 0 };
 
+  const tabStyle = {
+    color: 'ink.500',
+    fontWeight: '500',
+    minH: '48px',
+    minW: '48px',
+    px: 4,
+    justifyContent: tabOrientation === 'vertical' ? 'flex-start' : 'center',
+    _selected: { color: 'coral.600', fontWeight: '700' },
+  } as const;
+
   return (
-    <VStack spacing={6} align="stretch">
-      <Card>
-        <CardHeader pb={2}>
-          <VStack align="flex-start" spacing={2}>
-            <Heading size="lg">{event.title}</Heading>
-            <Text fontSize="md" color="gray.600">
-              {formattedDate} at {formattedTime}
-            </Text>
+    <Tabs orientation={tabOrientation} defaultIndex={0} variant="unstyled">
+      <TabList
+        borderColor="cork.200"
+        borderBottomWidth={tabOrientation === 'vertical' ? 0 : '1px'}
+        borderRightWidth={tabOrientation === 'vertical' ? '1px' : 0}
+        mb={tabOrientation === 'vertical' ? 0 : 4}
+        mr={tabOrientation === 'vertical' ? 4 : 0}
+      >
+        <Tab {...tabStyle}>Details</Tab>
+        <Tab {...tabStyle}>Planning</Tab>
+      </TabList>
+
+      <TabPanels>
+        <TabPanel px={0} py={0}>
+          <VStack spacing={6} align="stretch">
+            <Card>
+              <CardHeader pb={2}>
+                <VStack align="flex-start" spacing={2}>
+                  <Heading size="lg">{event.title}</Heading>
+                  <Text fontSize="md" color="gray.600">
+                    {formattedDate} at {formattedTime}
+                  </Text>
+                </VStack>
+              </CardHeader>
+
+              <CardBody>
+                <VStack align="stretch" spacing={4}>
+                  {event.description && (
+                    <Box>
+                      <Text fontWeight="medium" mb={2}>
+                        Description
+                      </Text>
+                      <Text color="gray.700">{event.description}</Text>
+                    </Box>
+                  )}
+
+                  {/* Momentum Counter */}
+                  <Box p={3} bg="gray.50" borderRadius="md" borderLeft="4px solid" borderColor="blue.500">
+                    <Text fontSize="sm" color="gray.600" fontWeight="medium">
+                      RSVPs: {momentum.in} in, {momentum.maybe} maybe, {momentum.out} out
+                    </Text>
+                  </Box>
+
+                  {/* Action Buttons */}
+                  <HStack spacing={3} pt={4}>
+                    {isCreator && (
+                      <Button colorScheme="blue" variant="outline" onClick={onShareOpen}>
+                        Share Event
+                      </Button>
+                    )}
+                    {isCreator && (
+                      <Button colorScheme="red" variant="outline" onClick={onOpen}>
+                        Cancel Event
+                      </Button>
+                    )}
+                    <Button colorScheme="blue" variant="outline" onClick={() => window.history.back()}>
+                      Back
+                    </Button>
+                  </HStack>
+                </VStack>
+              </CardBody>
+            </Card>
+
+            {/* Comments Section */}
+            <Card>
+              <CardBody>
+                <EventCommentSection
+                  eventId={eventId}
+                  groupId={groupId}
+                />
+              </CardBody>
+            </Card>
+
+            {/* Share Event Modal */}
+            <PublicLinkModal
+              isOpen={isShareOpen}
+              onClose={onShareClose}
+              eventId={eventId}
+              eventTitle={event.title}
+              userRole={isCreator ? 'creator' : 'member'}
+            />
+
+            {/* Confirmation Modal */}
+            <AlertDialog isOpen={isOpen} leastDestructiveRef={cancelRef} onClose={onClose}>
+              <AlertDialogOverlay>
+                <AlertDialogContent>
+                  <AlertDialogHeader fontSize="lg" fontWeight="bold">
+                    Confirm Cancellation
+                  </AlertDialogHeader>
+
+                  <AlertDialogBody>
+                    Are you sure you want to cancel this event? This action cannot be undone. All group members will be notified.
+                  </AlertDialogBody>
+
+                  <AlertDialogFooter>
+                    <Button ref={cancelRef} onClick={onClose}>
+                      Keep Event
+                    </Button>
+                    <Button
+                      colorScheme="red"
+                      onClick={handleCancelEvent}
+                      ml={3}
+                      isLoading={deleting}
+                      loadingText="Cancelling..."
+                    >
+                      Confirm
+                    </Button>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialogOverlay>
+            </AlertDialog>
           </VStack>
-        </CardHeader>
+        </TabPanel>
 
-        <CardBody>
-          <VStack align="stretch" spacing={4}>
-            {event.description && (
-              <Box>
-                <Text fontWeight="medium" mb={2}>
-                  Description
-                </Text>
-                <Text color="gray.700">{event.description}</Text>
-              </Box>
-            )}
-
-            {/* Momentum Counter */}
-            <Box p={3} bg="gray.50" borderRadius="md" borderLeft="4px solid" borderColor="blue.500">
-              <Text fontSize="sm" color="gray.600" fontWeight="medium">
-                RSVPs: {momentum.in} in, {momentum.maybe} maybe, {momentum.out} out
-              </Text>
-            </Box>
-
-            {/* Action Buttons */}
-            <HStack spacing={3} pt={4}>
-              {isCreator && (
-                <Button colorScheme="blue" variant="outline" onClick={onShareOpen}>
-                  Share Event
-                </Button>
-              )}
-              {isCreator && (
-                <Button colorScheme="red" variant="outline" onClick={onOpen}>
-                  Cancel Event
-                </Button>
-              )}
-              <Button colorScheme="blue" variant="outline" onClick={() => window.history.back()}>
-                Back
-              </Button>
-            </HStack>
-          </VStack>
-        </CardBody>
-      </Card>
-
-      {/* Comments Section */}
-      <Card>
-        <CardBody>
-          <EventCommentSection
-            eventId={eventId}
-            groupId={groupId}
-          />
-        </CardBody>
-      </Card>
-
-      {/* Share Event Modal */}
-      <PublicLinkModal
-        isOpen={isShareOpen}
-        onClose={onShareClose}
-        eventId={eventId}
-        eventTitle={event.title}
-        userRole={isCreator ? 'creator' : 'member'}
-      />
-
-      {/* Confirmation Modal */}
-      <AlertDialog isOpen={isOpen} leastDestructiveRef={cancelRef} onClose={onClose}>
-        <AlertDialogOverlay>
-          <AlertDialogContent>
-            <AlertDialogHeader fontSize="lg" fontWeight="bold">
-              Confirm Cancellation
-            </AlertDialogHeader>
-
-            <AlertDialogBody>
-              Are you sure you want to cancel this event? This action cannot be undone. All group members will be notified.
-            </AlertDialogBody>
-
-            <AlertDialogFooter>
-              <Button ref={cancelRef} onClick={onClose}>
-                Keep Event
-              </Button>
-              <Button
-                colorScheme="red"
-                onClick={handleCancelEvent}
-                ml={3}
-                isLoading={deleting}
-                loadingText="Cancelling..."
-              >
-                Confirm
-              </Button>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialogOverlay>
-      </AlertDialog>
-    </VStack>
+        <TabPanel px={0} py={0}>
+          <EventPlanningTab />
+        </TabPanel>
+      </TabPanels>
+    </Tabs>
   );
 };
