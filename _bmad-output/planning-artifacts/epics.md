@@ -254,6 +254,31 @@ Web app is fully responsive, keyboard accessible, meets WCAG 2.1 Level AA standa
 
 ---
 
+### Epic 12: Event Planning Dashboard
+
+> **Note:** Added ad hoc post-PRD (2026-08-03), same as Epic 11 — not derived from an FR in the Requirements Inventory above and not covered in the Coverage Map below. If full FR traceability is wanted later, route this through the PM to backfill FRs into the PRD.
+
+Each event gains a new "Planning" tab (left-side nav, alongside the existing event Details/RSVP tab) — a dashboard of coordination tools for the group to plan the substance of an event, separate from RSVP/momentum tracking.
+
+**User Outcome:** Groups plan the *substance* of an event (photos, tasks, schedule, logistics, open decisions) in one place, instead of scattering it across chat apps and shared docs.
+
+**Technical Considerations:**
+- New `event_planning` surface — new tables for photos, checklist items, timeline items, and polls/logistics items, all FK'd to `event_proposals.id`; `created_by`/assignee columns typed `VARCHAR(128)` to match `users.id` (Cognito sub), not the legacy `UUID` mismatch already on record from Story 11.1's completion notes
+- Left-side tab navigation (Details / Planning) is new UI infrastructure — no existing Tabs pattern anywhere in the codebase, so this is its own foundational story before any Planning content ships
+- Photo storage needs an explicit decision: S3 (matches AWS/Amplify stack) vs. Supabase Storage — flag to the architect given Epic 11 already put a Supabase divergence on record against `architecture.md`
+- Checklist items support both unassigned (anyone checks off) and assigned-to-member modes; assignment/edit authorization follows the existing comment author/assignee pattern
+- Sync model: near-real-time via the same client-side polling pattern already used by `SoftCalendar` and `EventCommentSection` (~5s interval) — **not** AppSync subscriptions, despite what `architecture.md` describes. Applied to Checklists and Polls (highest value for live collaboration); Photos and Timeline refetch on tab mount/focus only, no polling loop needed
+
+**Candidate stories:**
+1. **12.1 — Event Page Tab Navigation** (Details / Planning tabs, no Planning content yet — foundational)
+2. **12.2 — Pre-Event Photo Uploads** (moodboard/reference images, refetch-on-focus)
+3. **12.3 — Event Checklists** (shared + assignable items, 5s polling)
+4. **12.4 — Event Timeline/Agenda** (run-of-show for the event, refetch-on-focus)
+5. **12.5 — Logistics Coordination** (carpooling, who's-bringing-what)
+6. **12.6 — Quick Polls** (open decisions, e.g. "pizza or tacos?", 5s polling)
+
+---
+
 ## Requirements Coverage Map
 
 ### FR Coverage by Epic
