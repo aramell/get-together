@@ -30,5 +30,6 @@
       "Bash(chmod +x /tmp/fix-params.sh)",
       "Bash(/tmp/fix-params.sh)"
     ]
-  }
+  },
+  "spinnerTipsEnabled": true
 }
