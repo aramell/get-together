@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Box, Spinner, Text, VStack } from '@chakra-ui/react';
 import { CommentForm } from './CommentForm';
 import { CommentItem } from './CommentItem';
+import { CommentEditModal } from '@/components/groups/CommentEditModal';
+import { useAuth } from '@/lib/contexts/AuthContext';
 
 interface Comment {
   id: string;
@@ -12,11 +14,14 @@ interface Comment {
   display_name?: string | null;
   avatar_url?: string | null;
   created_at: string;
+  edited_at?: string | null;
+  updated_count?: number;
 }
 
 interface CommentSectionProps {
   groupId: string;
   itemId: string;
+  userRole?: 'admin' | 'member' | null;
 }
 
 /**
@@ -25,17 +30,30 @@ interface CommentSectionProps {
  * - List all comments in chronological order (oldest first)
  * - Provide form to post new comments
  * - Real-time polling: fetch comments every 5 seconds
+ * - Edit/Delete controls for comment author or group admin
  * - Loading and empty states
  * - Error handling
  */
-export function CommentSection({ groupId, itemId }: CommentSectionProps) {
+export function CommentSection({ groupId, itemId, userRole = null }: CommentSectionProps) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState(0);
+  const [editingComment, setEditingComment] = useState<Comment | null>(null);
+  const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
+  const { userId, accessToken } = useAuth();
+  const isAdmin = userRole === 'admin';
+
+  const authHeaders = useCallback(
+    (extra?: Record<string, string>): Record<string, string> => ({
+      Authorization: `Bearer ${accessToken}`,
+      ...extra,
+    }),
+    [accessToken]
+  );
 
   // Fetch comments from API
-  const fetchComments = async () => {
+  const fetchComments = useCallback(async () => {
     try {
       const response = await fetch(
         `/api/groups/${groupId}/wishlist/${itemId}/comments?limit=50&offset=0`
@@ -61,12 +79,12 @@ export function CommentSection({ groupId, itemId }: CommentSectionProps) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [groupId, itemId]);
 
   // Initial fetch on mount
   useEffect(() => {
     fetchComments();
-  }, [groupId, itemId, fetchComments]);
+  }, [fetchComments]);
 
   // Real-time polling: refetch every 5 seconds
   useEffect(() => {
@@ -80,6 +98,64 @@ export function CommentSection({ groupId, itemId }: CommentSectionProps) {
   const handleCommentPosted = () => {
     // Immediately refetch to get the new comment
     fetchComments();
+  };
+
+  // Save an edited comment
+  const handleSaveEdit = async (newContent: string) => {
+    if (!editingComment) return;
+
+    const response = await fetch(
+      `/api/groups/${groupId}/wishlist/${itemId}/comments/${editingComment.id}`,
+      {
+        method: 'PATCH',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ content: newContent }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+      throw new Error(data.message || 'Failed to edit comment');
+    }
+
+    setComments((prev) =>
+      prev.map((c) =>
+        c.id === editingComment.id
+          ? { ...c, content: data.data.content, edited_at: data.data.edited_at, updated_count: data.data.updated_count }
+          : c
+      )
+    );
+    setEditingComment(null);
+  };
+
+  // Delete a comment
+  const handleDeleteComment = async (commentId: string) => {
+    setDeletingCommentId(commentId);
+    try {
+      const response = await fetch(
+        `/api/groups/${groupId}/wishlist/${itemId}/comments/${commentId}`,
+        {
+          method: 'DELETE',
+          headers: authHeaders(),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Failed to delete comment');
+      }
+
+      setComments((prev) => prev.filter((c) => c.id !== commentId));
+      setTotalCount((prev) => Math.max(0, prev - 1));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to delete comment';
+      setError(message);
+      console.error('Error deleting comment:', err);
+    } finally {
+      setDeletingCommentId(null);
+    }
   };
 
   return (
@@ -105,7 +181,7 @@ export function CommentSection({ groupId, itemId }: CommentSectionProps) {
       {/* Loading state */}
       {isLoading && !comments.length && (
         <Box display="flex" justifyContent="center" py={8}>
-          <Spinner />
+          <Spinner role="status" />
         </Box>
       )}
 
@@ -147,10 +223,25 @@ export function CommentSection({ groupId, itemId }: CommentSectionProps) {
               authorName={comment.display_name}
               authorAvatar={comment.avatar_url}
               createdAt={comment.created_at}
+              editedAt={comment.edited_at}
+              updatedCount={comment.updated_count}
+              canModify={isAdmin || (!!userId && comment.created_by === userId)}
+              isDeleting={deletingCommentId === comment.id}
+              onEdit={() => setEditingComment(comment)}
+              onDelete={() => handleDeleteComment(comment.id)}
             />
           ))}
         </VStack>
       )}
+
+      {/* Edit Comment Modal */}
+      <CommentEditModal
+        isOpen={editingComment !== null}
+        onClose={() => setEditingComment(null)}
+        initialContent={editingComment?.content ?? ''}
+        onSave={handleSaveEdit}
+        commentId={editingComment?.id}
+      />
     </Box>
   );
 }

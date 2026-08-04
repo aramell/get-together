@@ -46,6 +46,7 @@ export const EventDetail: React.FC<EventDetailProps> = ({ groupId, eventId }) =>
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [userRole, setUserRole] = useState<'admin' | 'member' | null>(null);
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { isOpen: isShareOpen, onOpen: onShareOpen, onClose: onShareClose } = useDisclosure();
   const cancelRef = React.useRef(null);
@@ -90,6 +91,26 @@ export const EventDetail: React.FC<EventDetailProps> = ({ groupId, eventId }) =>
 
     fetchEvent();
   }, [groupId, eventId]);
+
+  // Fetch user's group role for authorization checks (comment edit/delete)
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      try {
+        const response = await fetch(`/api/groups/${groupId}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.data?.currentUserRole) {
+            setUserRole(data.data.currentUserRole);
+          }
+        }
+      } catch (err) {
+        // Silently fail - authorization is still enforced server-side
+        console.error('Failed to fetch user role:', err);
+      }
+    };
+
+    fetchUserRole();
+  }, [groupId]);
 
   const handleCancelEvent = async () => {
     if (!event) return;
@@ -244,6 +265,7 @@ export const EventDetail: React.FC<EventDetailProps> = ({ groupId, eventId }) =>
                 <EventCommentSection
                   eventId={eventId}
                   groupId={groupId}
+                  userRole={userRole}
                 />
               </CardBody>
             </Card>

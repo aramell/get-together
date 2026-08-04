@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-import { deleteEventComment, deleteWishlistCommentService } from '../commentService';
+import { deleteEventCommentWithAuth, deleteWishlistCommentService } from '../commentService';
 import * as queriesModule from '@/lib/db/queries';
 
 // Mock the database queries
@@ -21,12 +21,12 @@ describe('Comment Delete Service', () => {
     mockDeleteWishlistCommentQuery = queriesModule.deleteWishlistComment as jest.MockedFunction<typeof queriesModule.deleteWishlistComment>;
   });
 
-  describe('deleteEventComment', () => {
+  describe('deleteEventCommentWithAuth', () => {
     describe('Authorization', () => {
       it('should return FORBIDDEN if user is not a group member', async () => {
         mockGetUserGroupRole.mockResolvedValue(null);
 
-        const result = await deleteEventComment('group-1', 'comment-1', 'user-1');
+        const result = await deleteEventCommentWithAuth('group-1', 'comment-1', 'user-1');
 
         expect(result.success).toBe(false);
         expect(result.errorCode).toBe('FORBIDDEN');
@@ -42,7 +42,7 @@ describe('Comment Delete Service', () => {
           created_at: '2026-03-20T10:00:00Z',
         });
 
-        const result = await deleteEventComment('group-1', 'comment-1', 'user-1');
+        const result = await deleteEventCommentWithAuth('group-1', 'comment-1', 'user-1');
 
         expect(result.success).toBe(false);
         expect(result.errorCode).toBe('FORBIDDEN');
@@ -59,7 +59,7 @@ describe('Comment Delete Service', () => {
         });
         mockDeleteEventCommentQuery.mockResolvedValue(undefined);
 
-        const result = await deleteEventComment('group-1', 'comment-1', 'user-1');
+        const result = await deleteEventCommentWithAuth('group-1', 'comment-1', 'user-1');
 
         expect(result.success).toBe(true);
       });
@@ -74,7 +74,7 @@ describe('Comment Delete Service', () => {
         });
         mockDeleteEventCommentQuery.mockResolvedValue(undefined);
 
-        const result = await deleteEventComment('group-1', 'comment-1', 'user-1');
+        const result = await deleteEventCommentWithAuth('group-1', 'comment-1', 'user-1');
 
         expect(result.success).toBe(true);
       });
@@ -85,7 +85,7 @@ describe('Comment Delete Service', () => {
         mockGetUserGroupRole.mockResolvedValue('member');
         mockGetEventCommentById.mockResolvedValue(null);
 
-        const result = await deleteEventComment('group-1', 'comment-1', 'user-1');
+        const result = await deleteEventCommentWithAuth('group-1', 'comment-1', 'user-1');
 
         expect(result.success).toBe(false);
         expect(result.errorCode).toBe('NOT_FOUND');
@@ -101,7 +101,7 @@ describe('Comment Delete Service', () => {
           deleted_at: '2026-03-20T11:00:00Z',
         });
 
-        const result = await deleteEventComment('group-1', 'comment-1', 'user-1');
+        const result = await deleteEventCommentWithAuth('group-1', 'comment-1', 'user-1');
 
         expect(result.success).toBe(false);
         expect(result.errorCode).toBe('CONFLICT');
@@ -120,7 +120,7 @@ describe('Comment Delete Service', () => {
         });
         mockDeleteEventCommentQuery.mockResolvedValue(undefined);
 
-        const result = await deleteEventComment('group-1', 'comment-1', 'user-1');
+        const result = await deleteEventCommentWithAuth('group-1', 'comment-1', 'user-1');
 
         expect(result.success).toBe(true);
         expect(result.message).toBe('Comment deleted successfully');
@@ -132,7 +132,7 @@ describe('Comment Delete Service', () => {
       it('should handle database errors gracefully', async () => {
         mockGetUserGroupRole.mockRejectedValue(new Error('Database connection failed'));
 
-        const result = await deleteEventComment('group-1', 'comment-1', 'user-1');
+        const result = await deleteEventCommentWithAuth('group-1', 'comment-1', 'user-1');
 
         expect(result.success).toBe(false);
         expect(result.errorCode).toBe('INTERNAL_ERROR');

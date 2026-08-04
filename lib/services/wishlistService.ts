@@ -908,6 +908,8 @@ export async function getWishlistCommentsService(
       display_name: string | null;
       avatar_url: string | null;
       created_at: string;
+      edited_at: string | null;
+      updated_count: number;
     }>;
     totalCount: number;
     hasMore: boolean;
@@ -975,6 +977,8 @@ export async function getWishlistCommentsService(
           display_name: c.display_name,
           avatar_url: c.avatar_url,
           created_at: c.created_at,
+          edited_at: c.edited_at,
+          updated_count: c.updated_count,
         })),
         totalCount,
         hasMore: offset + limit < totalCount,

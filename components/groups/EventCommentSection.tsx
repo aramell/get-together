@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box,
   Button,
@@ -16,12 +16,18 @@ import {
 } from '@chakra-ui/react';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
+import { CommentEditButton } from './CommentEditButton';
+import { CommentEditModal } from './CommentEditModal';
+import { CommentDeleteButton } from './CommentDeleteButton';
+import { CommentEditIndicator } from './CommentEditIndicator';
 
 interface Comment {
   id: string;
   content: string;
   created_by: string;
   created_at: string;
+  edited_at?: string | null;
+  updated_count?: number;
   creator?: {
     display_name?: string;
     email?: string;
@@ -33,6 +39,7 @@ interface EventCommentSectionProps {
   eventId: string;
   groupId: string;
   initialComments?: Comment[];
+  userRole?: 'admin' | 'member' | null;
 }
 
 /**
@@ -44,15 +51,27 @@ export const EventCommentSection: React.FC<EventCommentSectionProps> = ({
   eventId,
   groupId,
   initialComments = [],
+  userRole = null,
 }) => {
   const [comments, setComments] = useState<Comment[]>(initialComments);
   const [newCommentContent, setNewCommentContent] = useState('');
   const [isPosting, setIsPosting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { userId } = useAuth();
+  const [editingComment, setEditingComment] = useState<Comment | null>(null);
+  const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
+  const { userId, accessToken } = useAuth();
   const toastManager = useToast();
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isAdmin = userRole === 'admin';
+
+  const authHeaders = useCallback(
+    (extra?: Record<string, string>): Record<string, string> => ({
+      Authorization: `Bearer ${accessToken}`,
+      ...extra,
+    }),
+    [accessToken]
+  );
 
   // Fetch comments from API
   const fetchComments = async () => {
@@ -109,9 +128,7 @@ export const EventCommentSection: React.FC<EventCommentSectionProps> = ({
     try {
       const response = await fetch(`/api/groups/${groupId}/events/${eventId}/comments`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ content: newCommentContent }),
       });
 
@@ -136,6 +153,68 @@ export const EventCommentSection: React.FC<EventCommentSectionProps> = ({
     }
   };
 
+  // Open the edit modal for a given comment
+  const handleStartEdit = (comment: Comment) => {
+    setEditingComment(comment);
+  };
+
+  // Save an edited comment
+  const handleSaveEdit = async (newContent: string) => {
+    if (!editingComment) return;
+
+    const response = await fetch(
+      `/api/groups/${groupId}/events/${eventId}/comments/${editingComment.id}`,
+      {
+        method: 'PATCH',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ content: newContent }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || 'Failed to edit comment');
+    }
+
+    setComments((prev) =>
+      prev.map((c) =>
+        c.id === editingComment.id
+          ? { ...c, content: data.data.content, edited_at: data.data.edited_at, updated_count: data.data.updated_count }
+          : c
+      )
+    );
+    setEditingComment(null);
+  };
+
+  // Delete a comment
+  const handleDeleteComment = async (commentId: string) => {
+    setDeletingCommentId(commentId);
+    try {
+      const response = await fetch(
+        `/api/groups/${groupId}/events/${eventId}/comments/${commentId}`,
+        {
+          method: 'DELETE',
+          headers: authHeaders(),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Failed to delete comment');
+      }
+
+      setComments((prev) => prev.filter((c) => c.id !== commentId));
+      toastManager({ title: 'Comment deleted', status: 'success', duration: 2000, isClosable: true });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete comment';
+      toastManager({ title: 'Error', description: errorMessage, status: 'error', duration: 3000, isClosable: true });
+    } finally {
+      setDeletingCommentId(null);
+    }
+  };
+
   return (
     <Box borderTop="1px solid" borderColor="gray.200" pt={6} mt={6}>
       {/* Comment Header */}
@@ -146,23 +225,41 @@ export const EventCommentSection: React.FC<EventCommentSectionProps> = ({
       {/* Comments List */}
       {comments.length > 0 ? (
         <VStack spacing={4} mb={6} align="stretch">
-          {comments.map((comment) => (
-            <Box key={comment.id} borderBottom="1px solid" borderColor="gray.100" pb={3}>
-              {/* Comment Header */}
-              <HStack mb={2}>
-                <Text fontWeight="bold" fontSize="sm">
-                  {comment.creator?.display_name || comment.creator?.email || 'Anonymous'}
+          {comments.map((comment) => {
+            const canModify = isAdmin || (!!userId && comment.created_by === userId);
+            return (
+              <Box key={comment.id} borderBottom="1px solid" borderColor="gray.100" pb={3}>
+                {/* Comment Header */}
+                <HStack mb={2} justify="space-between">
+                  <HStack>
+                    <Text fontWeight="bold" fontSize="sm">
+                      {comment.creator?.display_name || comment.creator?.email || 'Anonymous'}
+                    </Text>
+                    <Text fontSize="xs" color="gray.500">
+                      {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
+                    </Text>
+                    <CommentEditIndicator
+                      editedAt={comment.edited_at ?? null}
+                      updatedCount={comment.updated_count ?? 0}
+                      createdAt={comment.created_at}
+                    />
+                  </HStack>
+                  <HStack spacing={1}>
+                    <CommentEditButton isVisible={canModify} onClick={() => handleStartEdit(comment)} />
+                    <CommentDeleteButton
+                      isVisible={canModify}
+                      onClick={() => handleDeleteComment(comment.id)}
+                      isDisabled={deletingCommentId === comment.id}
+                    />
+                  </HStack>
+                </HStack>
+                {/* Comment Content */}
+                <Text fontSize="sm" whiteSpace="pre-wrap">
+                  {comment.content}
                 </Text>
-                <Text fontSize="xs" color="gray.500">
-                  {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
-                </Text>
-              </HStack>
-              {/* Comment Content */}
-              <Text fontSize="sm" whiteSpace="pre-wrap">
-                {comment.content}
-              </Text>
-            </Box>
-          ))}
+              </Box>
+            );
+          })}
         </VStack>
       ) : (
         <Text color="gray.500" mb={6}>
@@ -227,6 +324,15 @@ export const EventCommentSection: React.FC<EventCommentSectionProps> = ({
           </Text>
         </HStack>
       )}
+
+      {/* Edit Comment Modal */}
+      <CommentEditModal
+        isOpen={editingComment !== null}
+        onClose={() => setEditingComment(null)}
+        initialContent={editingComment?.content ?? ''}
+        onSave={handleSaveEdit}
+        commentId={editingComment?.id}
+      />
     </Box>
   );
 };

@@ -944,6 +944,8 @@ export async function getEventComments(
     content: string;
     created_by: string;
     created_at: string;
+    edited_at: string | null;
+    updated_count: number;
     creator?: {
       display_name?: string;
       email?: string;
@@ -977,6 +979,8 @@ export async function getEventComments(
         ec.content,
         ec.created_by,
         ec.created_at,
+        ec.edited_at,
+        ec.updated_count,
         u.display_name,
         u.email,
         u.avatar_url
@@ -992,6 +996,8 @@ export async function getEventComments(
       content: row.content,
       created_by: row.created_by,
       created_at: row.created_at,
+      edited_at: row.edited_at,
+      updated_count: row.updated_count,
       creator: {
         display_name: row.display_name,
         email: row.email,

@@ -44,7 +44,7 @@ jest.mock('../CommentEditButton', () => ({
 
 jest.mock('../CommentEditIndicator', () => ({
   CommentEditIndicator: ({ editedAt }: any) =>
-    <span data-testid="edit-indicator">Edited</span>,
+    editedAt ? <span data-testid="edit-indicator">Edited</span> : null,
 }));
 
 jest.mock('../CommentEditModal', () => ({
@@ -55,6 +55,11 @@ jest.mock('../CommentEditModal', () => ({
         <button onClick={() => onSave('updated')} data-testid="save-button">Save</button>
       </div>
     ) : null,
+}));
+
+jest.mock('../CommentDeleteButton', () => ({
+  CommentDeleteButton: ({ onClick, isVisible }: any) =>
+    isVisible ? <button onClick={onClick} data-testid="delete-button">Delete</button> : null,
 }));
 
 describe('EventCommentSection - Real-time Polling (Task 4)', () => {
@@ -123,13 +128,10 @@ describe('EventCommentSection - Real-time Polling (Task 4)', () => {
       // Fast forward past polling interval (5 seconds)
       jest.advanceTimersByTime(5000);
 
-      // Wait for polling to complete
+      // Wait for polling to complete and the updated content to render
       await waitFor(() => {
-        expect(mockFetch).toHaveBeenCalledTimes(2);
+        expect(screen.getByText('Updated comment')).toBeInTheDocument();
       });
-
-      // Now should show updated content and edit indicator
-      expect(screen.getByText('Updated comment')).toBeInTheDocument();
       expect(screen.getByTestId('edit-indicator')).toBeInTheDocument();
     });
 

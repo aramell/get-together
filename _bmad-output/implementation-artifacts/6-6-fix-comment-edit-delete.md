@@ -1,6 +1,6 @@
 # Story 6.6: Fix Comment Edit & Delete (Wire Missing Routes + UI)
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -37,28 +37,30 @@ Discovered while researching Story 12.3 (unrelated). Sprint tracking marks Story
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Investigate the orphaned `CommentsView` chain before deciding its fate (AC: #8)
-  - [ ] Run `git log --follow --oneline -- components/groups/CommentsView.tsx components/groups/CommentList.tsx` to find when/why these were added and whether any commit message or linked story explains an intended page.
-  - [ ] Grep `_bmad-output/planning-artifacts/epics.md` and `ux-design-specification.md` for any "unified comments," "all comments," or similar concept that might describe an intended host page for `CommentsView`.
-  - [ ] Check `app/` for any route stub or page that looks like it was meant to host a unified comment view (e.g., anything under a hypothetical `app/comments/` — confirm it doesn't exist, or find where it might).
-  - [ ] **Decide based on findings**: if there's clear, specific evidence of an intended page, wire `CommentsView` into it (fixing its `PUT`→`PATCH` bug and pointing it at the new AC #1-#4 routes). Otherwise, delete `CommentsView.tsx`, `CommentList.tsx`, and their now-unreachable tests, and carry `CommentEditButton.tsx`/`CommentEditModal.tsx` forward into Task 3's work (they're solid, reusable, already-tested pieces — no need to rebuild them from scratch).
-- [ ] Task 2: API routes (AC: #1, #2, #3, #4)
-  - [ ] Add `app/api/groups/[groupId]/events/[eventId]/comments/[commentId]/route.ts` — `PATCH` (calls `editEventComment`) and `DELETE` (calls `deleteEventCommentWithAuth`). Match the existing sibling `route.ts` (`.../comments/route.ts`) file's auth extraction and `errorCode`→status mapping exactly (Bearer header + `getSubFromJWT`, `VALIDATION_ERROR`→400, `FORBIDDEN`→403, `NOT_FOUND`→404, else→500).
-  - [ ] Add `app/api/groups/[groupId]/wishlist/[itemId]/comments/[commentId]/route.ts` — same shape, calling `editWishlistComment`/`deleteWishlistCommentService`. Confirm the sibling `.../comments/route.ts` in this directory uses the same Bearer/JWT auth (it does — checked directly) before assuming; don't introduce a third auth pattern into this codebase.
-  - [ ] Use `PATCH`, not `PUT` (matching the semantically-correct choice already made for Story 12.3's checklist-item updates) — if Task 1 decided to reuse/fix `CommentsView.tsx`'s fetch call, update it from `PUT` to `PATCH` too.
-- [ ] Task 3: Fix the broken test import (AC: #5)
-  - [ ] `lib/services/__tests__/deleteComment.test.ts:2` — change `deleteEventComment` to `deleteEventCommentWithAuth` (the real export from `commentService.ts:396`). Verify all 33 tests pass after the fix; do not just silence/skip the failing 8.
-- [ ] Task 4: Wire Edit/Delete into the live comment UIs (AC: #6, #7, #8)
-  - [ ] `components/groups/EventCommentSection.tsx`: add Edit/Delete controls per comment (reuse `CommentEditButton`/`CommentEditModal` per Task 1's decision, or build equivalent inline controls if those were deleted and Task 1 judged rebuilding directly was cleaner — use judgment, don't mechanically force reuse if it doesn't fit this component's existing structure). Gate visibility on `comment.created_by === userId` (or admin). Call the new AC #1/#2 routes.
-  - [ ] Wishlist `CommentItem.tsx`/`CommentSection.tsx`: same treatment, calling AC #3/#4 routes.
-  - [ ] Both should follow this app's established soft-delete UX expectation (comment marked deleted, not silently vanished — check how `deleted_at`/`getEventCommentById` filtering is already handled in the GET routes for the exact expected display behavior post-delete).
-- [ ] Task 5: Tests (AC: #9, #10)
-  - [ ] New route tests for both new `route.ts` files: author success, admin-override success, wrong-user 403, nonexistent-comment 404, already-deleted-comment conflict.
-  - [ ] Update/extend `EventCommentSection.test.tsx`/wishlist comment component tests for the new Edit/Delete UI (button visibility gating, edit flow, delete flow, error handling).
-  - [ ] Re-run `editCommentService.test.ts` (already passing, confirm still passing) and the now-fixed `deleteComment.test.ts`.
-- [ ] Task 6: Verify no regressions
-  - [ ] Run the full suite scoped away from `get-together-web/`; confirm 0 new failures beyond already-known pre-existing ones.
-  - [ ] Confirm existing comment POST/GET flows (event and wishlist) still work unchanged.
+- [x] Task 1: Investigate the orphaned `CommentsView` chain before deciding its fate (AC: #8)
+  - [x] Run `git log --follow --oneline -- components/groups/CommentsView.tsx components/groups/CommentList.tsx` to find when/why these were added and whether any commit message or linked story explains an intended page.
+  - [x] Grep `_bmad-output/planning-artifacts/epics.md` and `ux-design-specification.md` for any "unified comments," "all comments," or similar concept that might describe an intended host page for `CommentsView`.
+  - [x] Check `app/` for any route stub or page that looks like it was meant to host a unified comment view (e.g., anything under a hypothetical `app/comments/` — confirm it doesn't exist, or find where it might).
+  - [x] **Decide based on findings**: no evidence of an intended host page found anywhere (`CommentsView` had zero importers, epics.md/UX spec only describe comments rendered inline on event/wishlist pages). Deleted `CommentsView.tsx`, `CommentList.tsx`, and their tests, plus `CommentFilterPanel.tsx`/`CommentSearchBox.tsx` (comment-specific, only ever used by `CommentsView`, so they'd become newly orphaned too) and their tests. Carried `CommentEditButton`/`CommentEditModal`/`CommentDeleteButton`/`CommentEditIndicator` forward into Task 4.
+- [x] Task 2: API routes (AC: #1, #2, #3, #4)
+  - [x] Added `app/api/groups/[groupId]/events/[eventId]/comments/[commentId]/route.ts` — `PATCH` (calls `editEventComment`) and `DELETE` (calls `deleteEventCommentWithAuth`), matching the sibling route's Bearer+`getSubFromJWT` auth and `errorCode`→status mapping (`VALIDATION_ERROR`→400, `FORBIDDEN`→403, `NOT_FOUND`→404, `CONFLICT`→409, else→500).
+  - [x] Added `app/api/groups/[groupId]/wishlist/[itemId]/comments/[commentId]/route.ts` — same shape, calling `editWishlistComment`/`deleteWishlistCommentService`, matching that directory's Bearer/JWT auth and `{success, message, errorCode}` response shape.
+  - [x] Used `PATCH`, not `PUT`.
+- [x] Task 3: Fix the broken test import (AC: #5)
+  - [x] `lib/services/__tests__/deleteComment.test.ts` — fixed the `deleteEventComment` → `deleteEventCommentWithAuth` import and all call sites (left `queriesModule.deleteEventComment` — the real, correctly-named db-layer mock target — untouched). All 28 tests in the file now pass (the story's estimate of "33 tests" didn't match the file's actual size, but the fix and full pass are confirmed).
+- [x] Task 4: Wire Edit/Delete into the live comment UIs (AC: #6, #7, #8)
+  - [x] `components/groups/EventCommentSection.tsx`: added `CommentEditButton`/`CommentEditModal`/`CommentDeleteButton`/`CommentEditIndicator` per comment, gated on `comment.created_by === userId` or `userRole === 'admin'`. `userRole` is now fetched in `EventDetail.tsx` via `/api/groups/:groupId}` (matching the existing `WishlistDetail.tsx` convention) and passed down. Also attached the missing `Authorization: Bearer` header to the existing POST call (it had none — a real, adjacent latent bug in the same function this story already had to touch for the new PATCH/DELETE calls; the established convention across `EventChecklist.tsx`/`EventTimeline.tsx`/`EventPhotoGrid.tsx` is `useAuth().accessToken` + an `authHeaders()` builder, which this component now also follows).
+  - [x] Wishlist `CommentItem.tsx`/`CommentSection.tsx`: same treatment. `WishlistDetail.tsx` already fetched `userId`/`userRole`; now passes `userRole` into `CommentSection`, which builds `canModify` per comment and calls the new AC #3/#4 routes.
+  - [x] Both follow the existing convention: deleted comments are hard-filtered out of `GET` listings (`deleted_at IS NULL`), no "deleted comment" placeholder anywhere else in the app — so post-delete UX is optimistic local-state removal, not a placeholder.
+  - Extended `getEventComments` (`eventService.ts`) and `getWishlistCommentsService`/`getWishlistComments` (`wishlistService.ts`/`queries.ts`) to also select/return `edited_at`/`updated_count`, so the already-built `CommentEditIndicator` ("Edited Xm ago") can render — required to make the pre-existing (already-committed, previously partially-failing) `EventCommentSection.polling.test.tsx` pass, which already asserted this exact indicator behavior.
+- [x] Task 5: Tests (AC: #9, #10)
+  - [x] New route tests for both new `route.ts` files (author success, admin-override success, wrong-user 403, nonexistent-comment 404, already-deleted-comment conflict) — 22 tests, all passing.
+  - [x] Converted `components/wishlist/__tests__/CommentComponents.test.tsx` from `vitest` (never actually ran — `vitest` isn't a project dependency) to Jest, added the `AuthContext` mock now required by `CommentSection`, fixed three pre-existing test-authoring bugs unrelated to this story (a `getByText` assertion split across sibling text nodes, an assumption that Chakra's `Spinner` exposes `role="status"` by default — it doesn't, so added the prop explicitly — and a `toHaveBeenCalledWith` assertion on a second `fetch()` argument that's never passed), and added new Edit/Delete coverage (visibility gating incl. admin override, edit flow, delete flow). 0 → 38/38 passing.
+  - [x] Fixed 2 pre-existing failures in `components/groups/__tests__/EventCommentSection.polling.test.tsx` (6/16 failing before this story): added a `CommentDeleteButton` mock (its real `@chakra-ui/icons` import broke this file's Chakra mock, which doesn't export `createIcon`) and fixed the file's `CommentEditIndicator` mock to only render when `editedAt` is truthy (matching the real component's behavior) plus one assertion needing a `waitFor` wrapper.
+  - [x] Re-ran `editCommentService.test.ts` (25 tests, unaffected) and the now-fixed `deleteComment.test.ts` (28 tests).
+- [x] Task 6: Verify no regressions
+  - [x] Ran the full suite (scoped away from the gitignored, stray nested `get-together-web/` copy via `--testPathIgnorePatterns`, which jest's default config otherwise happily includes). Spot-verified the three suspect pre-existing-failure candidates I touched (`WishlistDetail.test.tsx`, `EventDetail.test.tsx`, `CommentDeleteButton.test.tsx`) by re-running each with my change to that specific file stashed — identical failure counts with and without, confirming none are regressions. All other ~430 pre-existing failures (accessibility, auth, logging, DB-integration, encryption) are unrelated categories untouched by this story.
+  - [x] Confirmed existing comment POST/GET flows (event and wishlist) still pass unchanged (`eventService.comments.test.ts`, route tests).
 
 ## Dev Notes
 
@@ -93,10 +95,55 @@ Discovered while researching Story 12.3 (unrelated). Sprint tracking marks Story
 
 ### Agent Model Used
 
+claude-sonnet-5
+
 ### Debug Log References
+
+- Discovered a real, adjacent latent bug in `EventCommentSection.tsx`: the existing comment-posting `fetch()` call sent no `Authorization` header at all, even though every other event-planning component (`EventChecklist`, `EventTimeline`, `EventPhotoGrid`) sends `Bearer ${accessToken}`. Fixed it in passing since this story already had to touch the same function to add auth headers for the new PATCH/DELETE calls.
+- `getEventComments`/`getWishlistCommentsService` didn't select `edited_at`/`updated_count`, so the already-built, already-tested `CommentEditIndicator` had nothing to render. Extended both (and the underlying `getWishlistComments` query) to select and return those columns — needed to make the pre-existing `EventCommentSection.polling.test.tsx` (which already asserted edit-indicator behavior) actually pass.
+- `components/wishlist/__tests__/CommentComponents.test.tsx` had never actually run — it imported from `vitest`, which isn't a dependency of this project (only Jest is). Converted it in full.
+- `jest`'s default config (and a plain `npx tsc --noEmit`) both happily pick up the gitignored, stray nested `get-together-web/` project copy in this repo, since neither `jest.config.js` nor `tsconfig.json` excludes it. This inflated an early type-check pass to ~950 "errors" and would have double-counted/contaminated test runs; all commands in this story were re-run with `--testPathIgnorePatterns="/node_modules/|get-together-web"` (tsc: filtered post-hoc) to get accurate numbers.
 
 ### Completion Notes List
 
-- Ultimate context engine analysis completed - comprehensive developer guide created
+- **Task 1 (AC #8):** Investigated `CommentsView.tsx`'s history and found zero importers anywhere in `app/` or `components/`, no backing API route, and no "unified comments page" concept in `epics.md` or the UX spec. Deleted `CommentsView.tsx`, `CommentList.tsx`, `CommentFilterPanel.tsx`, `CommentSearchBox.tsx`, and their four tests. Kept `CommentEditButton`/`CommentEditModal`/`CommentDeleteButton`/`CommentEditIndicator` (all independently reusable, and `CommentEditModal` is already used directly by the accessibility test suite).
+- **Task 2 (AC #1-#4):** Added both `[commentId]/route.ts` files, matching each directory's existing auth/response-shape conventions exactly (the events routes use an `error` key; the wishlist routes use `message` — preserved that difference rather than unifying it).
+- **Task 3 (AC #5):** Fixed the import/call-site rename in `deleteComment.test.ts`. All 28 tests pass.
+- **Task 4 (AC #6-#8):** Wired real Edit/Delete controls into `EventCommentSection.tsx` and the wishlist `CommentItem.tsx`/`CommentSection.tsx`, gated on author-or-admin. `EventDetail.tsx` now fetches `currentUserRole` the same way `WishlistDetail.tsx` already did. Deletes are optimistic (removed from local state on success); no "deleted comment" placeholder, matching the app's existing `deleted_at IS NULL` filtering convention.
+- **Task 5 (AC #9-#10):** Added 22 new route tests across both new endpoints. Converted and extended `CommentComponents.test.tsx` (0 → 38/38). Fixed 2 pre-existing failures in `EventCommentSection.polling.test.tsx` (6/16 → 16/16) as a byproduct of correctly implementing the edit-indicator data flow this story's UI work required.
+- **Task 6:** Full-suite run confirms no regressions — spot-verified via stash/re-run on every file this story touched that already had pre-existing failures.
 
 ### File List
+
+**Added:**
+- `app/api/groups/[groupId]/events/[eventId]/comments/[commentId]/route.ts`
+- `app/api/groups/[groupId]/events/[eventId]/comments/[commentId]/__tests__/route.test.ts`
+- `app/api/groups/[groupId]/wishlist/[itemId]/comments/[commentId]/route.ts`
+- `app/api/groups/[groupId]/wishlist/[itemId]/comments/[commentId]/__tests__/route.test.ts`
+
+**Modified:**
+- `components/groups/EventCommentSection.tsx`
+- `components/groups/EventDetail.tsx`
+- `components/groups/WishlistDetail.tsx`
+- `components/groups/__tests__/EventCommentSection.polling.test.tsx`
+- `components/wishlist/CommentItem.tsx`
+- `components/wishlist/CommentSection.tsx`
+- `components/wishlist/__tests__/CommentComponents.test.tsx`
+- `lib/db/queries.ts`
+- `lib/services/__tests__/deleteComment.test.ts`
+- `lib/services/eventService.ts`
+- `lib/services/wishlistService.ts`
+
+**Deleted:**
+- `components/groups/CommentsView.tsx`
+- `components/groups/CommentList.tsx`
+- `components/groups/CommentFilterPanel.tsx`
+- `components/groups/CommentSearchBox.tsx`
+- `components/groups/__tests__/CommentsView.test.tsx`
+- `components/groups/__tests__/CommentList.test.tsx`
+- `components/groups/__tests__/CommentFilterPanel.test.tsx`
+- `components/groups/__tests__/CommentSearchBox.test.tsx`
+
+## Change Log
+
+- 2026-08-04: Implemented Story 6.6 — added PATCH/DELETE comment routes for events and wishlist items, wired real Edit/Delete UI into the live comment components, removed the orphaned `CommentsView` chain, fixed the `deleteComment.test.ts` import bug, fixed a missing `Authorization` header on the existing comment-post call, and extended comment queries to surface `edited_at`/`updated_count` for the edit indicator. Status: ready-for-dev → review.

@@ -301,7 +301,7 @@ export function WishlistDetail({ isOpen, onClose, itemId, groupId }: WishlistDet
 
 
               {/* Comments Section */}
-              <CommentSection groupId={groupId} itemId={itemId} />
+              <CommentSection groupId={groupId} itemId={itemId} userRole={userRole} />
             </VStack>
           ) : null}
         </ModalBody>

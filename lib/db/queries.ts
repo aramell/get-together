@@ -1002,6 +1002,8 @@ export async function getWishlistComments(
     content: string;
     created_at: string;
     updated_at: string;
+    edited_at: string | null;
+    updated_count: number;
     display_name: string | null;
     avatar_url: string | null;
   }>;
@@ -1010,6 +1012,7 @@ export async function getWishlistComments(
   const comments = await query(
     `SELECT
        c.id, c.wishlist_item_id, c.created_by, c.content, c.created_at, c.updated_at,
+       c.edited_at, c.updated_count,
        u.display_name, u.avatar_url
      FROM wishlist_comments c
      LEFT JOIN users u ON c.created_by = u.id
