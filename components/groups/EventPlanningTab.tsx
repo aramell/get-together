@@ -4,6 +4,7 @@ import { Box, VStack } from '@chakra-ui/react';
 import { EventChecklist } from './EventChecklist';
 import { EventPhotoGrid } from './EventPhotoGrid';
 import { EventTimeline } from './EventTimeline';
+import { EventLogistics } from './EventLogistics';
 
 interface EventPlanningTabProps {
   eventId: string;
@@ -17,6 +18,7 @@ export function EventPlanningTab({ eventId, groupId }: EventPlanningTabProps) {
         <EventPhotoGrid eventId={eventId} groupId={groupId} />
         <EventChecklist eventId={eventId} groupId={groupId} />
         <EventTimeline eventId={eventId} groupId={groupId} />
+        <EventLogistics eventId={eventId} groupId={groupId} />
       </VStack>
     </Box>
   );

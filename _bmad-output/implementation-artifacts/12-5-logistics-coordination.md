@@ -1,6 +1,6 @@
 # Story 12.5: Logistics Coordination
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -28,34 +28,29 @@ so that logistics get sorted out visibly in one place instead of getting lost ac
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Database migrations (AC: #1, #2)
-  - [ ] **Run `ls lib/db/migrations/` before writing files** — verify the actual next-available number(s); don't assume based on any story doc's stated number.
-  - [ ] `event_logistics_items(id UUID PK, event_id UUID NOT NULL REFERENCES event_proposals(id) ON DELETE CASCADE, group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE, created_by VARCHAR(128) NOT NULL, category VARCHAR(20) NOT NULL CHECK (category IN ('bring', 'carpool')), title VARCHAR(255) NOT NULL, assigned_to VARCHAR(128), capacity INT, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`. Add a `CHECK` constraint that `capacity IS NOT NULL` when `category = 'carpool'` (don't rely on application code alone to enforce this).
-  - [ ] `event_logistics_claims(id UUID PK, logistics_item_id UUID NOT NULL REFERENCES event_logistics_items(id) ON DELETE CASCADE, user_id VARCHAR(128) NOT NULL, claimed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), UNIQUE(logistics_item_id, user_id))` — the `UNIQUE` constraint prevents the same person double-claiming the same carpool item.
-  - [ ] No FK from `created_by`/`assigned_to`/`user_id` to `users(id)` — same reasoning as Stories 12.2-12.4 (no guaranteed `users` row for every authenticated user).
-  - [ ] `ENABLE ROW LEVEL SECURITY` on both tables, no policies.
-  - [ ] Run `npm run db:migrate` against local dev DB.
-- [ ] Task 2: Service layer (AC: #3, #4, #5, #6, #7, #8)
-  - [ ] Add `lib/services/eventLogisticsService.ts`: `addLogisticsItem`, `getLogisticsItems` (joins claims per item), `updateLogisticsItem` (branches per AC #5's two authorization shapes, same "don't conflate" caution as `eventChecklistService.updateChecklistItem` from Story 12.3), `deleteLogisticsItem`, `claimLogisticsSeat`, `unclaimLogisticsSeat`.
-  - [ ] `claimLogisticsSeat`: reject with `errorCode: 'VALIDATION_ERROR'` if `category !== 'carpool'`; reject with a distinct `errorCode` (e.g. `'CAPACITY_REACHED'`, mapped to `409` in the route) if current claim count `>= capacity`. **Wrap the count-check and insert in a transaction** (`BEGIN`/count/insert/`COMMIT`), matching the transactional pattern already used in `addEventComment` (`eventService.ts`) — this narrows but doesn't eliminate the race window between two simultaneous claims for the last seat (this codebase doesn't use `SELECT ... FOR UPDATE` row locking anywhere; matching that existing level of rigor rather than introducing new locking machinery this codebase has no precedent for — see Dev Notes).
-- [ ] Task 3: API routes (AC: #3, #4, #5, #6, #7, #8)
-  - [ ] Add `app/api/groups/[groupId]/events/[eventId]/logistics/route.ts` (`GET`, `POST`), following `events/[eventId]/comments/route.ts`'s conventions.
-  - [ ] Add `app/api/groups/[groupId]/events/[eventId]/logistics/[itemId]/route.ts` (`PATCH`, `DELETE`), same conventions.
-  - [ ] Add `app/api/groups/[groupId]/events/[eventId]/logistics/[itemId]/claims/route.ts` (`POST`, `DELETE`) — `DELETE` takes no body/params beyond auth, removes the caller's own claim (AC #8).
-- [ ] Task 4: Planning tab UI (AC: #9, #10, #11)
-  - [ ] **Check current state of `EventPlanningTab.tsx`/`EventDetail.tsx` first** — this is now the fourth story extending the shared placeholder; reuse whatever `eventId`/`groupId` props and `isLazy` setup already exist.
-  - [ ] Add `components/groups/EventLogistics.tsx` as an independent sibling section, same composability reasoning as 12.3/12.4's dedicated components.
-  - [ ] Two sub-sections: "Bring List" (items with `category='bring'`, assignee name or a "claim it" button if unassigned) and "Carpool" (items with `category='carpool'`, driver name, seat-count indicator, claim/unclaim button for the current user, disabled once full).
-  - [ ] Add-item form needs a category toggle (Bring vs. Carpool) that conditionally shows/hides the capacity field (only relevant for Carpool) and makes the driver (`assigned_to`) required for Carpool but optional for Bring.
-  - [ ] Reuse the member-list fetch pattern already established in Story 12.3 (`getGroupDetailsWithMembers`'s data, not the unused paginated `/members` route) for the driver/assignee dropdown.
-  - [ ] Polling: same structure as Story 12.3's checklist (single effect, ref-based interval, in-flight guard) — reuse or closely mirror that story's polling hook if it's already been extracted into a shared place; otherwise implement fresh following the same pattern.
-- [ ] Task 5: Tests
-  - [ ] `__tests__/services/eventLogisticsService.test.ts`: create both categories, list with joined claims, edit (creator/admin/wrong-user), delete, claim (success, capacity-reached rejection, duplicate-claim rejection), unclaim.
-  - [ ] `__tests__/api/groups/events/logistics.test.ts` (or colocated, matching whatever convention is established by the time this is implemented): auth, validation, status codes including `409` for capacity-reached.
-  - [ ] `__tests__/components/EventLogistics.test.tsx`: renders both sub-sections, claim/unclaim flows, capacity-reached UI state (claim button disabled), polling.
-- [ ] Task 6: Verify no regressions
-  - [ ] Run the full suite scoped away from `get-together-web/`; confirm 0 new failures beyond already-known pre-existing ones.
-  - [ ] Re-run any of 12.2/12.3/12.4's tests that landed first, since this story also touches the shared Planning-tab files.
+- [x] Task 1: Database migrations (AC: #1, #2)
+  - [x] Verified next-available migration numbers on disk (`016` was the last applied — used `017`/`018`, not any number assumed from this doc).
+  - [x] `017_create_event_logistics_items_table.sql`: `event_logistics_items` with `category` CHECK constraint (`'bring'`|`'carpool'`) and a `carpool_requires_capacity` CHECK constraint enforcing `capacity IS NOT NULL` when `category = 'carpool'`.
+  - [x] `018_create_event_logistics_claims_table.sql`: `event_logistics_claims` join table with `UNIQUE(logistics_item_id, user_id)`.
+  - [x] No FK from `created_by`/`assigned_to`/`user_id` to `users(id)`, matching Stories 12.2-12.4.
+  - [x] RLS enabled on both tables, no policies.
+  - [x] Ran `npm run db:migrate` against local dev DB and verified both tables' schema (columns, constraints, indexes, FKs, RLS) directly via `psql`.
+- [x] Task 2: Service layer (AC: #3, #4, #5, #6, #7, #8)
+  - [x] Added `lib/services/eventLogisticsService.ts` with all six functions. `updateLogisticsItem` distinguishes metadata edits (title/capacity, or any non-self `assigned_to` change) from the relaxed self-claim/self-unclaim path (bring items only, and only when the target `assigned_to` is the caller themselves transitioning to/from `null`).
+  - [x] `claimLogisticsSeat` wraps the count-check and insert in `BEGIN`/`COMMIT`/`ROLLBACK`, returns `errorCode: 'CAPACITY_REACHED'` when full and `errorCode: 'CONFLICT'` on a unique-constraint violation (duplicate claim), both mapped to `409` in the route.
+- [x] Task 3: API routes (AC: #3, #4, #5, #6, #7, #8)
+  - [x] `logistics/route.ts` (GET, POST), `logistics/[itemId]/route.ts` (PATCH, DELETE), `logistics/[itemId]/claims/route.ts` (POST, DELETE) — all matching the comments/checklist routes' auth extraction and error-mapping conventions.
+- [x] Task 4: Planning tab UI (AC: #9, #10, #11)
+  - [x] Checked `EventPlanningTab.tsx` — a simple `VStack` of independent sibling sections (Photos, Checklist, Timeline); added `EventLogistics` as a fourth sibling, no coordination needed with what 12.2-12.4 already did.
+  - [x] `components/groups/EventLogistics.tsx`: Bring List and Carpool sub-sections, category-toggle add-item form (capacity field only shown for Carpool, driver required for Carpool), member-list dropdown sourced from `/api/groups/:groupId`'s `data.members` (same as `EventChecklist`), `currentUserRole` fetched the same way `EventDetail`/`WishlistDetail` already do (needed for the creator-or-admin edit/delete gating, which `EventChecklist` doesn't itself do since Story 12.3 only required creator-level gating).
+  - [x] Polling: same `useCallback` + `isFetchingRef` in-flight guard + 5s `setInterval` structure as `EventChecklist`.
+- [x] Task 5: Tests
+  - [x] `__tests__/services/eventLogisticsService.test.ts` — 35 tests (both categories, joined-claims listing, both PATCH authorization shapes including third-party-reassignment rejection, delete, claim success/capacity-reached/duplicate-claim, unclaim success/no-claim-to-remove).
+  - [x] Colocated route tests (matching the convention established by Stories 6.6/12.4): `logistics/__tests__/route.test.ts`, `logistics/[itemId]/__tests__/route.test.ts`, `logistics/[itemId]/claims/__tests__/route.test.ts` — 29 tests total, including `409` for both `CAPACITY_REACHED` and duplicate-claim `CONFLICT`.
+  - [x] `__tests__/components/EventLogistics.test.tsx` — 11 tests (both sub-sections render, claim/unclaim for both bring and carpool, capacity-reached button disabling — for a non-claimant only, not for someone who already holds a seat on a full carpool —, creator/admin edit-delete gating, add-item form, polling with in-flight-guard).
+- [x] Task 6: Verify no regressions
+  - [x] Full suite run (scoped away from `get-together-web/` via `--testPathIgnorePatterns`): 0 logistics-related failures; pass count increased by exactly the ~75 new tests added, with no new failures elsewhere.
+  - [x] Re-ran 12.2/12.3/12.4's existing tests (`EventChecklist`, `EventTimeline`, `migrate.test.ts`) — all still passing.
 
 ## Dev Notes
 
@@ -83,10 +78,43 @@ so that logistics get sorted out visibly in one place instead of getting lost ac
 
 ### Agent Model Used
 
+claude-sonnet-5
+
 ### Debug Log References
+
+- Found and fixed a real bug of my own mid-implementation: `updateLogisticsItem`'s assignee-validation step called `getUserGroupRole` a second time for *any* `assigned_to` change, including self-claims — but the caller's membership was already confirmed by the first `getUserGroupRole` call earlier in the same function. Caught by the test suite (self-claim test failed because the mock only stubbed one `getUserGroupRole` call). Fixed by skipping that second lookup when `updates.assigned_to === userId`.
+- The two local Postgres listeners on port 5432 (a native Homebrew instance the app's `.env.local` actually points to via `localhost`, and a separate, empty `docker-compose.yml`-managed instance) can look confusing when spot-checking a migration — `docker exec get-together-db psql ...` shows zero tables even right after a successful `npm run db:migrate`, because the app never talks to that container. Verified schema correctness against the native instance instead (`psql -h localhost -p 5432 -U postgres -d gettogether`).
+- `jest`'s default config and `tsc --noEmit` both walk into the gitignored, stray nested `get-together-web/` project copy in this repo unless explicitly excluded — same caveat as Story 6.6. All commands here used `--testPathIgnorePatterns="/node_modules/|get-together-web"` / post-hoc `grep -v` filtering.
 
 ### Completion Notes List
 
-- Ultimate context engine analysis completed - comprehensive developer guide created
+- **Task 1 (AC #1-#2):** Added migrations `017`/`018` after confirming `016` was the last applied on disk. Verified the live schema (columns, both CHECK constraints, FK cascade, UNIQUE constraint, indexes, RLS-enabled-no-policies) directly against the dev DB via `psql`.
+- **Task 2 (AC #3-#8):** `eventLogisticsService.ts` mirrors `eventChecklistService.ts`'s shape closely. The trickiest piece was AC #5's two-authorization-shape PATCH: metadata edits (title/capacity, or reassigning `assigned_to` to a third party) require creator-or-admin, while a narrow self-claim/self-unclaim of a `'bring'` item's `assigned_to` is open to any member. `claimLogisticsSeat` uses a transaction (count-then-insert) matching `addEventComment`'s existing pattern — not `SELECT ... FOR UPDATE`, consistent with this codebase's existing (accepted) level of race-condition rigor per the story's Dev Notes.
+- **Task 3 (AC #3-#8):** Three new route files, matching `comments`/`checklist` route conventions exactly (Bearer + `getSubFromJWT`, `errorCode`→status mapping including the new `CAPACITY_REACHED`/`CONFLICT`→409 cases for the claims endpoint).
+- **Task 4 (AC #9-#11):** `EventLogistics.tsx` added as a fourth independent sibling in `EventPlanningTab.tsx` (no interaction needed with 12.2-12.4's sections). Unlike `EventChecklist.tsx` (which only gates on `created_by === userId`, no admin override), this story's AC explicitly requires creator-or-admin, so the component fetches `currentUserRole` via `/api/groups/:groupId` the same way `EventDetail.tsx`/`WishlistDetail.tsx` already do.
+- **Task 5:** 35 service tests, 29 route tests, 11 component tests — 75 new tests, all passing.
+- **Task 6:** Full suite run confirms zero logistics-related failures and no regressions in the shared `EventPlanningTab.tsx` surface (re-ran `EventChecklist`/`EventTimeline`/`migrate.test.ts`).
 
 ### File List
+
+**Added:**
+- `lib/db/migrations/017_create_event_logistics_items_table.sql`
+- `lib/db/migrations/018_create_event_logistics_claims_table.sql`
+- `lib/services/eventLogisticsService.ts`
+- `__tests__/services/eventLogisticsService.test.ts`
+- `app/api/groups/[groupId]/events/[eventId]/logistics/route.ts`
+- `app/api/groups/[groupId]/events/[eventId]/logistics/__tests__/route.test.ts`
+- `app/api/groups/[groupId]/events/[eventId]/logistics/[itemId]/route.ts`
+- `app/api/groups/[groupId]/events/[eventId]/logistics/[itemId]/__tests__/route.test.ts`
+- `app/api/groups/[groupId]/events/[eventId]/logistics/[itemId]/claims/route.ts`
+- `app/api/groups/[groupId]/events/[eventId]/logistics/[itemId]/claims/__tests__/route.test.ts`
+- `components/groups/EventLogistics.tsx`
+- `__tests__/components/EventLogistics.test.tsx`
+
+**Modified:**
+- `components/groups/EventPlanningTab.tsx` (added `EventLogistics` as a fourth sibling section)
+- `__tests__/scripts/migrate.test.ts` (updated hardcoded last-migration-file/count expectations for the new `017`/`018` migrations)
+
+## Change Log
+
+- 2026-08-04: Implemented Story 12.5 (Logistics Coordination) — migrations, service layer, API routes, UI component, tests. Status set to "review".
