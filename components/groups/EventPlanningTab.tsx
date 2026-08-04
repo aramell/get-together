@@ -5,6 +5,7 @@ import { EventChecklist } from './EventChecklist';
 import { EventPhotoGrid } from './EventPhotoGrid';
 import { EventTimeline } from './EventTimeline';
 import { EventLogistics } from './EventLogistics';
+import { EventPolls } from './EventPolls';
 
 interface EventPlanningTabProps {
   eventId: string;
@@ -19,6 +20,7 @@ export function EventPlanningTab({ eventId, groupId }: EventPlanningTabProps) {
         <EventChecklist eventId={eventId} groupId={groupId} />
         <EventTimeline eventId={eventId} groupId={groupId} />
         <EventLogistics eventId={eventId} groupId={groupId} />
+        <EventPolls eventId={eventId} groupId={groupId} />
       </VStack>
     </Box>
   );

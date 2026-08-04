@@ -56,4 +56,31 @@ describe('EventPlanningTab Component', () => {
       expect.anything()
     );
   });
+
+  it('renders all five Planning-tab sections together without conflict (Epic 12 combined check)', async () => {
+    renderWithProviders(<EventPlanningTab eventId="event-1" groupId="group-1" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Photos')).toBeInTheDocument();
+      expect(screen.getByText('Checklist')).toBeInTheDocument();
+      expect(screen.getByText('Timeline')).toBeInTheDocument();
+      expect(screen.getByText('Logistics')).toBeInTheDocument();
+      expect(screen.getByText('Polls')).toBeInTheDocument();
+    });
+
+    // Each section fetches its own event-scoped data independently — no
+    // section should be missing or throw due to another section's presence.
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/api/groups/group-1/events/event-1/logistics'),
+      expect.anything()
+    );
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/api/groups/group-1/events/event-1/polls'),
+      expect.anything()
+    );
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/api/groups/group-1/events/event-1/timeline'),
+      expect.anything()
+    );
+  });
 });

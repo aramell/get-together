@@ -1,6 +1,6 @@
 # Story 12.6: Quick Polls
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -26,35 +26,29 @@ so that the group can settle small decisions without a back-and-forth in comment
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Database migrations (AC: #1)
-  - [ ] **Run `ls lib/db/migrations/` before writing files** — verify actual next-available numbers; four other Epic 12 stories (12.2–12.5) each claim numbers in their own docs that may or may not reflect what's actually on disk by the time this is implemented.
-  - [ ] `event_polls(id UUID PK, event_id UUID NOT NULL REFERENCES event_proposals(id) ON DELETE CASCADE, group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE, created_by VARCHAR(128) NOT NULL, question VARCHAR(255) NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`.
-  - [ ] `event_poll_options(id UUID PK, poll_id UUID NOT NULL REFERENCES event_polls(id) ON DELETE CASCADE, label VARCHAR(255) NOT NULL, display_order INT NOT NULL DEFAULT 0)`.
-  - [ ] `event_poll_votes(id UUID PK, poll_id UUID NOT NULL REFERENCES event_polls(id) ON DELETE CASCADE, option_id UUID NOT NULL REFERENCES event_poll_options(id) ON DELETE CASCADE, user_id VARCHAR(128) NOT NULL, voted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), UNIQUE(poll_id, user_id))`. `poll_id` is deliberately denormalized here (derivable via `option_id`'s FK) so the per-poll uniqueness constraint and vote-count-by-poll queries don't need a join through options — a documented choice, not an oversight.
-  - [ ] No FK from `created_by`/`user_id` to `users(id)` — same reasoning as Stories 12.2–12.5.
-  - [ ] `ENABLE ROW LEVEL SECURITY` on all three tables, no policies.
-  - [ ] Run `npm run db:migrate` against local dev DB.
-- [ ] Task 2: Service layer (AC: #2, #3, #4, #5, #6)
-  - [ ] Add `lib/services/eventPollService.ts`: `createPoll` (validates ≥2 non-empty options, inserts poll + options in one transaction), `getPolls` (aggregated vote counts + current user's vote per poll), `castVote` (upsert via `ON CONFLICT (poll_id, user_id) DO UPDATE SET option_id = ...`), `removeVote`, `deletePoll` (creator-or-admin only, matching the established shape).
-  - [ ] `castVote` should validate `option_id` actually belongs to `poll_id` before upserting — a vote for an option from a different poll is a validation error, not a silent success.
-- [ ] Task 3: API routes (AC: #2, #3, #4, #5, #6)
-  - [ ] Add `app/api/groups/[groupId]/events/[eventId]/polls/route.ts` (`GET`, `POST`), following `events/[eventId]/comments/route.ts`'s conventions.
-  - [ ] Add `app/api/groups/[groupId]/events/[eventId]/polls/[pollId]/route.ts` (`DELETE`).
-  - [ ] Add `app/api/groups/[groupId]/events/[eventId]/polls/[pollId]/vote/route.ts` (`POST`, `DELETE`).
-- [ ] Task 4: Planning tab UI (AC: #9, #10, #11)
-  - [ ] **Check current state of `EventPlanningTab.tsx`/`EventDetail.tsx` first** — fifth story extending this shared surface; reuse existing `eventId`/`groupId` props and `isLazy` setup.
-  - [ ] Add `components/groups/EventPolls.tsx` as an independent sibling section, same composability reasoning as 12.3–12.5's dedicated components.
-  - [ ] Create-poll form: question input, dynamic option-field list (add/remove rows, minimum 2 enforced client-side, re-validated server-side per AC #2).
-  - [ ] Poll display: each option as a horizontal bar (width proportional to vote share) with label + count, the current user's chosen option visually distinguished (e.g. bold/checkmark), a vote/change-vote/remove-vote control.
-  - [ ] Delete control (icon button) visible only when `poll.created_by === userId` or the user is a group admin.
-  - [ ] Polling: same structure as Stories 12.3/12.5 (single effect, ref-based interval, in-flight guard) — reuse if already extracted into a shared hook by an earlier-landed story, otherwise implement fresh following the same pattern.
-- [ ] Task 5: Tests
-  - [ ] `__tests__/services/eventPollService.test.ts`: create (rejects <2 options), list with aggregated counts, vote (initial + change), remove vote, delete (creator/admin/wrong-user paths), vote-for-wrong-poll's-option rejected.
-  - [ ] `__tests__/api/groups/events/polls.test.ts` (or colocated, matching whatever convention is established by the time this is implemented): auth, validation, status codes.
-  - [ ] `__tests__/components/EventPolls.test.tsx`: renders polls with vote bars, vote/change-vote/remove-vote flows, delete visibility gated to creator/admin, polling.
-- [ ] Task 6: Verify no regressions
-  - [ ] Run the full suite scoped away from `get-together-web/`; confirm 0 new failures beyond already-known pre-existing ones.
-  - [ ] Re-run tests for whichever of 12.2–12.5 landed first, since this story also touches the shared Planning-tab files. **This is the last of the six Epic 12 stories** — once this and 12.2–12.5 are all done, do a final combined check that all five Planning-tab sections (Photos, Checklist, Timeline, Logistics, Polls) render together without conflict.
+- [x] Task 1: Database migrations (AC: #1)
+  - [x] Verified next-available migration numbers on disk (`018` was the last applied — used `019`/`020`/`021`, not any number stated in a story doc).
+  - [x] `019_create_event_polls_table.sql`, `020_create_event_poll_options_table.sql`, `021_create_event_poll_votes_table.sql` — `event_poll_votes.poll_id` deliberately denormalized as specified.
+  - [x] No FK from `created_by`/`user_id` to `users(id)`, matching Stories 12.2–12.5.
+  - [x] RLS enabled on all three tables, no policies.
+  - [x] Ran `npm run db:migrate` against local dev DB and verified all three tables' schema (columns, FKs incl. cascade, `UNIQUE(poll_id, user_id)`, indexes, RLS-enabled-no-policies) directly via `psql` against the native Postgres instance `.env.local` actually points to (not the separate, unused `docker-compose.yml` instance — same caveat as Story 12.5).
+- [x] Task 2: Service layer (AC: #2, #3, #4, #5, #6)
+  - [x] Added `lib/services/eventPollService.ts` with all five functions. `createPoll` validates ≥2 non-empty (post-trim) options and inserts the poll + options inside a `BEGIN`/`COMMIT`/`ROLLBACK` transaction. `getPolls` aggregates per-option vote counts via a single `LEFT JOIN` + `GROUP BY` query (no correlated subquery, no per-poll round trip) plus one follow-up query for the caller's votes across all returned polls (skipped entirely when there are no polls) — two queries total regardless of poll count, not N+1.
+  - [x] `castVote` validates the option belongs to the poll (`SELECT ... WHERE id = $option AND poll_id = $poll`) before the upsert, returning `VALIDATION_ERROR` if not; the upsert itself uses `ON CONFLICT (poll_id, user_id) DO UPDATE SET option_id = EXCLUDED.option_id, voted_at = NOW()`.
+- [x] Task 3: API routes (AC: #2, #3, #4, #5, #6)
+  - [x] `polls/route.ts` (GET, POST), `polls/[pollId]/route.ts` (DELETE), `polls/[pollId]/vote/route.ts` (POST, DELETE) — matching the comments/checklist/logistics routes' auth extraction and error-mapping conventions.
+- [x] Task 4: Planning tab UI (AC: #9, #10, #11)
+  - [x] Checked `EventPlanningTab.tsx` — confirmed it's a plain `VStack` of four independent sibling sections (Photos, Checklist, Timeline, Logistics) after Story 12.5; added `EventPolls` as a fifth, no coordination needed.
+  - [x] `components/groups/EventPolls.tsx`: create-poll form with dynamic option fields (add/remove rows, minimum 2 enforced client-side via `canCreatePoll`), each option rendered as a proportional-width bar with label + count + percentage, the user's chosen option bolded/highlighted, a per-option "Vote"/"Selected" button plus a poll-level "Remove my vote" button, delete icon gated to creator-or-admin (fetches `currentUserRole` the same way `EventLogistics`/`EventDetail`/`WishlistDetail` already do).
+  - [x] Polling: same `useCallback` + `isFetchingRef` in-flight guard + 5s `setInterval` structure as `EventChecklist`/`EventLogistics`.
+- [x] Task 5: Tests
+  - [x] `__tests__/services/eventPollService.test.ts` — 22 tests (creation incl. rejecting <2/whitespace-only options, listing with aggregated counts and per-user vote incl. the no-polls short-circuit, vote cast/change, wrong-poll-option rejection, remove vote incl. no-vote-to-remove, delete creator/admin/wrong-user paths).
+  - [x] Colocated route tests (matching the convention established by Stories 6.6/12.4/12.5): `polls/__tests__/route.test.ts`, `polls/[pollId]/__tests__/route.test.ts`, `polls/[pollId]/vote/__tests__/route.test.ts` — 22 tests total.
+  - [x] `__tests__/components/EventPolls.test.tsx` — 10 tests (vote bars with percentages, current-vote distinguishing, vote/change-vote/remove-vote flows, creator/admin delete-gating, dynamic option-field add/remove, poll creation, polling with in-flight guard).
+- [x] Task 6: Verify no regressions
+  - [x] Full suite run (scoped away from `get-together-web/`): 430 failed / 2779 passed — the exact same 430 pre-existing failures as the baseline immediately before this story, plus exactly the 55 new tests added here, confirming zero regressions. (An earlier, noisier run showed 441/2768 — re-run confirmed that was this suite's known flakiness, not caused by this story.)
+  - [x] Re-ran 12.2–12.5's existing tests (`EventChecklist`, `eventChecklistService`, `EventTimeline`, `eventTimelineService`, `EventLogistics`, `eventLogisticsService`, logistics routes, `migrate.test.ts`) — all 135 still passing.
+  - [x] **Final Epic 12 combined check**: extended the pre-existing `__tests__/components/EventPlanningTab.test.tsx` with a new test asserting all five sections (Photos, Checklist, Timeline, Logistics, Polls) render together and each independently fetches its own event-scoped data with no conflicts.
 
 ## Dev Notes
 
@@ -80,10 +74,45 @@ so that the group can settle small decisions without a back-and-forth in comment
 
 ### Agent Model Used
 
+claude-sonnet-5
+
 ### Debug Log References
+
+- A full-suite jest run piped through `tail -N` only captures the last N lines of *output*, not the full failure list — cost one wasted 9-minute run before re-running with output redirected to a file for proper `grep`-ability.
+- This suite shows genuine run-to-run flakiness at full scale (441 failed on one run, 430 on an immediate re-run, no code changes between them) — cross-checked the failure delta against the pass-count delta (+55, matching new tests exactly) rather than trusting a single run's raw failure count.
+- Same two caveats as Stories 6.6/12.5 applied again: `jest`/`tsc` both walk into the gitignored stray `get-together-web/` copy unless excluded, and the app's dev DB is the native Postgres on `localhost:5432`, not the separate `docker-compose.yml` instance.
 
 ### Completion Notes List
 
-- Ultimate context engine analysis completed - comprehensive developer guide created
+- **Task 1 (AC #1):** Migrations `019`–`021` after confirming `018` was the last applied. Verified live schema (including the denormalized `poll_id` + `UNIQUE(poll_id, user_id)` on `event_poll_votes`) via `psql`.
+- **Task 2 (AC #2-#6):** `eventPollService.ts`'s `getPolls` aggregates vote counts with a single `LEFT JOIN` subquery (no correlated subquery, no per-poll query) and fetches the caller's votes across all polls in one more query — genuinely O(1) queries regardless of poll count, matching AC #3's "not N+1" requirement precisely. `castVote`'s option-belongs-to-poll check runs before the upsert so a cross-poll vote is a clean `VALIDATION_ERROR`, not a silent orphaned vote.
+- **Task 3 (AC #2-#6):** Three new route files matching established conventions exactly.
+- **Task 4 (AC #9-#11):** `EventPolls.tsx` added as a fifth independent sibling in `EventPlanningTab.tsx`. Reused the `currentUserRole`-fetch pattern from `EventLogistics.tsx` (Story 12.5) for creator-or-admin delete gating, since (like logistics) this AC explicitly requires admin override, unlike `EventChecklist.tsx`'s creator-only gating.
+- **Task 5:** 22 service tests, 22 route tests, 10 component tests — 54 new tests, all passing on first run.
+- **Task 6:** Full suite confirms 0 regressions (430 failed / 2779 passed, identical failure count to the pre-story baseline, +55 passing). Re-ran all of 12.2-12.5's tests (135 tests, all green). Extended the existing `EventPlanningTab.test.tsx` with the final Epic-12 combined-sections check the story explicitly calls for — all five Planning-tab sections render together without conflict.
 
 ### File List
+
+**Added:**
+- `lib/db/migrations/019_create_event_polls_table.sql`
+- `lib/db/migrations/020_create_event_poll_options_table.sql`
+- `lib/db/migrations/021_create_event_poll_votes_table.sql`
+- `lib/services/eventPollService.ts`
+- `__tests__/services/eventPollService.test.ts`
+- `app/api/groups/[groupId]/events/[eventId]/polls/route.ts`
+- `app/api/groups/[groupId]/events/[eventId]/polls/__tests__/route.test.ts`
+- `app/api/groups/[groupId]/events/[eventId]/polls/[pollId]/route.ts`
+- `app/api/groups/[groupId]/events/[eventId]/polls/[pollId]/__tests__/route.test.ts`
+- `app/api/groups/[groupId]/events/[eventId]/polls/[pollId]/vote/route.ts`
+- `app/api/groups/[groupId]/events/[eventId]/polls/[pollId]/vote/__tests__/route.test.ts`
+- `components/groups/EventPolls.tsx`
+- `__tests__/components/EventPolls.test.tsx`
+
+**Modified:**
+- `components/groups/EventPlanningTab.tsx` (added `EventPolls` as a fifth sibling section)
+- `__tests__/scripts/migrate.test.ts` (updated hardcoded last-migration-file/count expectations for the new `019`/`020`/`021` migrations)
+- `__tests__/components/EventPlanningTab.test.tsx` (added the final Epic-12 combined-sections check)
+
+## Change Log
+
+- 2026-08-04: Implemented Story 12.6 (Quick Polls) — migrations, service layer, API routes, UI component, tests, and the final Epic 12 combined-sections check. Status set to "review". This is the last of Epic 12's six stories.
