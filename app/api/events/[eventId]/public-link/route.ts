@@ -8,10 +8,10 @@ import crypto from 'crypto';
  */
 export async function POST(
   req: NextRequest,
-  { params }: { params: { eventId: string } }
+  { params }: { params: Promise<{ eventId: string }> }
 ) {
   try {
-    const eventId = params.eventId;
+    const { eventId } = await params;
 
     // TODO: Add authentication and authorization check
     // - Extract user from JWT
@@ -58,10 +58,10 @@ export async function POST(
  */
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { eventId: string } }
+  { params }: { params: Promise<{ eventId: string }> }
 ) {
   try {
-    const eventId = params.eventId;
+    const { eventId } = await params;
 
     // TODO: Add authentication and authorization check
     // - Extract user from JWT

@@ -1,13 +1,14 @@
+'use client';
+
 import React from 'react';
+import { useParams } from 'next/navigation';
 import { Container } from '@chakra-ui/react';
 import { EventDetail } from '@/components/groups/EventDetail';
 import { AuthProvider } from '@/lib/contexts/AuthContext';
 
-export default function EventDetailPage({
-  params,
-}: {
-  params: { groupId: string; eventId: string };
-}) {
+export default function EventDetailPage() {
+  const params = useParams<{ groupId: string; eventId: string }>();
+
   return (
     <AuthProvider>
       <Container maxW="container.md" py={8}>
