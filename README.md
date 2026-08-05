@@ -25,7 +25,7 @@ DATABASE_SSL=false
 
 These match `docker-compose.yml`'s `POSTGRES_*` values. You'll also need the AWS Cognito/AppSync values from `amplify_outputs.json` for auth to work locally — see `AMPLIFY_DEPLOYMENT.md`.
 
-If you're working on event Planning-tab photo uploads (Story 12.2), you'll also need `AWS_S3_EVENT_PHOTOS_BUCKET` pointed at an S3 bucket with public `GetObject` and `PutObject`/`DeleteObject` for the app's AWS identity — not required for anything else.
+If you're working on event Planning-tab photo uploads (Story 12.2), you'll also need `S3_EVENT_PHOTOS_BUCKET` pointed at an S3 bucket with public `GetObject` and `PutObject`/`DeleteObject` for the app's AWS identity — not required for anything else. (Not `AWS_S3_...`: Amplify's environment-variable API rejects any name starting with the reserved `AWS` prefix.)
 
 ### 3. Apply database migrations
 

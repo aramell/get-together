@@ -16,10 +16,15 @@ const s3Client = new S3Client({
 // Read the bucket name per-call, not into a module-level constant — keeps
 // this testable (env vars can be changed between tests) without relying on
 // jest.resetModules() gymnastics, and avoids capturing a stale value.
+//
+// Named S3_EVENT_PHOTOS_BUCKET, not AWS_S3_EVENT_PHOTOS_BUCKET: Amplify's
+// environment-variable API rejects any name starting with the reserved
+// "AWS" prefix (BadRequestException on `amplify update-app`), so the
+// original AWS_-prefixed name could never actually be set in production.
 function getBucket(): string {
-  const bucket = process.env.AWS_S3_EVENT_PHOTOS_BUCKET;
+  const bucket = process.env.S3_EVENT_PHOTOS_BUCKET;
   if (!bucket) {
-    throw new Error('AWS_S3_EVENT_PHOTOS_BUCKET is not configured');
+    throw new Error('S3_EVENT_PHOTOS_BUCKET is not configured');
   }
   return bucket;
 }

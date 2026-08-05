@@ -16,7 +16,7 @@ describe('lib/storage/s3', () => {
 
   beforeEach(() => {
     getSendMock().mockClear();
-    process.env = { ...OLD_ENV, AWS_S3_EVENT_PHOTOS_BUCKET: 'test-bucket', NEXT_PUBLIC_AWS_REGION: 'us-east-1' };
+    process.env = { ...OLD_ENV, S3_EVENT_PHOTOS_BUCKET: 'test-bucket', NEXT_PUBLIC_AWS_REGION: 'us-east-1' };
   });
 
   afterAll(() => {
@@ -56,10 +56,10 @@ describe('lib/storage/s3', () => {
   });
 
   it('uploadEventPhoto throws when the bucket env var is not configured', async () => {
-    delete process.env.AWS_S3_EVENT_PHOTOS_BUCKET;
+    delete process.env.S3_EVENT_PHOTOS_BUCKET;
 
     await expect(uploadEventPhoto(Buffer.from('x'), 'key', 'image/jpeg')).rejects.toThrow(
-      'AWS_S3_EVENT_PHOTOS_BUCKET is not configured'
+      'S3_EVENT_PHOTOS_BUCKET is not configured'
     );
   });
 
