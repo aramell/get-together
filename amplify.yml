@@ -6,6 +6,12 @@ frontend:
         - npm install --legacy-peer-deps
     build:
       commands:
+        # Amplify Hosting only exposes Console/API-configured environment
+        # variables to the build shell, not to the deployed SSR compute's
+        # runtime process. Next.js auto-loads .env.production at server
+        # startup, so persisting these here is what actually makes them
+        # reachable via process.env at request time.
+        - env | grep -E '^(DATABASE_|S3_EVENT_PHOTOS_BUCKET=)' > .env.production
         - npm run build
   artifacts:
     baseDirectory: .next
