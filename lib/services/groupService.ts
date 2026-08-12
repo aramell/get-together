@@ -632,7 +632,8 @@ export async function searchUsersForInvite(
  */
 export async function inviteUserToGroup(
   groupId: string,
-  userId: string
+  invitedUserId: string,
+  requestingUserId: string
 ): Promise<{
   success: boolean;
   message?: string;
@@ -640,7 +641,7 @@ export async function inviteUserToGroup(
   errorCode?: string;
 }> {
   try {
-    if (!groupId || !userId) {
+    if (!groupId || !invitedUserId || !requestingUserId) {
       return {
         success: false,
         error: 'Group ID and user ID required',
@@ -652,8 +653,9 @@ export async function inviteUserToGroup(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'x-user-id': requestingUserId,
       },
-      body: JSON.stringify({ invitedUserId: userId }),
+      body: JSON.stringify({ invitedUserId }),
     });
 
     if (!response.ok) {
@@ -949,14 +951,14 @@ export async function getMembers(groupId: string, limit?: number, offset?: numbe
 /**
  * Remove a member from a group
  */
-export async function removeMember(groupId: string, memberId: string): Promise<{
+export async function removeMember(groupId: string, memberId: string, requestingUserId: string): Promise<{
   success: boolean;
   message?: string;
   error?: string;
   errorCode?: string;
 }> {
   try {
-    if (!groupId || !memberId) {
+    if (!groupId || !memberId || !requestingUserId) {
       return {
         success: false,
         error: 'Group ID and member ID required',
@@ -966,6 +968,9 @@ export async function removeMember(groupId: string, memberId: string): Promise<{
 
     const response = await fetch(`/api/groups/${groupId}/members/${memberId}`, {
       method: 'DELETE',
+      headers: {
+        'x-user-id': requestingUserId,
+      },
     });
 
     if (!response.ok) {
@@ -998,7 +1003,8 @@ export async function removeMember(groupId: string, memberId: string): Promise<{
 export async function updateMemberRole(
   groupId: string,
   memberId: string,
-  role: 'admin' | 'member'
+  role: 'admin' | 'member',
+  requestingUserId: string
 ): Promise<{
   success: boolean;
   message?: string;
@@ -1006,7 +1012,7 @@ export async function updateMemberRole(
   errorCode?: string;
 }> {
   try {
-    if (!groupId || !memberId || !role) {
+    if (!groupId || !memberId || !role || !requestingUserId) {
       return {
         success: false,
         error: 'Group ID, member ID, and role required',
@@ -1018,6 +1024,7 @@ export async function updateMemberRole(
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
+        'x-user-id': requestingUserId,
       },
       body: JSON.stringify({ role }),
     });

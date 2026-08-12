@@ -20,6 +20,7 @@ import {
   Text,
   useToast,
 } from '@chakra-ui/react';
+import { useAuth } from '@/lib/contexts/AuthContext';
 
 export interface InviteUsersModalProps {
   isOpen: boolean;
@@ -36,6 +37,7 @@ export const InviteUsersModal: React.FC<InviteUsersModalProps> = ({
   onClose,
   onInviteComplete,
 }) => {
+  const { userId } = useAuth();
   const [emails, setEmails] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -77,22 +79,41 @@ export const InviteUsersModal: React.FC<InviteUsersModalProps> = ({
       return;
     }
 
+    if (!userId) {
+      setError('User authentication required. Please refresh the page and try again.');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      // Send invitations for each email
-      const invitePromises = validEmails.map((email) =>
-        fetch(`/api/groups/${groupId}/invitations`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ email }),
+      // Resolve each email to a user ID, then send the invitation
+      const inviteResults = await Promise.all(
+        validEmails.map(async (email) => {
+          const searchRes = await fetch(
+            `/api/groups/${groupId}/invite-search?q=${encodeURIComponent(email)}`
+          );
+          if (!searchRes.ok) return false;
+
+          const searchData = await searchRes.json();
+          const match = searchData.users?.find(
+            (u: { email: string }) => u.email.toLowerCase() === email.toLowerCase()
+          );
+          if (!match) return false;
+
+          const inviteRes = await fetch(`/api/groups/${groupId}/invitations`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-user-id': userId,
+            },
+            body: JSON.stringify({ invitedUserId: match.id }),
+          });
+          return inviteRes.ok;
         })
       );
 
-      const responses = await Promise.all(invitePromises);
-      const allSuccessful = responses.every((res) => res.ok);
+      const allSuccessful = inviteResults.every(Boolean);
 
       if (allSuccessful) {
         toast({

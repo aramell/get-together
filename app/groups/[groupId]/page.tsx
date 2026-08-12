@@ -247,7 +247,7 @@ export default function GroupDetailsPage() {
       const member = data?.members.find(m => m.user_id === memberId);
       const memberName = member?.name || 'member';
 
-      const result = await removeMember(groupId, memberId);
+      const result = await removeMember(groupId, memberId, userId!);
 
       if (result.success) {
         setData(prev => {

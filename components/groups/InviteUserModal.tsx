@@ -20,6 +20,7 @@ import {
   useToast,
 } from '@chakra-ui/react';
 import { searchUsersForInvite, inviteUserToGroup } from '@/lib/services/groupService';
+import { useAuth } from '@/lib/contexts/AuthContext';
 import UserSearchResults from './UserSearchResults';
 
 interface InviteUserModalProps {
@@ -40,6 +41,7 @@ const InviteUserModal: React.FC<InviteUserModalProps> = ({
   onInvitationSent,
 }) => {
   const toast = useToast();
+  const { userId: requestingUserId } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Array<{
     id: string;
@@ -120,15 +122,26 @@ const InviteUserModal: React.FC<InviteUserModalProps> = ({
       return;
     }
 
+    if (!requestingUserId) {
+      toast({
+        title: 'Authentication Error',
+        description: 'User not authenticated. Please refresh and try again.',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+
     setInviting(true);
 
     try {
       let successCount = 0;
       let errorCount = 0;
 
-      for (const userId of selectedUsers) {
+      for (const invitedUserId of selectedUsers) {
         try {
-          const result = await inviteUserToGroup(groupId, userId);
+          const result = await inviteUserToGroup(groupId, invitedUserId, requestingUserId);
           if (result.success) {
             successCount++;
           } else {

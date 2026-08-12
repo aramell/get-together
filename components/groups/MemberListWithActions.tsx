@@ -13,6 +13,7 @@ import {
   Select,
 } from '@chakra-ui/react';
 import { removeMember, updateMemberRole } from '@/lib/services/groupService';
+import { useAuth } from '@/lib/contexts/AuthContext';
 import RemoveMemberDialog from './RemoveMemberDialog';
 
 interface Member {
@@ -46,6 +47,7 @@ const MemberListWithActions: React.FC<MemberListWithActionsProps> = ({
   onMemberRoleChanged,
 }) => {
   const toast = useToast();
+  const { userId: requestingUserId } = useAuth();
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [showRemoveDialog, setShowRemoveDialog] = useState(false);
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
@@ -59,9 +61,20 @@ const MemberListWithActions: React.FC<MemberListWithActionsProps> = ({
   };
 
   const handleConfirmRemove = async (member: Member) => {
+    if (!requestingUserId) {
+      toast({
+        title: 'Authentication Error',
+        description: 'User not authenticated. Please refresh and try again.',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+
     setRemovingMemberId(member.id);
     try {
-      const result = await removeMember(groupId, member.id);
+      const result = await removeMember(groupId, member.id, requestingUserId);
       if (result.success) {
         toast({
           title: 'Member removed',
@@ -99,9 +112,20 @@ const MemberListWithActions: React.FC<MemberListWithActionsProps> = ({
   const handleRoleChange = async (member: Member, newRole: 'admin' | 'member') => {
     if (member.role === newRole) return;
 
+    if (!requestingUserId) {
+      toast({
+        title: 'Authentication Error',
+        description: 'User not authenticated. Please refresh and try again.',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+
     setUpdatingMemberId(member.id);
     try {
-      const result = await updateMemberRole(groupId, member.id, newRole);
+      const result = await updateMemberRole(groupId, member.id, newRole, requestingUserId);
       if (result.success) {
         toast({
           title: 'Role updated',
