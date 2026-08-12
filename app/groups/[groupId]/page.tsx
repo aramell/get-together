@@ -140,7 +140,7 @@ export default function GroupDetailsPage() {
           return;
         }
 
-        const result = await getGroupDetails(groupId);
+        const result = await getGroupDetails(groupId, userId!);
 
         if (result.success && result.data) {
           setData(result.data);

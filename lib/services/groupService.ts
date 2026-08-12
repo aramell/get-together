@@ -475,7 +475,7 @@ export async function joinGroup(inviteCode: string): Promise<{
  * @param groupId Group ID to fetch details for
  * @returns GroupDetailsResponse with group, members, and currentUserRole
  */
-export async function getGroupDetails(groupId: string): Promise<{
+export async function getGroupDetails(groupId: string, requestingUserId: string): Promise<{
   success: boolean;
   message: string;
   data?: {
@@ -496,10 +496,20 @@ export async function getGroupDetails(groupId: string): Promise<{
       };
     }
 
+    if (!requestingUserId) {
+      return {
+        success: false,
+        message: 'Authentication required',
+        error: 'UNAUTHORIZED',
+        errorCode: 'UNAUTHORIZED',
+      };
+    }
+
     const response = await fetch(`/api/groups/${groupId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
+        'x-user-id': requestingUserId,
       },
     });
 
