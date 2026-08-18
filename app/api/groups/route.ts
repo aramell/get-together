@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     const inviteCode = generateInviteCode();
     const group = await createGroupWithMembership(
       validatedData.name,
-      validatedData.description,
+      validatedData.description ?? null,
       userId,
       inviteCode
     );
