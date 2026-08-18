@@ -101,7 +101,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: formData.title,
-          date: formData.date,
+          date: new Date(formData.date).toISOString(),
           threshold: formData.threshold ? parseInt(formData.threshold) : undefined,
           description: formData.description || undefined,
         }),

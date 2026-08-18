@@ -90,7 +90,10 @@ export default function SoftCalendar({
       const endDate = new Date(monthEnd.getTime() + 24 * 60 * 60 * 1000).toISOString();
 
       const response = await fetch(
-        `/api/groups/${groupId}/calendar?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`
+        `/api/groups/${groupId}/calendar?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`,
+        {
+          headers: userId ? { 'x-user-id': userId } : undefined,
+        }
       );
 
       if (!response.ok) {
@@ -111,7 +114,7 @@ export default function SoftCalendar({
       setLoading(false);
       setIsRefreshing(false);
     }
-  }, [currentDate, groupId, members.length]);
+  }, [currentDate, groupId, members.length, userId]);
 
   // Fetch calendar data on mount and when month changes
   useEffect(() => {
