@@ -136,6 +136,33 @@ describe('editCommentService - Event Comments', () => {
       expect(result.success).toBe(false);
       expect(result.errorCode).toBe('NOT_FOUND');
     });
+
+    it('should return 404 (not leak cross-group access) when the comment belongs to a different group than the URL group, even for a group admin', async () => {
+      const commentId = 'comment-1';
+      const requestGroupId = 'group-attacker-is-admin-of';
+      const adminId = 'admin-1';
+
+      // Admin of requestGroupId, but the comment actually lives in a different group
+      mockQueries.getUserGroupRole.mockResolvedValue('admin');
+      mockQueries.getEventCommentById.mockResolvedValue({
+        id: commentId,
+        event_id: 'event-in-other-group',
+        group_id: 'group-victim',
+        created_by: 'someone-else',
+        content: 'Original content',
+        created_at: '2026-03-20T10:00:00Z',
+        updated_at: '2026-03-20T10:00:00Z',
+        edited_at: null,
+        updated_count: 0,
+        deleted_at: null,
+      });
+
+      const result = await editEventComment(requestGroupId, commentId, adminId, 'Hacked content');
+
+      expect(result.success).toBe(false);
+      expect(result.errorCode).toBe('NOT_FOUND');
+      expect(mockQueries.updateEventComment).not.toHaveBeenCalled();
+    });
   });
 
   describe('Content Validation', () => {
@@ -396,6 +423,32 @@ describe('editCommentService - Wishlist Comments', () => {
 
       expect(result.success).toBe(false);
       expect(result.errorCode).toBe('FORBIDDEN');
+    });
+
+    it('should return 404 (not leak cross-group access) when the comment belongs to a different group than the URL group, even for a group admin', async () => {
+      const commentId = 'wcomment-1';
+      const requestGroupId = 'group-attacker-is-admin-of';
+      const adminId = 'admin-1';
+
+      mockQueries.getUserGroupRole.mockResolvedValue('admin');
+      mockQueries.getWishlistCommentById.mockResolvedValue({
+        id: commentId,
+        wishlist_item_id: 'item-in-other-group',
+        group_id: 'group-victim',
+        created_by: 'someone-else',
+        content: 'Original',
+        created_at: '2026-03-20T10:00:00Z',
+        updated_at: '2026-03-20T10:00:00Z',
+        edited_at: null,
+        updated_count: 0,
+        deleted_at: null,
+      });
+
+      const result = await editWishlistComment(requestGroupId, commentId, adminId, 'Hacked');
+
+      expect(result.success).toBe(false);
+      expect(result.errorCode).toBe('NOT_FOUND');
+      expect(mockQueries.updateWishlistComment).not.toHaveBeenCalled();
     });
   });
 

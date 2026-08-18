@@ -96,7 +96,7 @@ development_status:
   6-5-delete-comments: done
   # 6-6 added ad hoc 2026-08-03 — 6-4/6-5 were marked done but never actually wired to a route;
   # see 6-6-fix-comment-edit-delete.md. Left 6-4/6-5 status untouched to preserve history.
-  6-6-fix-comment-edit-delete: review
+  6-6-fix-comment-edit-delete: done
   epic-6-retrospective: optional
 
   # EPIC 7: Real-Time Synchronization & Data Consistency
@@ -139,9 +139,9 @@ summary:
   epics_done: 8
   epics_in_progress: 2
   epics_backlog: 0
-  stories_done: 37
+  stories_done: 38
   stories_in_progress: 0
-  stories_review: 7
+  stories_review: 6
   stories_backlog: 0
   stories_ready_for_dev: 0
   retrospectives_optional: 10

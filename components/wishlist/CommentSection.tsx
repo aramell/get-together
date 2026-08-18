@@ -1,7 +1,19 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { Box, Spinner, Text, VStack } from '@chakra-ui/react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Box,
+  Button,
+  Spinner,
+  Text,
+  VStack,
+  AlertDialog,
+  AlertDialogBody,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogContent,
+  AlertDialogOverlay,
+} from '@chakra-ui/react';
 import { CommentForm } from './CommentForm';
 import { CommentItem } from './CommentItem';
 import { CommentEditModal } from '@/components/groups/CommentEditModal';
@@ -41,8 +53,10 @@ export function CommentSection({ groupId, itemId, userRole = null }: CommentSect
   const [totalCount, setTotalCount] = useState(0);
   const [editingComment, setEditingComment] = useState<Comment | null>(null);
   const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const { userId, accessToken } = useAuth();
   const isAdmin = userRole === 'admin';
+  const cancelDeleteRef = useRef<HTMLButtonElement | null>(null);
 
   const authHeaders = useCallback(
     (extra?: Record<string, string>): Record<string, string> => ({
@@ -228,7 +242,7 @@ export function CommentSection({ groupId, itemId, userRole = null }: CommentSect
               canModify={isAdmin || (!!userId && comment.created_by === userId)}
               isDeleting={deletingCommentId === comment.id}
               onEdit={() => setEditingComment(comment)}
-              onDelete={() => handleDeleteComment(comment.id)}
+              onDelete={() => setPendingDeleteId(comment.id)}
             />
           ))}
         </VStack>
@@ -242,6 +256,41 @@ export function CommentSection({ groupId, itemId, userRole = null }: CommentSect
         onSave={handleSaveEdit}
         commentId={editingComment?.id}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        isOpen={pendingDeleteId !== null}
+        leastDestructiveRef={cancelDeleteRef}
+        onClose={() => setPendingDeleteId(null)}
+      >
+        <AlertDialogOverlay>
+          <AlertDialogContent>
+            <AlertDialogHeader fontSize="lg" fontWeight="bold">
+              Delete Comment
+            </AlertDialogHeader>
+            <AlertDialogBody>
+              Are you sure you want to delete this comment? This cannot be undone.
+            </AlertDialogBody>
+            <AlertDialogFooter>
+              <Button ref={cancelDeleteRef} onClick={() => setPendingDeleteId(null)}>
+                Cancel
+              </Button>
+              <Button
+                colorScheme="red"
+                onClick={() => {
+                  if (pendingDeleteId) {
+                    handleDeleteComment(pendingDeleteId);
+                  }
+                  setPendingDeleteId(null);
+                }}
+                ml={3}
+              >
+                Delete
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
     </Box>
   );
 }

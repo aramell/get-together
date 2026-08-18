@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CommentForm } from '../CommentForm';
 import { CommentItem } from '../CommentItem';
@@ -648,6 +648,10 @@ describe('CommentSection Component', () => {
       await waitFor(() => expect(screen.getByText('My comment')).toBeInTheDocument());
 
       fireEvent.click(screen.getByLabelText('Delete this comment'));
+
+      const confirmDialog = await screen.findByText('Delete Comment');
+      const dialogFooter = confirmDialog.closest('section') ?? document.body;
+      fireEvent.click(within(dialogFooter as HTMLElement).getByRole('button', { name: 'Delete' }));
 
       await waitFor(() => expect(screen.queryByText('My comment')).not.toBeInTheDocument());
 

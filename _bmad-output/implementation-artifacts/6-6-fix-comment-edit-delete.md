@@ -1,6 +1,6 @@
 # Story 6.6: Fix Comment Edit & Delete (Wire Missing Routes + UI)
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -131,8 +131,10 @@ claude-sonnet-5
 - `components/wishlist/__tests__/CommentComponents.test.tsx`
 - `lib/db/queries.ts`
 - `lib/services/__tests__/deleteComment.test.ts`
+- `lib/services/__tests__/editCommentService.test.ts`
 - `lib/services/eventService.ts`
 - `lib/services/wishlistService.ts`
+- `lib/services/commentService.ts` (code review fix)
 
 **Deleted:**
 - `components/groups/CommentsView.tsx`
@@ -147,3 +149,4 @@ claude-sonnet-5
 ## Change Log
 
 - 2026-08-04: Implemented Story 6.6 — added PATCH/DELETE comment routes for events and wishlist items, wired real Edit/Delete UI into the live comment components, removed the orphaned `CommentsView` chain, fixed the `deleteComment.test.ts` import bug, fixed a missing `Authorization` header on the existing comment-post call, and extended comment queries to surface `edited_at`/`updated_count` for the edit indicator. Status: ready-for-dev → review.
+- 2026-08-18: Adversarial code review found and fixed 4 issues: (1) **Critical** — `editEventComment`/`editWishlistComment`/`deleteEventCommentWithAuth`/`deleteWishlistCommentService` in `commentService.ts` authorized against the URL's `groupId` but never verified the fetched comment actually belonged to that group, letting any group admin edit/delete comments in *any* group by ID (cross-group IDOR); fixed by checking `comment.group_id === groupId` before the author/admin check, with new regression tests in `editCommentService.test.ts`/`deleteComment.test.ts`. (2) **High** — `EventDetail.tsx`'s (and pre-existing `WishlistDetail.tsx`'s) `fetchUserRole` called `GET /api/groups/:groupId` with no auth header, so it always 401'd and the admin-override Edit/Delete controls promised by AC #6/#7 never actually appeared; fixed by switching both to the already-fixed `getGroupDetails(groupId, userId)` helper (same fix as commit `038e7ff`). (3) **Medium** — comment delete fired immediately on click with no confirmation, unlike other destructive actions in the app; added a Chakra `AlertDialog` confirmation to both `EventCommentSection.tsx` and `CommentSection.tsx`, with corresponding test updates. (4) **Medium** — the edit-conflict message said "edited by another user" even when the real cause was deletion; reworded to cover both cases. All 4 issues fixed automatically; full touched-suite re-run green (100+ tests), pre-existing unrelated failures in `EventDetail.test.tsx`/`WishlistDetail.test.tsx` confirmed unchanged via stash/re-run. Status: review → done.

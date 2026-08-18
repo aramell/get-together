@@ -13,6 +13,12 @@ import {
   Textarea,
   Spinner,
   useToast,
+  AlertDialog,
+  AlertDialogBody,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogContent,
+  AlertDialogOverlay,
 } from '@chakra-ui/react';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
@@ -60,9 +66,11 @@ export const EventCommentSection: React.FC<EventCommentSectionProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [editingComment, setEditingComment] = useState<Comment | null>(null);
   const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const { userId, accessToken } = useAuth();
   const toastManager = useToast();
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const cancelDeleteRef = useRef<HTMLButtonElement | null>(null);
   const isAdmin = userRole === 'admin';
 
   const authHeaders = useCallback(
@@ -248,7 +256,7 @@ export const EventCommentSection: React.FC<EventCommentSectionProps> = ({
                     <CommentEditButton isVisible={canModify} onClick={() => handleStartEdit(comment)} />
                     <CommentDeleteButton
                       isVisible={canModify}
-                      onClick={() => handleDeleteComment(comment.id)}
+                      onClick={() => setPendingDeleteId(comment.id)}
                       isDisabled={deletingCommentId === comment.id}
                     />
                   </HStack>
@@ -333,6 +341,41 @@ export const EventCommentSection: React.FC<EventCommentSectionProps> = ({
         onSave={handleSaveEdit}
         commentId={editingComment?.id}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        isOpen={pendingDeleteId !== null}
+        leastDestructiveRef={cancelDeleteRef}
+        onClose={() => setPendingDeleteId(null)}
+      >
+        <AlertDialogOverlay>
+          <AlertDialogContent>
+            <AlertDialogHeader fontSize="lg" fontWeight="bold">
+              Delete Comment
+            </AlertDialogHeader>
+            <AlertDialogBody>
+              Are you sure you want to delete this comment? This cannot be undone.
+            </AlertDialogBody>
+            <AlertDialogFooter>
+              <Button ref={cancelDeleteRef} onClick={() => setPendingDeleteId(null)}>
+                Cancel
+              </Button>
+              <Button
+                colorScheme="red"
+                onClick={() => {
+                  if (pendingDeleteId) {
+                    handleDeleteComment(pendingDeleteId);
+                  }
+                  setPendingDeleteId(null);
+                }}
+                ml={3}
+              >
+                Delete
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
     </Box>
   );
 };

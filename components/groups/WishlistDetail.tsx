@@ -27,6 +27,7 @@ import {
 import type { WishlistItemResponse } from '@/lib/validation/wishlistSchema';
 import { ConvertToEventModal } from './ConvertToEventModal';
 import { CommentSection } from '@/components/wishlist/CommentSection';
+import { getGroupDetails } from '@/lib/services/groupService';
 
 interface WishlistDetailProps {
   isOpen: boolean;
@@ -56,18 +57,15 @@ export function WishlistDetail({ isOpen, onClose, itemId, groupId }: WishlistDet
 
   // Fetch user's group role for authorization checks
   useEffect(() => {
-    if (!isOpen || !groupId) {
+    if (!isOpen || !groupId || !userId) {
       return;
     }
 
     const fetchUserRole = async () => {
       try {
-        const response = await fetch(`/api/groups/${groupId}`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success && data.data?.currentUserRole) {
-            setUserRole(data.data.currentUserRole);
-          }
+        const result = await getGroupDetails(groupId, userId);
+        if (result.success && result.data?.currentUserRole) {
+          setUserRole(result.data.currentUserRole);
         }
       } catch (err) {
         // Silently fail - authorization check will use backend validation
@@ -76,7 +74,7 @@ export function WishlistDetail({ isOpen, onClose, itemId, groupId }: WishlistDet
     };
 
     fetchUserRole();
-  }, [isOpen, groupId]);
+  }, [isOpen, groupId, userId]);
 
   // Fetch item details and set up polling
   useEffect(() => {

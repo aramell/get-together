@@ -21,6 +21,12 @@ jest.mock('@chakra-ui/react', () => ({
     onOpen: jest.fn(),
     onClose: jest.fn(),
   }),
+  AlertDialog: ({ children, isOpen }: any) => (isOpen ? <div data-testid="alert-dialog">{children}</div> : null),
+  AlertDialogOverlay: ({ children }: any) => <div>{children}</div>,
+  AlertDialogContent: ({ children }: any) => <div>{children}</div>,
+  AlertDialogHeader: ({ children }: any) => <div>{children}</div>,
+  AlertDialogBody: ({ children }: any) => <div>{children}</div>,
+  AlertDialogFooter: ({ children }: any) => <div>{children}</div>,
 }));
 
 // Mock auth context

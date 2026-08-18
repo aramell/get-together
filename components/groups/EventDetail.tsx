@@ -34,6 +34,7 @@ import { EventWithMomentum } from './EventList';
 import { EventCommentSection } from './EventCommentSection';
 import { PublicLinkModal } from './PublicLinkModal';
 import { EventPlanningTab } from './EventPlanningTab';
+import { getGroupDetails } from '@/lib/services/groupService';
 
 interface EventDetailProps {
   groupId: string;
@@ -94,14 +95,13 @@ export const EventDetail: React.FC<EventDetailProps> = ({ groupId, eventId }) =>
 
   // Fetch user's group role for authorization checks (comment edit/delete)
   useEffect(() => {
+    if (!userId) return;
+
     const fetchUserRole = async () => {
       try {
-        const response = await fetch(`/api/groups/${groupId}`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success && data.data?.currentUserRole) {
-            setUserRole(data.data.currentUserRole);
-          }
+        const result = await getGroupDetails(groupId, userId);
+        if (result.success && result.data?.currentUserRole) {
+          setUserRole(result.data.currentUserRole);
         }
       } catch (err) {
         // Silently fail - authorization is still enforced server-side
@@ -110,7 +110,7 @@ export const EventDetail: React.FC<EventDetailProps> = ({ groupId, eventId }) =>
     };
 
     fetchUserRole();
-  }, [groupId]);
+  }, [groupId, userId]);
 
   const handleCancelEvent = async () => {
     if (!event) return;

@@ -28,7 +28,9 @@
       "Bash(amplify status:*)",
       "Bash(wc:*)",
       "Bash(chmod +x /tmp/fix-params.sh)",
-      "Bash(/tmp/fix-params.sh)"
+      "Bash(/tmp/fix-params.sh)",
+      "mcp__plugin_deploy-on-aws_awsknowledge__aws___search_documentation",
+      "mcp__plugin_deploy-on-aws_awsknowledge__aws___read_documentation"
     ]
   },
   "spinnerTipsEnabled": true

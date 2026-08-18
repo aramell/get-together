@@ -37,6 +37,7 @@ describe('Comment Delete Service', () => {
         mockGetUserGroupRole.mockResolvedValue('member');
         mockGetEventCommentById.mockResolvedValue({
           id: 'comment-1',
+          group_id: 'group-1',
           content: 'Test comment',
           created_by: 'user-2',
           created_at: '2026-03-20T10:00:00Z',
@@ -53,6 +54,7 @@ describe('Comment Delete Service', () => {
         mockGetUserGroupRole.mockResolvedValue('member');
         mockGetEventCommentById.mockResolvedValue({
           id: 'comment-1',
+          group_id: 'group-1',
           content: 'Test comment',
           created_by: 'user-1',
           created_at: '2026-03-20T10:00:00Z',
@@ -68,6 +70,7 @@ describe('Comment Delete Service', () => {
         mockGetUserGroupRole.mockResolvedValue('admin');
         mockGetEventCommentById.mockResolvedValue({
           id: 'comment-1',
+          group_id: 'group-1',
           content: 'Test comment',
           created_by: 'user-2',
           created_at: '2026-03-20T10:00:00Z',
@@ -95,6 +98,7 @@ describe('Comment Delete Service', () => {
         mockGetUserGroupRole.mockResolvedValue('member');
         mockGetEventCommentById.mockResolvedValue({
           id: 'comment-1',
+          group_id: 'group-1',
           content: 'Test comment',
           created_by: 'user-1',
           created_at: '2026-03-20T10:00:00Z',
@@ -107,6 +111,23 @@ describe('Comment Delete Service', () => {
         expect(result.errorCode).toBe('CONFLICT');
         expect(result.message).toContain('already been deleted');
       });
+
+      it('should return NOT_FOUND (not leak cross-group access) when the comment belongs to a different group, even for a group admin', async () => {
+        mockGetUserGroupRole.mockResolvedValue('admin');
+        mockGetEventCommentById.mockResolvedValue({
+          id: 'comment-1',
+          group_id: 'group-victim',
+          content: 'Test comment',
+          created_by: 'someone-else',
+          created_at: '2026-03-20T10:00:00Z',
+        });
+
+        const result = await deleteEventCommentWithAuth('group-attacker-is-admin-of', 'comment-1', 'admin-1');
+
+        expect(result.success).toBe(false);
+        expect(result.errorCode).toBe('NOT_FOUND');
+        expect(mockDeleteEventCommentQuery).not.toHaveBeenCalled();
+      });
     });
 
     describe('Successful Deletion', () => {
@@ -114,6 +135,7 @@ describe('Comment Delete Service', () => {
         mockGetUserGroupRole.mockResolvedValue('member');
         mockGetEventCommentById.mockResolvedValue({
           id: 'comment-1',
+          group_id: 'group-1',
           content: 'Test comment',
           created_by: 'user-1',
           created_at: '2026-03-20T10:00:00Z',
@@ -156,6 +178,7 @@ describe('Comment Delete Service', () => {
         mockGetUserGroupRole.mockResolvedValue('member');
         mockGetWishlistCommentById.mockResolvedValue({
           id: 'comment-1',
+          group_id: 'group-1',
           content: 'Test comment',
           created_by: 'user-1',
           created_at: '2026-03-20T10:00:00Z',
@@ -171,6 +194,7 @@ describe('Comment Delete Service', () => {
         mockGetUserGroupRole.mockResolvedValue('admin');
         mockGetWishlistCommentById.mockResolvedValue({
           id: 'comment-1',
+          group_id: 'group-1',
           content: 'Test comment',
           created_by: 'user-2',
           created_at: '2026-03-20T10:00:00Z',
@@ -198,6 +222,7 @@ describe('Comment Delete Service', () => {
         mockGetUserGroupRole.mockResolvedValue('member');
         mockGetWishlistCommentById.mockResolvedValue({
           id: 'comment-1',
+          group_id: 'group-1',
           content: 'Test comment',
           created_by: 'user-1',
           created_at: '2026-03-20T10:00:00Z',
@@ -209,6 +234,23 @@ describe('Comment Delete Service', () => {
         expect(result.success).toBe(false);
         expect(result.errorCode).toBe('CONFLICT');
       });
+
+      it('should return NOT_FOUND (not leak cross-group access) when the comment belongs to a different group, even for a group admin', async () => {
+        mockGetUserGroupRole.mockResolvedValue('admin');
+        mockGetWishlistCommentById.mockResolvedValue({
+          id: 'comment-1',
+          group_id: 'group-victim',
+          content: 'Test comment',
+          created_by: 'someone-else',
+          created_at: '2026-03-20T10:00:00Z',
+        });
+
+        const result = await deleteWishlistCommentService('group-attacker-is-admin-of', 'comment-1', 'admin-1');
+
+        expect(result.success).toBe(false);
+        expect(result.errorCode).toBe('NOT_FOUND');
+        expect(mockDeleteWishlistCommentQuery).not.toHaveBeenCalled();
+      });
     });
 
     describe('Successful Deletion', () => {
@@ -216,6 +258,7 @@ describe('Comment Delete Service', () => {
         mockGetUserGroupRole.mockResolvedValue('member');
         mockGetWishlistCommentById.mockResolvedValue({
           id: 'comment-1',
+          group_id: 'group-1',
           content: 'Test comment',
           created_by: 'user-1',
           created_at: '2026-03-20T10:00:00Z',

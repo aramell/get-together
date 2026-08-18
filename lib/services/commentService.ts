@@ -221,7 +221,7 @@ export async function editEventComment(
 
     // Step 3: Check if comment exists and get current state
     const comment = await getEventCommentById(commentId);
-    if (!comment) {
+    if (!comment || comment.group_id !== groupId) {
       return {
         success: false,
         message: 'Comment not found',
@@ -247,7 +247,7 @@ export async function editEventComment(
     if (!updated) {
       return {
         success: false,
-        message: 'Comment was edited by another user. Please refresh and try again.',
+        message: 'Comment was deleted or edited by another user. Please refresh and try again.',
         errorCode: 'CONFLICT',
       };
     }
@@ -331,7 +331,7 @@ export async function editWishlistComment(
 
     // Step 3: Check if comment exists
     const comment = await getWishlistCommentById(commentId);
-    if (!comment) {
+    if (!comment || comment.group_id !== groupId) {
       return {
         success: false,
         message: 'Comment not found',
@@ -357,7 +357,7 @@ export async function editWishlistComment(
     if (!updated) {
       return {
         success: false,
-        message: 'Comment was edited by another user. Please refresh and try again.',
+        message: 'Comment was deleted or edited by another user. Please refresh and try again.',
         errorCode: 'CONFLICT',
       };
     }
@@ -415,7 +415,7 @@ export async function deleteEventCommentWithAuth(
 
     // Step 2: Check if comment exists
     const comment = await getEventCommentById(commentId);
-    if (!comment) {
+    if (!comment || comment.group_id !== groupId) {
       return {
         success: false,
         message: 'Comment not found',
@@ -495,7 +495,7 @@ export async function deleteWishlistCommentService(
 
     // Step 2: Check if comment exists
     const comment = await getWishlistCommentById(commentId);
-    if (!comment) {
+    if (!comment || comment.group_id !== groupId) {
       return {
         success: false,
         message: 'Comment not found',
