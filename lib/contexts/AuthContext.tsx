@@ -10,6 +10,7 @@ interface AuthContextType {
   accessToken: string | null;
   idToken: string | null;
   userId: string | null;
+  login: (tokens: { accessToken: string; idToken: string; userId?: string }) => void;
   logout: () => void;
   checkTokenExpiration: () => boolean;
   isTokenExpired: () => boolean;
@@ -69,6 +70,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     return false;
   }, [isTokenExpired]);
+
+  /**
+   * Log in the user: persist tokens and update context state immediately.
+   * Client-side navigation doesn't remount AuthProvider, so state must be set
+   * here rather than relying on the mount-only localStorage-read effect.
+   */
+  const login = useCallback((tokens: { accessToken: string; idToken: string; userId?: string }) => {
+    localStorage.setItem('accessToken', tokens.accessToken);
+    localStorage.setItem('idToken', tokens.idToken);
+
+    const sub = tokens.userId || getSubFromJWT(tokens.accessToken);
+    if (sub) {
+      localStorage.setItem('userId', sub);
+    }
+
+    setAccessToken(tokens.accessToken);
+    setIdToken(tokens.idToken);
+    setUserId(sub);
+    setIsAuthenticated(true);
+    setIsLoading(false);
+  }, []);
 
   /**
    * Logout user and clear tokens
@@ -226,6 +248,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     accessToken,
     idToken,
     userId,
+    login,
     logout,
     checkTokenExpiration,
     isTokenExpired,

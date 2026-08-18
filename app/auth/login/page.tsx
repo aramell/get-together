@@ -8,7 +8,7 @@ import LoginForm from '@/components/auth/LoginForm';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, login } = useAuth();
 
   // Auto-redirect if already logged in
   useEffect(() => {
@@ -18,31 +18,8 @@ export default function LoginPage() {
   }, [isAuthenticated, router]);
 
   const handleLoginSuccess = (tokens: { accessToken: string; idToken: string; userId?: string }) => {
-    console.log('[LoginPage] handleLoginSuccess called with tokens');
-    console.log('[LoginPage] accessToken:', tokens.accessToken ? 'set' : 'missing');
-    console.log('[LoginPage] idToken:', tokens.idToken ? 'set' : 'missing');
-    console.log('[LoginPage] userId:', tokens.userId);
-
-    // Store tokens in localStorage (in addition to HTTP-only cookies)
-    // This allows the frontend to access the tokens for API calls
-    localStorage.setItem('accessToken', tokens.accessToken);
-    localStorage.setItem('idToken', tokens.idToken);
-    console.log('[LoginPage] Tokens stored in localStorage');
-
-    if (tokens.userId) {
-      localStorage.setItem('userId', tokens.userId);
-    }
-
-    console.log('[LoginPage] Verifying tokens were stored...');
-    console.log('[LoginPage] accessToken in localStorage:', !!localStorage.getItem('accessToken'));
-    console.log('[LoginPage] idToken in localStorage:', !!localStorage.getItem('idToken'));
-
-    // Redirect to groups page after a brief delay to ensure tokens are synced
-    console.log('[LoginPage] Redirecting to /groups in 100ms');
-    setTimeout(() => {
-      console.log('[LoginPage] Performing redirect');
-      router.push('/groups');
-    }, 100);
+    login(tokens);
+    router.push('/groups');
   };
 
   // Show loading spinner while checking auth status
