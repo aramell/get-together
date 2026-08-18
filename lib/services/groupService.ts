@@ -1,13 +1,4 @@
 import { CreateGroupInput, CreateGroupResponse, Group } from '@/lib/validation/groupSchema';
-import { randomBytes } from 'crypto';
-
-/**
- * Generate a cryptographically secure, non-guessable invite code
- * Uses 8 random bytes converted to 16-character hex string
- */
-function generateInviteCode(): string {
-  return randomBytes(8).toString('hex');
-}
 
 /**
  * Construct invite URL from invite code
@@ -82,13 +73,7 @@ export async function createGroup(
       };
     }
 
-    // Generate invite code (cryptographically secure)
-    const inviteCode = generateInviteCode();
-    const inviteUrl = constructInviteUrl(inviteCode);
-
-    // Create group via API call
-    // In production, this would be a database transaction
-    // For MVP, we call the API endpoint which handles the database operations
+    // Create group via API call; the server generates the invite code and URL
     const response = await fetch('/api/groups', {
       method: 'POST',
       headers: {
@@ -97,7 +82,6 @@ export async function createGroup(
       body: JSON.stringify({
         name: validatedInput.name,
         description: validatedInput.description,
-        invite_code: inviteCode,
       }),
     });
 

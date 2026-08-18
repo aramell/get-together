@@ -1,8 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { randomBytes } from 'crypto';
 import { createGroupSchema } from '@/lib/validation/groupSchema';
 import { ZodError } from 'zod';
 import { getClient } from '@/lib/db/client';
+import { createGroupWithMembership } from '@/lib/db/queries';
 import { getUserIdFromRequest } from '@/lib/api/auth';
+
+/**
+ * Generate a cryptographically secure invite code (16 hex characters)
+ */
+function generateInviteCode(): string {
+  return randomBytes(8).toString('hex');
+}
+
+/**
+ * Construct invite URL from invite code
+ */
+function constructInviteUrl(inviteCode: string): string {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://gettogether.app';
+  return `${baseUrl}/join/${inviteCode}`;
+}
 
 /**
  * POST /api/groups
@@ -34,28 +51,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // TODO: Database operations (requires schema migration)
-    // 1. Create group record with invite_code and invite_url
-    // 2. Add creator as admin in group_memberships table
-    // 3. Return created group with invite_url
-
-    // For now, return mock successful response
-    const mockGroup = {
-      id: `group-${Date.now()}`,
-      name: validatedData.name,
-      description: validatedData.description,
-      created_by: userId,
-      invite_code: body.invite_code || 'mock-invite-code',
-      invite_url: body.invite_code ? `https://gettogether.app/join/${body.invite_code}` : 'https://gettogether.app/join/mock',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
+    // Create group and add creator as admin (transactional)
+    const inviteCode = generateInviteCode();
+    const group = await createGroupWithMembership(
+      validatedData.name,
+      validatedData.description,
+      userId,
+      inviteCode
+    );
 
     return NextResponse.json(
       {
         success: true,
         message: 'Group created successfully',
-        group: mockGroup,
+        group: {
+          ...group,
+          invite_url: constructInviteUrl(group.invite_code),
+        },
       },
       { status: 201 }
     );
