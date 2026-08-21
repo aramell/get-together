@@ -24,10 +24,14 @@ classification:
   domain: general
   complexity: medium
   projectContext: greenfield
-lastEdited: "2026-06-30"
+lastEdited: "2026-08-20"
 editHistory:
   - date: "2026-06-30"
     changes: "Added Social Circles (FR64–FR70, global reusable friend lists), SMS magic link auth (FR59–FR63, supplements email/password), Journey 5 (First-Timer via SMS), NFR30–NFR32 (SMS delivery and security), updated Executive Summary, Product Scope, Success Criteria, and What Makes This Special"
+  - date: "2026-08-20"
+    changes: "Availability-first pivot per approved sprint-change-proposal-2026-08-19: reweighted Executive Summary/What Makes This Special/Innovation around availability-first discovery; pulled Google Calendar sync (OAuth, near-real-time) from Growth Features into MVP scope and FR21/FR22; added FR71 (per-group Planning Style setting); reframed the commitment-threshold success metric as Proposals-first-segment-specific and added an availability-engagement metric"
+  - date: "2026-08-21"
+    changes: "Added Plan Capture & Import Growth Feature: FR72–FR78 (share-sheet extended to any plan, paste-to-parse, email forwarding, SMS/MMS forwarding, AI-suggested detail review/accept, source attribution, per-plan capture dashboard); cross-referenced FR42 to FR72"
 ---
 
 # Product Requirements Document - get-together
@@ -40,11 +44,10 @@ editHistory:
 Get-together solves group planning chaos by consolidating fragmented communication into a single source of truth. Currently, friend groups coordinate outings through group texts: ideas scatter, responses trickle in asynchronously, availability is unclear, and follow-ups are manual and repetitive.
 
 Get-together eliminates this friction by providing:
-- **Shared soft calendar** showing each member's availability (free/busy only, preserving privacy)
-- **Event proposals** with real-time RSVP tracking and configurable commitment thresholds
-- **Momentum visualization** (e.g., "5 in, 2 maybe, 1 out") that accelerates group decisions
+- **Availability-first discovery** — a shared soft calendar showing each member's availability (free/busy only, preserving privacy), synced from Google Calendar, so groups see who's free before anyone has to propose anything
+- **Persistent planning tools in one place** — event proposals, wishlists, checklists, photos, timeline, and logistics discussion, all attached to the group rather than scattered across texts
+- **Event proposals** with real-time RSVP tracking and configurable commitment thresholds, with momentum visualization (e.g., "5 in, 2 maybe, 1 out") as a supporting signal — prominence is configurable per group
 - **Group wishlists** for ongoing inspiration that persists between events
-- **Lightweight planning** (comments, logistics discussion) in one place
 - **Social circles** — global, reusable friend lists added wholesale to any new group or event
 - **SMS magic link onboarding** — invitees receive a text, click once, and join with an auto-created account; no signup form required
 
@@ -52,15 +55,15 @@ Target audience: groups of 10-15 people (friend groups, families, sports teams, 
 
 ## What Makes This Special
 
-Get-together operates at the intersection of four user needs:
+Get-together operates at the intersection of five user needs:
 
-1. **Memory** — Shared wishlist captures ideas before they die in group chats or individual heads
-2. **Discovery** — Cross-pollination surfaces plans no single person would propose
-3. **Speed** — Real-time momentum mechanic compresses decision loops from hours/days to minutes
-4. **Alignment** — Single source of truth eliminates manual follow-up and coordination overhead
+1. **Availability** — Seeing who's actually free, synced from real calendars, removes the upstream friction that stops people from proposing anything in the first place
+2. **Memory** — Shared wishlist captures ideas before they die in group chats or individual heads
+3. **Discovery** — Cross-pollination surfaces plans no single person would propose
+4. **Alignment** — Single source of truth (availability, proposals, planning tools) eliminates manual follow-up and coordination overhead; real-time momentum mechanic remains available as a supporting signal for groups that want it
 5. **Frictionless Entry** — SMS magic links eliminate signup friction; phone-as-identity means invitees become members with a single tap, no form required
 
-No existing tool handles this gap well. Doodle polls dates; Google Calendar shares everything; Partiful plans single events. Get-together maintains persistent group identity with shared availability, aspirational wishlists, and real-time momentum visualization.
+No existing tool handles this gap well. Doodle polls dates; Google Calendar shares everything; Partiful plans single events. Get-together maintains persistent group identity with shared, synced availability as the front door, aspirational wishlists, and persistent planning tools in one place.
 
 ## Project Classification
 
@@ -105,7 +108,8 @@ The platform successfully delivers real-time coordination without friction:
 
 - **User-level:** First event proposed within 7 days of signup; user engages with app at least weekly once in an active group.
 - **Group-level:** Group plans at least 1 event per month; group retains 80%+ member engagement over 3 months.
-- **Feature-level:** 70%+ of events include at least 1 commitment threshold; 50%+ of active groups have 5+ wishlist items; average RSVP response time <24 hours.
+- **Feature-level:** Within Proposals-first groups, 70%+ of events include at least 1 commitment threshold; 50%+ of active groups have 5+ wishlist items; average RSVP response time <24 hours.
+- **Availability engagement:** 30%+ of event proposals are created directly from the availability-first home screen within 3 months of launch.
 - **Technical-level:** 99% uptime; real-time sync latency <1 second; zero data loss events.
 - **Social circles:** 40%+ of new groups created using a social circle within 3 months of launch.
 - **SMS onboarding:** >80% of users invited via SMS magic link complete onboarding (join or RSVP) within 24 hours of receiving the link.
@@ -116,24 +120,26 @@ The platform successfully delivers real-time coordination without friction:
 
 **Core Flow:**
 - Persistent group creation with invite links; group membership management (admin/member roles)
-- Soft calendar showing free/busy blocks per group member (manual availability marking, no external sync required initially)
+- Soft calendar showing free/busy blocks per group member (manual availability marking, supplemented by Google Calendar sync)
 - Event proposal workflow: create event with title/description/date range/optional commitment threshold; group members mark in/maybe/out; real-time RSVP display
 - Wishlist: add items with optional links/images; group members react (interested/not interested); ability to convert wishlist items into events
 - Basic comments on events and wishlist items
 - Push notifications for new proposals and commitment milestones
 - Social circles: users create global, named friend lists; add an entire circle when creating a new group or event (bulk invite)
 - SMS magic link auth: invite contacts by phone number; recipients receive a text link; clicking auto-creates their account and grants immediate access (supplements email/password)
+- Google Calendar sync: connect Google Calendar via OAuth; soft calendar automatically populated with free/busy blocks, refreshed on a near-real-time basis; availability-first home screen surfaces this alongside proposals
 
-**Why this scope:** Proves the core value prop (easy group coordination, visibility, momentum) without external dependencies. Users can start planning immediately. Calendar sync and advanced planning tools can wait.
+**Why this scope:** Proves the core value prop — availability-first group coordination, with momentum and planning tools as supporting mechanics — without unnecessary external dependencies. Google Calendar sync is pulled into MVP because upstream availability visibility is the primary friction point; Apple/Outlook sync and advanced planning tools can wait.
 
 ### Growth Features (Post-MVP)
 
-- **Calendar sync integration** — Connect Google, Apple, Outlook calendars; soft calendar automatically populated with free/busy blocks
+- **Apple & Outlook calendar sync** — Extend calendar sync (Google is current-scope, see MVP) to Apple and Outlook calendars
 - **Advanced planning tools** — Checklists with task assignment, shared notes/whiteboard, cost tracking and splitting
 - **Share-sheet integration** — iOS and Android share extensions; share restaurants, events, activities directly from social media into group wishlists
 - **Notification preferences** — Per-group notification settings; quiet hours; digest emails
 - **Group history & analytics** — See past events and engagement trends; group statistics
 - **Social features** — Group photos, event recaps, member profiles
+- **Plan capture & import** — Paste-to-parse, email-forwarding, and SMS/MMS-forwarding capture of trip/plan details from group chats and email threads (FR72–FR78), surfaced on a per-plan dashboard with source attribution. Automatic ingestion is limited to email and SMS (both support inbound forwarding); group chat platforms (iMessage, WhatsApp) don't expose third-party read access, so capture there is share/paste-triggered, not passive sync.
 
 ### Vision (Future)
 
@@ -233,7 +239,7 @@ These journeys reveal the capabilities the product must deliver:
 
 ## Innovation & Competitive Positioning
 
-**Core Innovation:** Soft calendar + momentum visualization creates a gap no existing tool fills. Doodle polls dates (asynchronous), Google Calendar shares everything (privacy loss), Partiful plans single events (no persistence). Get-together combines continuous availability visibility, real-time momentum tracking, persistent group identity, and aspirational wishlists into one coordinated loop.
+**Core Innovation:** Soft calendar + persistent planning tools in one place creates a gap no existing tool fills. Doodle polls dates (asynchronous), Google Calendar shares everything (privacy loss), Partiful plans single events (no persistence). Get-together combines continuous, synced availability visibility as the front door, persistent group identity, aspirational wishlists, and configurable real-time momentum tracking into one coordinated loop.
 
 **Technical Differentiator:** Real-time free/busy visibility (not event details) preserves privacy while enabling group coordination. The momentum mechanic ("5 in, 2 maybe, 1 out" live updates) accelerates decisions from async text threads.
 
@@ -325,6 +331,7 @@ These journeys reveal the capabilities the product must deliver:
 - **FR13:** Group admins can view list of all group members
 - **FR14:** Group admins can delete a group
 - **FR15:** Users can set notification preferences per group (enable/disable) [Phase 2]
+- **FR71:** Group admins can set the group's default Planning Style (Availability-first or Proposals-first), which determines the group's default landing view
 
 ### Social Circles
 
@@ -343,8 +350,8 @@ These journeys reveal the capabilities the product must deliver:
 - **FR18:** Users can manually mark their availability as busy for specific time blocks
 - **FR19:** Users can update or remove their availability entries
 - **FR20:** All group members can see each other's availability (free/busy only, no event details)
-- **FR21:** Users can read their native calendar (iOS/Android) to populate availability [Phase 1b]
-- **FR22:** System automatically syncs native calendar availability every 6 hours [Phase 1b]
+- **FR21:** Users can connect their Google Calendar via OAuth to populate availability
+- **FR22:** System syncs Google Calendar availability on a near-real-time basis
 
 ### Event Proposal & RSVP
 
@@ -370,7 +377,7 @@ These journeys reveal the capabilities the product must deliver:
 - **FR39:** Users can see how many people marked interest on a wishlist item
 - **FR40:** Users can remove their own wishlist items
 - **FR41:** Users can convert a wishlist item into an event proposal
-- **FR42:** Users can share content to group wishlist via share-sheet [Phase 1b]
+- **FR42:** Users can share content to group wishlist via share-sheet [Phase 1b] (see FR72 for share-sheet capture into plans generally, Growth Features)
 
 ### Comments & Discussion
 
@@ -380,6 +387,16 @@ These journeys reveal the capabilities the product must deliver:
 - **FR46:** Users can edit their own comments
 - **FR47:** Users can delete their own comments
 - **FR48:** Comments appear in real-time to all group members
+
+### Plan Capture & Import
+
+- **FR72:** Users can share text or links from any app into a specific group/event via native share-sheet
+- **FR73:** Users can paste raw text (copied from a group chat or email thread) into a plan; the system parses it and suggests structured details (dates, locations, decisions, action items) for the plan
+- **FR74:** Users can forward an email to a plan-specific email address; the system parses the email and attaches suggested structured details to the corresponding plan
+- **FR75:** Users can review and accept or reject each AI-suggested detail before it's saved to the plan
+- **FR76:** Each captured detail on a plan shows its source (e.g., "pasted from chat," "forwarded email," "forwarded text") for traceability
+- **FR77:** Users can view a consolidated dashboard per plan showing all captured details (dates, locations, links, decisions) regardless of source
+- **FR78:** Users can forward a text message or MMS screenshot to the app's phone number; the system parses it (with OCR for images) and suggests it for attachment to the user's most recently active plan, prompting for plan selection if ambiguous
 
 ### Real-Time Synchronization
 
