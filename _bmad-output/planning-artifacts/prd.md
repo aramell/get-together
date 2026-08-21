@@ -31,7 +31,7 @@ editHistory:
   - date: "2026-08-20"
     changes: "Availability-first pivot per approved sprint-change-proposal-2026-08-19: reweighted Executive Summary/What Makes This Special/Innovation around availability-first discovery; pulled Google Calendar sync (OAuth, near-real-time) from Growth Features into MVP scope and FR21/FR22; added FR71 (per-group Planning Style setting); reframed the commitment-threshold success metric as Proposals-first-segment-specific and added an availability-engagement metric"
   - date: "2026-08-21"
-    changes: "Added Plan Capture & Import Growth Feature: FR72–FR78 (share-sheet extended to any plan, paste-to-parse, email forwarding, SMS/MMS forwarding, AI-suggested detail review/accept, source attribution, per-plan capture dashboard); cross-referenced FR42 to FR72"
+    changes: "Added Plan Capture & Import Growth Feature: FR72–FR78 (share-sheet extended to any plan, paste-to-parse, email forwarding, SMS/MMS forwarding, AI-suggested detail review/accept, source attribution, per-plan capture dashboard); cross-referenced FR42 to FR72; added Planning Style setting (FR71) to Product Scope's MVP Core Flow list, closing a gap flagged by the 2026-08-20 validation report"
 ---
 
 # Product Requirements Document - get-together
@@ -120,6 +120,7 @@ The platform successfully delivers real-time coordination without friction:
 
 **Core Flow:**
 - Persistent group creation with invite links; group membership management (admin/member roles)
+- Per-group Planning Style setting (Availability-first or Proposals-first), admin-configurable, determines the group's default landing view
 - Soft calendar showing free/busy blocks per group member (manual availability marking, supplemented by Google Calendar sync)
 - Event proposal workflow: create event with title/description/date range/optional commitment threshold; group members mark in/maybe/out; real-time RSVP display
 - Wishlist: add items with optional links/images; group members react (interested/not interested); ability to convert wishlist items into events
