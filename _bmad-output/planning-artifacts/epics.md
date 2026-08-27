@@ -131,19 +131,23 @@ Users can create groups, invite members via unique links, and manage group membe
 
 ### Epic 3: Soft Calendar & Availability
 
-Users can mark their availability (free/busy) and view group members' availability in a shared soft calendar.
+Users can mark their availability (free/busy), view group members' availability in a shared soft calendar, sync Google Calendar for near-real-time availability, and (for Availability-first groups) land on an availability-first home screen as the default view.
 
-**User Outcome:** Real-time visibility into group availability without exposing private calendar details.
+**User Outcome:** Real-time visibility into group availability without exposing private calendar details, with availability as the front door for groups that opt into it.
 
-**FRs covered:** FR16, FR17, FR18, FR19, FR20, FR21, FR22
+**FRs covered:** FR16, FR17, FR18, FR19, FR20, FR21, FR22 (updated 2026-08-20: Google Calendar OAuth connect + near-real-time sync, moved from Phase 2 to current scope per sprint-change-proposal-2026-08-19)
 
 **Technical Considerations:**
 - Manual availability marking (free/busy blocks with start/end times)
 - Group soft calendar view with all members' availability
 - Optimistic locking for concurrent updates
-- Privacy: never store raw event details, only free/busy blocks
-- Phase 2: Native calendar sync (Google, Apple, Outlook)
-- Real-time updates via AppSync subscriptions
+- Privacy: never store raw event details, only free/busy blocks (enforced at schema level, see Architecture Decision 6c)
+- Google Calendar OAuth connect/disconnect, refresh token stored in Supabase Postgres (Architecture Decision 6b)
+- Sync mechanism: poll `freebusy.query` every 2-5 minutes, not push/webhooks (Architecture Decision 6a)
+- Cached free/busy stored in dedicated `google_calendar_busy_blocks` table, merged with manual availability at read time (Architecture Decision 6c)
+- Availability-first home screen (AvailabilityGrid component, UX spec Section 2.6): default landing view for Availability-first groups, shows merged availability + active proposals together
+- Apple/Outlook calendar sync remain deferred (Growth Features)
+- Real-time updates via AppSync subscriptions (or current polling pattern per Epic 12 precedent — see architecture.md's noted drift from documented AppSync subscriptions)
 
 ---
 
