@@ -61,7 +61,7 @@ _This document builds collaboratively through step-by-step architectural decisio
 - Database Layer: Aurora Serverless Postgres (group/event/wishlist/comment data)
 - Real-Time Layer: AppSync subscriptions (RSVPs, comments, wishlist updates)
 - Notification Layer: AWS SNS → FCM/APNs for mobile, browser notifications for web
-- Calendar Integration Layer: Google/Apple/Outlook OAuth (Phase 2, read-only free/busy)
+- Calendar Integration Layer: Google Calendar OAuth (current scope per 2026-08-19 sprint change; Apple/Outlook remain deferred), read-only free/busy via polling — see Decisions 6a-6c
 - Infrastructure: Lambda functions (serverless), API Gateway, CloudFront CDN
 
 ### Technical Constraints & Dependencies
@@ -432,6 +432,30 @@ npx create-expo-app get-together-mobile
 - **Rationale:** Covers MVP backup needs without additional cost, automatic recovery capability
 - **Affected Components:** Aurora configuration (backup retention), AWS console (restore procedures)
 - **Cascading Implications:** Soft delete strategy (Decision 1d) ensures audit trail, PITR enables point-in-time recovery
+
+### Calendar Integration
+
+_Added 2026-08-21, following the approved sprint-change-proposal-2026-08-19 (availability-first pivot). Closes the gap where this layer was listed as an anticipated component (see Estimated Architectural Components above) with no actual decision behind it._
+
+**Decision 6a: Calendar Sync Mechanism**
+- **Choice:** Poll `freebusy.query` on a 2–5 minute interval per connected user (not push notifications/webhooks)
+- **Implementation:** Scheduled job iterates users with a connected Google Calendar, calls `freebusy.query` for a forward window (e.g., next 30 days), updates cached busy blocks
+- **Rationale:** Matches NFR12 (never store event details, free/busy only); avoids webhook channel-renewal complexity; consistent with Epic 12's existing client-side polling pattern rather than introducing new push infrastructure; Google's push notifications don't carry free/busy data anyway, so polling would still be required afterward
+- **Affected Components:** New sync worker/cron job, soft calendar merge logic, availability display
+- **Cascading Implications:** Requires OAuth token decision (6b) and cached data model (6c); must merge with existing manual availability marking rather than overwrite it
+
+**Decision 6b: OAuth Token Management**
+- **Choice:** `access_type=offline` + `prompt=consent` on first connect; refresh token stored encrypted in the same Supabase Postgres database, scoped per user; access tokens auto-refreshed transparently before each poll via Google's client library
+- **Rationale:** Standard Google offline-access OAuth pattern; per-user (not per-group) storage matches the existing auth model; reuses the existing database instead of adding a separate secrets store — keeps infra minimal, consistent with the solo-dev/managed-services constraint from the original architecture doc
+- **Affected Components:** New `calendar_connections` table, sync worker, disconnect/re-auth flow
+- **Cascading Implications:** Token encryption at rest extends the existing managed-encryption pattern (Decision 2d); disconnect must delete both the token and cached busy blocks; failed refresh (expired/revoked) triggers the re-auth flow
+
+**Decision 6c: Cached Free/Busy Data Model**
+- **Choice:** Dedicated table for Google-sourced busy blocks, kept separate from the existing manual-availability table; soft calendar view merges both at read time
+- **Implementation:** `google_calendar_busy_blocks(user_id, start_time, end_time, synced_at)` — replaced wholesale per poll (delete + reinsert for that user's window) rather than diffed, to keep sync logic simple at MVP scale
+- **Rationale:** Keeps synced data cleanly separable from manual entries (supports future disconnect/audit/"why is this busy" transparency); avoids diff complexity not worth it at this scale
+- **Affected Components:** Soft calendar read path, sync worker, disconnect flow
+- **Cascading Implications:** Table only ever stores `start_time`/`end_time`/`user_id` — never title, location, or description, enforcing NFR12 at the schema level
 
 ### Decision Impact Analysis
 
