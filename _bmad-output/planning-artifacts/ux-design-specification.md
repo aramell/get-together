@@ -19,6 +19,10 @@ completionDate: "2026-03-02"
 inputDocuments:
   - "_bmad-output/planning-artifacts/prd.md"
 date: "2026-03-02"
+lastEdited: "2026-08-27"
+editHistory:
+  - date: "2026-08-27"
+    changes: "Availability-first pivot per approved sprint-change-proposal-2026-08-19 and prd.md's 2026-08-20/21 edits: rewrote Defining Experience/User Mental Model to lead with availability (Proposals-first preserved as per-group opt-in, FR71); added Availability-First Home Screen flow (Section 2.6); added Journey 4 (availability-first flow), closing the PRD's orphan-FR gap for FR21/FR22/FR71; added AvailabilityGrid component; updated Navigation Pattern to reflect per-group default view"
 ---
 
 # UX Design Specification - get-together
@@ -71,16 +75,23 @@ The emotional outcome users seek: **"Getting out of the group text"** — moving
 
 ### Defining Experience
 
-The core experience of get-together revolves around **event creation and the real-time response workflow**. This is the heartbeat of the app.
+get-together's defining experience starts with **seeing who's actually free** — not with typing something into a text box. The soft calendar (manual marks, supplemented by real-time Google Calendar sync) is the front door; event creation and real-time RSVP response are the second beat once a plan is being made.
 
-**Event Creation Loop:**
-1. User proposes an event (title, date range, optional threshold)
-2. Instantly see soft calendar availability for the group
-3. Watch real-time RSVP responses flow in
-4. See commitment threshold met (if set) → event confirms
+**Availability-First Loop (default landing view):**
+1. User opens the app and lands on the availability-first home screen
+2. Sees their own availability + friends' synced availability + any active proposals, together, with zero taps
+3. Proposes an event directly from an open window, or responds to an existing proposal
+4. Watches real-time RSVP responses flow in — momentum remains visible, as a supporting signal
 5. Planning moves to logistics (comments, coordination)
 
-**Why this matters:** Event creation is the moment when ideas become action. The moment of truth for "will this actually happen?" Every interaction in this workflow must be frictionless.
+**Proposals-First Loop (per-group opt-in via Planning Style setting, FR71 — the original flow):**
+1. User proposes an event (title, date range, optional threshold)
+2. Instantly sees soft calendar availability for the group
+3. Watches real-time RSVP responses flow in — momentum is the primary visual hook in this mode
+4. Sees commitment threshold met (if set) → event confirms
+5. Planning moves to logistics (comments, coordination)
+
+**Why this matters:** The friction get-together needed to solve was upstream of proposing anything — people don't propose plans because they don't know who's free. Making availability the front door removes that friction before event creation happens. Groups that prefer the original momentum-first feel keep it in full via the per-group Planning Style setting; nothing about the proposal or RSVP mechanics changes for them.
 
 ### Platform Strategy
 
@@ -400,15 +411,14 @@ Shadows: Minimal, for elevation only
 
 ### 2.1 Defining Experience
 
-The defining experience of get-together is: **"Propose an event in 10 seconds and watch your friends respond in real-time with one tap."**
+The defining experience of get-together is: **"Open the app and immediately see who's free — then propose or respond in one tap."**
 
-More specifically: Users making quick event proposals (title + date/time, done) and quick RSVP decisions the moment they see the proposal.
+Availability is the front door for a group's default landing view. For groups that opt into Proposals-first mode (per-group Planning Style setting, FR71), the original defining statement still applies as that group's chosen experience: **"Propose an event in 10 seconds and watch your friends respond in real-time with one tap."** Both are first-class; which one a user sees by default is a per-group choice, not a global product decision.
 
-**Why this is the heartbeat of the product:**
-- Event creation takes seconds (modal, not full screen)
-- RSVP response takes one tap
-- Together, they replace the entire group text planning workflow
-- Momentum is visible immediately
+**Why availability-first is the heartbeat for most groups:**
+- Removes the upstream question ("who's even free?") before anyone has to propose anything
+- Google Calendar sync means the answer is already there, not something anyone has to ask for
+- Event creation and RSVP remain exactly as fast as before (see Section 2.5) — this changes what greets the user first, not the mechanics of proposing or responding
 
 ### 2.2 User Mental Model
 
@@ -416,18 +426,24 @@ More specifically: Users making quick event proposals (title + date/time, done) 
 - User types out event idea in chat
 - Waits for scattered responses
 - Responses mixed with other chat noise
-- Has to ask "So... is everyone coming?"
+- Has to ask "So... is everyone coming?" — and, earlier, "is anyone even free that weekend?"
 - Manual follow-ups needed
 
-**Get-Together (New Mental Model):**
-- User taps "Create Event"
-- Types title + picks date → event is live in seconds
-- Watches friends respond with single taps
-- Momentum builds visibly in real-time
-- When enough people say yes → event automatically confirmed
+**Get-Together (New Mental Model — Availability-First, default):**
+- User opens the app, immediately sees who's free (own + synced friends' Google Calendar availability) alongside any active proposals
+- No separate "let me check and get back to you" — the answer to "who's free" is already visible
+- Proposes directly into an open window, or responds to an existing proposal with a single tap
+- Momentum builds visibly in real-time as a supporting signal
+- When enough people say yes → event automatically confirmed (if a threshold is set)
 - No ambiguity, no follow-ups needed
 
-**The Shift:** From async chaos to instant coordination
+**Get-Together (Proposals-First Mental Model — per-group opt-in):**
+- User taps "Create Event," types title + picks date → event is live in seconds
+- Watches friends respond with single taps; momentum is the primary visual hook
+- When enough people say yes → event automatically confirmed
+- Functionally identical to the original mental model — only the group's default landing view changes
+
+**The Shift:** From async chaos to instant coordination — the pivot moves the starting point from "waiting on someone to propose something" to "seeing availability so someone can propose with confidence," while keeping the original fast-proposal loop fully available per group.
 
 ### 2.3 Success Criteria
 
@@ -440,6 +456,8 @@ The core experience succeeds when:
 5. **Auto-Confirm Threshold** — Event automatically flips to "Confirmed" when threshold is met (user set this in creation modal, optional)
 6. **Minimal Cognitive Load** — User never wonders "what do I do next?" Everything is obvious
 7. **Works During Daily Life** — Can create events between tasks, respond while in meetings, quick interruption-friendly
+8. **Instant Availability Visibility** — On opening the app (Availability-first groups), the user's own + friends' availability is visible with zero taps; no "check and get back to you"
+9. **Frictionless Propose-from-Availability** — Proposing an event directly from an open window in the availability view takes no more taps than the standalone creation modal (same modal, new entry point)
 
 ### 2.4 Established UX Patterns We're Using
 
@@ -581,6 +599,80 @@ Everything needed to decide is visible. No scrolling. No missing context.
 - "Create" button
 
 That's it. Ship it. Users can add descriptions and photos later if they want, but the MVP doesn't require it.
+
+### 2.6 Availability-First Home Screen: The Complete Flow
+
+_Net-new for the 2026-08 pivot. This is the default landing view for Availability-first groups (per FR71); Proposals-first groups keep the existing feed as their default and can reach this view from the calendar tab, unchanged from before._
+
+**Step 1: Landing**
+- User opens the app and lands directly on the group's Availability view — no taps required
+- Immediately visible: their own availability, friends' synced Google Calendar availability, and any active proposals
+
+**Step 2: Scan Availability**
+- Soft calendar grid shows the next 7-14 days across all group members
+- Color-coded free/busy per person (manual marks + Google Calendar sync merged, per Architecture Decision 6c)
+- Overlapping free windows are visually emphasized (e.g., a highlighted column where most of the group is free)
+
+**Step 3a: Propose Directly (New)**
+- User taps an open/highlighted time window
+- The same "New Event" creation modal from Section 2.5 appears, pre-filled with that date — no new modal built, just a new entry point
+- User completes title + optional threshold, taps Create — mechanics identical to the standard flow from here
+
+**Step 3b: Respond to an Existing Proposal (No Change)**
+- Active proposals are shown alongside the availability grid, not buried behind a second tab
+- Tapping a proposal opens the existing Event Detail view (see "INFORMATION ARCHITECTURE" under Section 2.5) — unchanged
+
+**Step 4: Connect Google Calendar (First-Time / Settings)**
+- If not yet connected, a dismissible prompt invites the user to connect Google Calendar (FR21)
+- OAuth consent flow (Architecture Decision 6b) returns to the availability view, now populated with synced busy blocks
+- Can disconnect anytime from settings; synced blocks disappear immediately
+
+**Delight Moments:**
+- Overlapping-free-time highlighting removes the mental math of "who's free when"
+- Proposing directly from an open window feels like zero extra work compared to the standalone flow
+- First Google Calendar sync feels like the calendar "just knows" — no manual re-entry of what's already true
+
+**Duration:** Landing to seeing availability: 0 seconds (default view, no taps). Landing to proposing: same <10 seconds as the standard flow, since it reuses the same creation modal.
+
+---
+
+**INFORMATION ARCHITECTURE (Availability-First Home)**
+
+```
+┌─────────────────────────────────┐
+│ [Group Name] · Availability      │
+├─────────────────────────────────┤
+│        Mon  Tue  Wed  Thu  Fri  │
+│ You     ✓    ✓    ·    ✓    ✓   │
+│ Sarah   ✓    ✓    ✓    ·    ✓   │
+│ Mike    ·    ✓    ✓    ✓    ✓   │
+│ Jessica ✓    ·    ✓    ✓    ·   │
+├─────────────────────────────────┤
+│ ▓▓▓ Tue: 4 of 4 free — propose? │ ← highlighted overlap
+├─────────────────────────────────┤
+│ Active Proposals                │
+│ • Hiking Trip — 3 in, 1 maybe   │
+├─────────────────────────────────┤
+│ [+ Propose from an open time]   │
+└─────────────────────────────────┘
+```
+
+Connect Google Calendar banner (first-time only, dismissible):
+```
+┌─────────────────────────────────┐
+│ 📅 Connect Google Calendar to    │
+│    see your real availability   │
+│    [Connect]         [Not now]  │
+└─────────────────────────────────┘
+```
+
+**DESIGN PRINCIPLES FOR THIS FLOW**
+
+1. **Availability is Free** — Arriving at the answer to "who's free" costs zero taps; it's the landing view, not a destination.
+2. **Reuse, Don't Duplicate** — Proposing from the availability grid opens the exact same creation modal as the standalone flow (Section 2.5). One modal, two entry points.
+3. **Proposals Stay Visible** — Active proposals sit alongside availability, not behind a separate tab — this directly addresses Epic 12's "buried planning tab" problem named in the sprint-change-proposal.
+4. **Sync is Additive, Never Overwriting** — Google-sourced busy blocks merge with manually-marked availability (Architecture Decision 6c); disconnecting removes only the synced portion.
+5. **Per-Group, Not Global** — Proposals-first groups never see this screen as their default; it's additive to the product, not a replacement of the existing experience.
 
 ## Visual Design Foundation
 
@@ -1105,6 +1197,37 @@ This creates a product that feels modern, energetic, and celebratory while remai
 
 ---
 
+### Journey 4: Priya - Availability-First Discovery (Net-New, 2026-08 Pivot)
+
+**Goal:** Open the app, see who's actually free this week, and propose an event directly from an open window — without asking "who's free?" first.
+
+**Summary:** Priya represents the availability-first default experience most groups will land on. Unlike Alex's journey (Journey 1), which starts from "I have an idea, let me propose it," Priya's journey starts from "let me see what's possible" — availability comes first, the proposal follows naturally from what she sees. This journey closes the traceability gap for FR21 (Google Calendar connect), FR22 (near-real-time sync), and FR71 (Planning Style setting) — none of which had a supporting journey before this pivot.
+
+**Key Steps:**
+1. Priya opens the app; her group's Planning Style is set to Availability-first (FR71), so she lands directly on the availability view — no taps needed
+2. She sees a first-time prompt to connect Google Calendar; she taps "Connect" and completes OAuth (FR21)
+3. Within moments, her real busy blocks appear merged into the soft calendar alongside her friends' availability (FR22, near-real-time sync)
+4. She scans the grid and notices Tuesday is highlighted — 4 of 5 group members are free
+5. She taps that open Tuesday slot; the standard "New Event" modal opens, pre-filled with the date
+6. She adds a title ("Dinner?") and taps Create — the event goes live using the exact same mechanics as Journey 1's flow
+7. Because the group already knew who was free, RSVPs arrive faster and with less back-and-forth than a cold proposal
+8. Active proposals from other members remain visible on the same screen — Priya never has to dig through a second "Planning" tab to find them
+
+**Delight Moments:**
+- Connecting Google Calendar feels like the app "already knew" her schedule — no manual re-entry
+- The highlighted overlap ("4 of 5 free Tuesday") answers the question before she has to ask it
+- Proposing from an open window feels like zero extra steps compared to the standard modal
+
+**Duration:** Landing to seeing availability: 0 seconds. First-time Google Calendar connect: <30 seconds. Landing to proposing: <10 seconds (same as Journey 1, different entry point).
+
+**Success Indicators:**
+- Google Calendar connected
+- Busy blocks synced and merged with manual availability within the polling interval (2-5 minutes, per Architecture Decision 6a)
+- Event proposed directly from the availability view
+- Corresponds to the PRD's "Availability engagement" success metric (30%+ of proposals created from this view)
+
+---
+
 ## Journey Patterns & Principles
 
 ### Reusable Interaction Patterns
@@ -1219,6 +1342,12 @@ This creates a product that feels modern, energetic, and celebratory while remai
 - Time to first event: <24 hours
 - Members who invite others: >50%
 - Group retention after 1st event: >80%
+
+**Availability-First Flow (Priya's Journey):**
+- Google Calendar connect rate: >60% of users in Availability-first groups within first week
+- Sync freshness: busy blocks reflect reality within the 2-5 minute polling window
+- Proposals created from the availability view: >30% (mirrors the PRD's availability-engagement success metric)
+- Time from landing to proposing: <10 seconds
 
 ## Component Strategy
 
@@ -1607,6 +1736,78 @@ interface GradientHeaderProps {
 
 ---
 
+### 6. AvailabilityGrid Component (Net-New, 2026-08 Pivot)
+
+**Purpose:** Render the availability-first home screen's grid — group members' free/busy status across a forward window of days, with overlapping free time visually emphasized, plus inline entry points to propose or view active proposals.
+
+**When to Use:**
+- Availability-first home screen (default view for Availability-first groups)
+- Accessible via calendar tab for Proposals-first groups (unchanged secondary access, per existing Navigation Pattern)
+
+**Content Structure:**
+```
+┌─ AvailabilityGrid ──────────────────┐
+│        Mon  Tue  Wed  Thu  Fri      │
+│ You     ✓    ✓    ·    ✓    ✓       │
+│ Sarah   ✓    ✓    ✓    ·    ✓       │
+│ Mike    ·    ✓    ✓    ✓    ✓       │
+├──────────────────────────────────────┤
+│ ▓▓▓ Tue: 4 of 4 free — propose?     │ ← highlighted overlap row
+└──────────────────────────────────────┘
+```
+
+**Component Props:**
+```
+interface AvailabilityGridProps {
+  days: string[]; // Forward window, e.g. next 7-14 days
+  members: Array<{
+    id: string;
+    name: string;
+    isCurrentUser?: boolean;
+    availability: ('free' | 'busy' | 'unknown')[]; // one per day, merged manual+synced per Architecture Decision 6c
+    source?: ('manual' | 'google' | 'both')[]; // per-day source, for transparency
+  }>;
+  overlapThreshold?: number; // minimum free members to highlight a day, default: majority
+  onSlotTap: (day: string) => void; // opens creation modal pre-filled with that day
+  onConnectGoogleCalendar?: () => void; // shown only if current user hasn't connected
+}
+```
+
+**Visual States:**
+1. **Default** — Grid populated with merged availability, no highlighting
+2. **Overlap Highlighted** — Column(s) where free count ≥ `overlapThreshold` get a colored background band + "propose?" affordance
+3. **Unknown/Not Synced** — Cells for users without connected calendars and no manual marks show a neutral "·" (not "busy" — absence of data isn't busy)
+4. **Loading** — Skeleton grid while availability fetches
+5. **Google Calendar Prompt** — Banner variant shown above the grid for the current user only, dismissible, only if not yet connected
+
+**Anatomy:**
+- Header row: day labels (Mon-Fri or full forward window)
+- One row per member, current user pinned to top
+- Cell: free (✓, colored), busy (empty/dot), unknown (·, neutral gray)
+- Overlap row: computed band beneath the grid highlighting the best day(s) to propose
+- Footer: active proposals list + "+ Propose from an open time" affordance
+
+**Interaction:**
+- Tap a highlighted or open cell → `onSlotTap` fires with that day, opening the existing Create Event modal (Section 2.5) pre-filled — reuses the modal, no new creation UI
+- Tap "Connect" on the Google Calendar banner → OAuth flow (Architecture Decision 6b)
+
+**Accessibility:**
+- Container: `role="table"` with proper row/column headers (`<th scope="row">` for member names, `<th scope="col">` for days)
+- Cell state conveyed by icon + text + color, never color alone (matches existing color-independence pattern)
+- `aria-label` per cell: "Sarah, Tuesday, free" / "Sarah, Tuesday, busy" / "Sarah, Tuesday, no data"
+- Overlap band: `aria-label="Tuesday, 4 of 4 members free, tap to propose"`
+- Google Calendar banner: dismissible via keyboard (Esc or Tab to dismiss button)
+
+**Design Tokens (From System):**
+- Free cell: Success Green background tint #f0fdf4, icon #10b981
+- Busy cell: Neutral Gray #f3f4f6, no icon
+- Unknown cell: lighter gray dot, #d1d5db
+- Overlap band: Primary Blue tint background #e0e7ff, border #6366f1
+- Font: Inter, 14px body, matches SoftCalendarDisplay's existing type scale
+- Spacing: 8px cell padding, consistent with base 8px spacing unit
+
+---
+
 ## Component Implementation Strategy
 
 ### Approach
@@ -1631,6 +1832,9 @@ interface GradientHeaderProps {
 - Additional variants
 - Animations refinement
 - Performance optimizations
+
+**Priority: Availability-First Pivot (2026-08 scope):**
+6. AvailabilityGrid — Availability-first home screen, depends on Calendar Integration Layer (Architecture Decisions 6a-6c) being implemented first
 
 ### Web Implementation (React + Chakra UI)
 
@@ -2013,20 +2217,20 @@ Animations:
 
 ### Navigation Pattern
 
-**Primary Navigation**
-- **Home (Default):** Event feed shows events for RSVP
-- **Secondary:** Soft calendar (toggle or tab) shows availability
+**Primary Navigation (per-group Planning Style, FR71)**
+- **Availability-first groups (default for new groups):** Home = Availability view (AvailabilityGrid + active proposals, Section 2.6); Feed reachable as secondary tab
+- **Proposals-first groups (opt-in, original behavior unchanged):** Home = Event feed shows events for RSVP; Calendar reachable as secondary tab
 - **Tertiary:** Group settings, profile (post-MVP)
 
 **Mobile Navigation (Bottom Tab Bar)**
-- **Tab 1:** Feed icon (default active)
-- **Tab 2:** Calendar icon
+- **Tab 1:** Home icon — Availability or Feed depending on group's Planning Style (default active)
+- **Tab 2:** The other of Availability/Feed (whichever isn't Tab 1 for this group)
 - **Tab 3:** Account icon (post-MVP)
 - **Active Indicator:** Indigo underline, bold label
 - **Inactive:** Gray text
 
 **Desktop Navigation (Left Sidebar or Top Tabs)**
-- **Tabs:** Feed | Calendar | [Group Settings]
+- **Tabs:** [Availability or Feed, per group setting] | [The other] | [Group Settings]
 - **Active:** Indigo underline
 - **Instant Switch:** No loading delay, instant view change
 
