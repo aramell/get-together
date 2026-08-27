@@ -51,7 +51,7 @@ development_status:
   epic-1-retrospective: optional
 
   # EPIC 2: Group Creation & Management
-  epic-2: done
+  epic-2: in-progress
   2-1-create-group: done
   2-2-view-groups-list: review
   2-3-view-group-details: done
@@ -59,6 +59,8 @@ development_status:
   2-5-invite-members: done
   2-6-remove-members: done
   2-7-delete-group: done
+  # 2-8 added 2026-08-27 per approved sprint-change-proposal-2026-08-19 (availability-first pivot)
+  2-8-planning-style-setting: ready-for-dev
   epic-2-retrospective: optional
 
   # EPIC 3: Soft Calendar & Availability
@@ -75,13 +77,15 @@ development_status:
   epic-3-retrospective: optional
 
   # EPIC 4: Event Proposals & RSVP with Real-Time Momentum
-  epic-4: done
+  epic-4: in-progress
   4-1-create-event: done
   4-2-rsvp-tracking: done
   4-3-threshold-management: done
   4-4-event-confirmation: done
   4-5-view-events: done
   4-6-cancel-event: done
+  # 4-7 added 2026-08-27 per approved sprint-change-proposal-2026-08-19 (availability-first pivot)
+  4-7-deemphasize-threshold: ready-for-dev
   epic-4-retrospective: optional
 
   # EPIC 5: Wishlists & Discovery
@@ -140,14 +144,14 @@ development_status:
 
 summary:
   total_epics: 10
-  total_stories: 48
-  epics_done: 7
-  epics_in_progress: 3
+  total_stories: 50
+  epics_done: 5
+  epics_in_progress: 5
   epics_backlog: 0
   stories_done: 38
   stories_in_progress: 0
   stories_review: 6
   stories_backlog: 0
-  stories_ready_for_dev: 4
+  stories_ready_for_dev: 6
   retrospectives_optional: 10
   retrospectives_done: 0

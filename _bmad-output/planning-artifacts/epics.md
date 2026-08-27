@@ -113,11 +113,11 @@ Users can create named, reusable contact lists (social circles) and bulk-invite 
 
 ### Epic 2: Group Creation & Management
 
-Users can create groups, invite members via unique links, and manage group membership with admin controls.
+Users can create groups, invite members via unique links, manage group membership with admin controls, and (new) set a per-group Planning Style that determines the group's default landing view.
 
-**User Outcome:** Persistent group identity where users coordinate planning with their communities.
+**User Outcome:** Persistent group identity where users coordinate planning with their communities, with the coordination style tailored to what that specific group needs.
 
-**FRs covered:** FR6, FR7, FR8, FR9, FR10, FR11, FR12, FR13, FR14, FR15
+**FRs covered:** FR6, FR7, FR8, FR9, FR10, FR11, FR12, FR13, FR14, FR15, FR71 (added 2026-08-20 per sprint-change-proposal-2026-08-19)
 
 **Technical Considerations:**
 - Group CRUD operations with creator → admin role
@@ -126,6 +126,7 @@ Users can create groups, invite members via unique links, and manage group membe
 - Admin-only member removal and group deletion
 - Soft delete pattern (deleted_at column)
 - Authorization checks on all group operations
+- Planning Style setting (`planning_style` column on groups: `'availability-first'` | `'proposals-first'`), admin-only, drives which landing view (Epic 3's availability screen vs. Epic 4's existing feed) a group's members see by default
 
 ---
 
@@ -153,9 +154,9 @@ Users can mark their availability (free/busy), view group members' availability 
 
 ### Epic 4: Event Proposals & RSVP with Real-Time Momentum
 
-Users can propose events, set optional commitment thresholds, track RSVPs (in/maybe/out), and see real-time momentum updates.
+Users can propose events, set optional commitment thresholds, track RSVPs (in/maybe/out), and see real-time momentum updates — with threshold/momentum prominence now configurable per group.
 
-**User Outcome:** Fast group decision-making with visible, real-time commitment momentum that accelerates decisions.
+**User Outcome:** Fast group decision-making with visible, real-time commitment momentum that accelerates decisions, without that momentum mechanic overpowering groups that prefer availability-first planning.
 
 **FRs covered:** FR23, FR24, FR25, FR26, FR27, FR28, FR29, FR30, FR31, FR32, FR33, FR34
 
@@ -168,6 +169,7 @@ Users can propose events, set optional commitment thresholds, track RSVPs (in/ma
 - Event list view and event detail view
 - Authorization: creators can delete/cancel; all members can RSVP
 - <1 second sync requirement for RSVP updates
+- Threshold/momentum display de-emphasized on event card and detail view when the group's Planning Style (Epic 2, FR71) is Availability-first — no FR/logic change, presentation only (added 2026-08-20 per sprint-change-proposal-2026-08-19)
 
 ---
 
