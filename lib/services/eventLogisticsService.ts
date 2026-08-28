@@ -316,6 +316,22 @@ export async function updateLogisticsItem(
       };
     }
 
+    if (updates.capacity !== undefined && item.category === 'carpool') {
+      const claimCountResult = await client.query(
+        `SELECT COUNT(*)::int AS count FROM event_logistics_claims WHERE logistics_item_id = $1`,
+        [itemId]
+      );
+      const currentClaimCount = claimCountResult.rows[0].count;
+      if (updates.capacity < currentClaimCount) {
+        return {
+          success: false,
+          message: `Capacity can't be less than the ${currentClaimCount} seat(s) already claimed`,
+          error: 'CAPACITY_BELOW_CLAIMS',
+          errorCode: 'VALIDATION_ERROR',
+        };
+      }
+    }
+
     // Skip the extra lookup for a self-claim: userRole above already confirms
     // the caller (== updates.assigned_to here) is a group member.
     if (updates.assigned_to && updates.assigned_to !== userId) {
@@ -350,12 +366,36 @@ export async function updateLogisticsItem(
     }
 
     values.push(itemId);
+    const itemIdParamIndex = paramIndex++;
+
+    // Self-claim/unclaim on a 'bring' item races against other members doing
+    // the same thing between our read of `item` above and this write — guard
+    // the UPDATE on the assigned_to value we actually observed, so a losing
+    // concurrent claim is rejected instead of silently overwriting the winner.
+    let whereClause = `id = $${itemIdParamIndex}`;
+    if (isSelfClaim) {
+      whereClause += ` AND assigned_to IS NULL`;
+    } else if (isSelfUnclaim) {
+      whereClause += ` AND assigned_to = $${paramIndex}`;
+      values.push(userId);
+    }
 
     const updateResult = await client.query(
-      `UPDATE event_logistics_items SET ${setClauses.join(', ')} WHERE id = $${paramIndex}
+      `UPDATE event_logistics_items SET ${setClauses.join(', ')} WHERE ${whereClause}
        RETURNING ${ITEM_COLUMNS}`,
       values
     );
+
+    if (updateResult.rows.length === 0 && isClaimAction) {
+      return {
+        success: false,
+        message: isSelfClaim
+          ? 'Someone else already claimed this item'
+          : 'This item is no longer assigned to you',
+        error: 'CLAIM_CONFLICT',
+        errorCode: 'CONFLICT',
+      };
+    }
 
     const claimsResult = await client.query(
       `SELECT user_id, claimed_at FROM event_logistics_claims WHERE logistics_item_id = $1 ORDER BY claimed_at ASC`,

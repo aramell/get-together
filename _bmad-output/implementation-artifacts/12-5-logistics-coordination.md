@@ -1,6 +1,6 @@
 # Story 12.5: Logistics Coordination
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -118,3 +118,16 @@ claude-sonnet-5
 ## Change Log
 
 - 2026-08-04: Implemented Story 12.5 (Logistics Coordination) — migrations, service layer, API routes, UI component, tests. Status set to "review".
+- 2026-08-27: Code review found and fixed a claim race condition and a capacity-validation gap (see below). Status set to "done".
+
+## Code Review & Fixes (2026-08-27)
+
+- **Review:** Adversarial code review found two correctness bugs in `lib/services/eventLogisticsService.ts`:
+  1. Self-claiming a "bring" item had no guard against a concurrent claim — two members claiming the same unclaimed item within the same poll window would both succeed, with the second silently overwriting the first and no conflict signal to either user.
+  2. A carpool's `capacity` could be edited below its current claim count with no validation, permanently over-subscribing it.
+- **Fixed:**
+  1. The self-claim/unclaim `UPDATE` now includes a conditional `WHERE assigned_to IS NULL` (claim) or `WHERE assigned_to = $userId` (unclaim) guard; zero rows updated now returns a `409 CONFLICT` ("Someone else already claimed this item") instead of silently succeeding.
+  2. Capacity updates on carpool items now check the current claim count first and reject (`400 VALIDATION_ERROR`) if the new capacity would be below it.
+- **Filed separately:** The review also noted (as context, not scored against this story specifically) that authorization here rests on the same unverified-JWT pattern as everywhere else. Tracked as its own story: `8-5-jwt-signature-verification.md`.
+- **Review Follow-ups (AI):**
+  - [ ] [AI-Review][LOW] Creator/admin has no UI path to change a carpool's driver or seat capacity, or reassign a "bring" item — `handleSaveEdit` only ever PATCHes `title`, even though the service layer supports more. `components/groups/EventLogistics.tsx`
