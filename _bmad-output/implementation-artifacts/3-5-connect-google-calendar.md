@@ -3,7 +3,7 @@ story_key: "3-5-connect-google-calendar"
 epic: "3"
 story: "5"
 title: "Connect Google Calendar (OAuth)"
-status: "in-progress"
+status: "review"
 created_date: "2026-08-27"
 ---
 
@@ -12,7 +12,7 @@ created_date: "2026-08-27"
 **Epic:** 3 - Soft Calendar & Availability
 **Story Key:** 3-5-connect-google-calendar
 **Created:** 2026-08-27
-**Status:** in-progress
+**Status:** review
 
 ---
 
@@ -85,8 +85,8 @@ So that my real availability syncs into the group's soft calendar without manual
 
 **Task 4: Settings UI**
 - [x] "Connect Google Calendar" button in calendar/availability settings
-- [ ] Connected state display (email + "Disconnect" action, wired to Story 3.8)
-  - **PARTIAL:** Connected state display with email is implemented (`components/settings/CalendarConnectionSetting.tsx`). The "Disconnect" action itself is not — Story 3.8 (Disconnect Google Calendar) is still `ready-for-dev`, not built, and per this story's own phrasing the action is "wired to Story 3.8" (i.e. 3.8's job, not 3.5's). Building a disconnect endpoint here would duplicate/preempt 3.8's actual scope (which per Architecture Decision 6c also needs to clear cached `google_calendar_busy_blocks`, not just the connection row). Left unchecked rather than fabricated, consistent with how Story 2.8's Task 4 and Story 3.7's Task 2 handled their own forward dependencies on not-yet-built stories.
+- [x] Connected state display (email + "Disconnect" action, wired to Story 3.8)
+  - **RESOLVED 2026-08-28:** Story 3.8 has since shipped (status `review`) and implemented the Disconnect action directly into this story's `components/settings/CalendarConnectionSetting.tsx` (Disconnect button, confirmation dialog reusing `DeleteConfirmationDialog`, wired to `DELETE /api/calendar/google/disconnect`). Verified by inspection: the component renders the "Google Calendar Connected" badge, connected email, and a "Disconnect" button with confirmation flow. No source changes were needed in this story; re-ran `CalendarConnectionSetting.test.tsx`, `calendarConnectionService.test.ts`, and `crypto.test.ts` (26/26 passing) to confirm.
 - [x] Consent-denial and error message handling
 
 **Task 5: Environment Configuration**
@@ -158,9 +158,9 @@ Same pre-existing, repo-wide Node v25 harness issue documented in Story 2.8's De
 ### Completion Notes
 - Tasks 1, 2, 3, 5, 6 fully implemented and tested. Task 4 is done except one sub-item: the "Disconnect" action is intentionally not built here — it's Story 3.8's scope (still `ready-for-dev`), and per this story's own AC3 phrasing ("replaced with 'Disconnect' (Story 3.8)") that's expected. Connected-state display (email) is implemented and tested.
 - AC1 (initiate OAuth, CSRF state), AC2 (encrypted refresh-token storage, access token never persisted), AC4 (consent-denial handling), AC5 (re-connect updates existing row) are fully implemented and tested.
-- AC3 (reflect connected state) is implemented for the "connected" half (email + status endpoint + UI badge); the "Connect replaced with Disconnect" half is Story 3.8's job per the AC's own text.
-- Story left `in-progress`, not `review`, per the same completion-gate reasoning Stories 2.8 and 3.7 used: one task sub-item has a real, external, not-yet-buildable blocker (Story 3.8 doesn't exist), not a quality gap in this story's own work.
+- AC3 (reflect connected state) is now fully implemented — the "connected" half (email + status endpoint + UI badge) by this story, and the "Connect replaced with Disconnect" half by Story 3.8 (see Task 4 note, resolved 2026-08-28).
 - **Next in this session:** proceeding directly to Story 3.6 (Sync Google Availability), then 3.7, then back to finish Story 2.8's Task 4 — per user's explicit direction to build the dependency chain in order this session.
+- **2026-08-28:** Task 4's remaining sub-item resolved with no source changes — Story 3.8 shipped in the interim and implemented the Disconnect action directly into this story's `CalendarConnectionSetting.tsx`, satisfying AC3's "Connect replaced with Disconnect" half. Verified by inspection and re-ran this story's non-`NextRequest` test suites (26/26 passing). All tasks now complete; story moved to `review`.
 
 ### File List
 - `lib/db/migrations/024_create_calendar_connections_table.sql` (new)
@@ -179,15 +179,17 @@ Same pre-existing, repo-wide Node v25 harness issue documented in Story 2.8's De
 - `__tests__/api/calendar/google/status.test.ts` (new)
 - `__tests__/components/settings/CalendarConnectionSetting.test.tsx` (new)
 - `__tests__/integration/calendar/connect-flow.test.ts` (new)
+- No files changed to close out Task 4 — the Disconnect action was implemented directly into `components/settings/CalendarConnectionSetting.tsx` by Story 3.8; see Task 4 note.
 
 ### Change Log
 - 2026-08-27: Implemented Tasks 1, 2, 3, 5, 6 and most of Task 4 (DB migration, encryption helper, OAuth connect/callback/status endpoints, settings UI, env config, tests) for Google Calendar OAuth connection. Task 4's "Disconnect" action deferred to Story 3.8 (doesn't exist yet). Story left `in-progress`, not `review`, pending Story 3.8.
+- 2026-08-28: Closed out Task 4 — Story 3.8 shipped and already wires the Disconnect action into `CalendarConnectionSetting.tsx`. Verified by code inspection and re-running affected test suites (26/26 passing). All tasks and ACs now complete; Status moved to `review`.
 
 ---
 
 ## Next Steps
 
-1. **Dev Agent:** Invoke `/bmad-bmm-dev-story` with this story file — done 2026-08-27 (Tasks 1/2/3/5/6, most of Task 4)
-2. **Coordinate:** Provision `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` in Google Cloud Console before this connects to real Google accounts (not needed for the code/tests themselves)
-3. **Code Review:** Run `/bmad-bmm-code-review` after Story 3.8 completes Task 4's Disconnect wiring
-4. **Next Story:** 3-6-sync-google-availability (depends on this story's `calendar_connections` table) — in progress next, same session
+1. ~~**Dev Agent:** Invoke `/bmad-bmm-dev-story` with this story file~~ — done 2026-08-27 (Tasks 1/2/3/5/6, most of Task 4)
+2. ~~**Task 4:** Disconnect action, wired to Story 3.8~~ — done 2026-08-28 (satisfied by Story 3.8's implementation; see Task 4 note)
+3. **Coordinate:** Provision `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` in Google Cloud Console before this connects to real Google accounts (not needed for the code/tests themselves)
+4. **Code Review:** Run `/bmad-bmm-code-review`
