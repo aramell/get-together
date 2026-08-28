@@ -1055,6 +1055,7 @@ export async function updateGroupSettings(
   data: {
     name?: string;
     description?: string | null;
+    planning_style?: 'availability-first' | 'proposals-first';
   }
 ): Promise<{
   success: boolean;

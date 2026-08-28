@@ -32,6 +32,7 @@ import { useAuth } from '@/lib/contexts/AuthContext';
 import { getGroupDetails, deleteGroup, removeMember } from '@/lib/services/groupService';
 import { MemberList } from '@/components/groups/MemberList';
 import { AdminGroupSettings } from '@/components/groups/AdminGroupSettings';
+import { PlanningStyleSetting, PlanningStyle } from '@/components/groups/PlanningStyleSetting';
 import { CreateEventModal } from '@/components/groups/CreateEventModal';
 import { EventCard } from '@/components/groups/EventCard';
 import { WishlistList } from '@/components/groups/WishlistList';
@@ -44,6 +45,7 @@ interface GroupDetailsData {
     description: string | null;
     created_by: string;
     invite_code: string;
+    planning_style: PlanningStyle;
     created_at: string;
     updated_at: string;
   };
@@ -554,6 +556,18 @@ export default function GroupDetailsPage() {
           <Box>
             <WishlistList groupId={groupId} />
           </Box>
+
+          <Divider />
+
+          {/* Planning Style Setting (Story 2.8) - visible to all members, editable by admins */}
+          <PlanningStyleSetting
+            groupId={groupId}
+            planningStyle={group.planning_style}
+            isAdmin={isAdmin}
+            onChanged={(planning_style) =>
+              setData((prev) => (prev ? { ...prev, group: { ...prev.group, planning_style } } : prev))
+            }
+          />
 
           {isAdmin && (
             <>

@@ -60,7 +60,7 @@ development_status:
   2-6-remove-members: done
   2-7-delete-group: done
   # 2-8 added 2026-08-27 per approved sprint-change-proposal-2026-08-19 (availability-first pivot)
-  2-8-planning-style-setting: ready-for-dev
+  2-8-planning-style-setting: in-progress
   epic-2-retrospective: optional
 
   # EPIC 3: Soft Calendar & Availability

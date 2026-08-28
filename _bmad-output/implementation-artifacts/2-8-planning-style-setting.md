@@ -3,7 +3,7 @@ story_key: "2-8-planning-style-setting"
 epic: "2"
 story: "8"
 title: "Per-Group Planning Style Setting"
-status: "ready-for-dev"
+status: "in-progress"
 created_date: "2026-08-27"
 ---
 
@@ -12,7 +12,7 @@ created_date: "2026-08-27"
 **Epic:** 2 - Group Creation & Management
 **Story Key:** 2-8-planning-style-setting
 **Created:** 2026-08-27
-**Status:** ready-for-dev
+**Status:** in-progress
 
 ---
 
@@ -64,26 +64,27 @@ So that the group's landing view matches how that specific group actually likes 
 ## Tasks / Subtasks
 
 **Task 1: Database Migration**
-- [ ] Add `planning_style` column to `groups` table: `VARCHAR`, `CHECK (planning_style IN ('availability-first', 'proposals-first'))`, `NOT NULL DEFAULT 'availability-first'`
-- [ ] Migration backfills existing rows with the default (satisfied automatically by the `NOT NULL DEFAULT` clause — no separate backfill script needed)
+- [x] Add `planning_style` column to `groups` table: `VARCHAR`, `CHECK (planning_style IN ('availability-first', 'proposals-first'))`, `NOT NULL DEFAULT 'availability-first'`
+- [x] Migration backfills existing rows with the default (satisfied automatically by the `NOT NULL DEFAULT` clause — no separate backfill script needed)
 
 **Task 2: API Endpoint**
-- [ ] `PATCH /api/groups/:groupId/settings` (or extend existing group-settings endpoint if one exists from Epic 2) — accepts `planning_style`, validates admin role before applying (403 for non-admins), validates enum value (400 for invalid)
+- [x] `PATCH /api/groups/:groupId/settings` (or extend existing group-settings endpoint if one exists from Epic 2) — accepts `planning_style`, validates admin role before applying (403 for non-admins), validates enum value (400 for invalid)
 
 **Task 3: Settings UI**
-- [ ] Add Planning Style toggle/radio control to group settings screen
-- [ ] Admin: editable control
-- [ ] Non-admin: read-only display of current value (AC3)
-- [ ] Brief inline explanation of what each mode means (reuse language from PRD's Executive Summary / UX spec Section 2.1 framing)
+- [x] Add Planning Style toggle/radio control to group settings screen
+- [x] Admin: editable control
+- [x] Non-admin: read-only display of current value (AC3)
+- [x] Brief inline explanation of what each mode means (reuse language from PRD's Executive Summary / UX spec Section 2.1 framing)
 
 **Task 4: Routing Integration**
 - [ ] Wire the real `planning_style` value into Story 3.7's routing logic, replacing the interim hardcoded default noted in that story's Task 2
+  - **BLOCKED:** Story 3.7 (Availability-First Home Screen) is itself still `ready-for-dev` — not yet implemented — so there is no interim hardcoded default in it to replace. This task has no actionable target until 3.7 lands. Confirmed with user (Andrewramell) 2026-08-27: proceed with Tasks 1/2/3/5 now and leave Task 4 unchecked rather than fabricate routing work against a story that doesn't exist yet. Revisit once 3.7 ships (3.7's own Task 2 already calls for this handoff).
 
 **Task 5: Testing**
-- [ ] API tests: admin can update, non-admin gets 403, invalid value gets 400
-- [ ] Migration test: existing groups backfilled correctly
-- [ ] Component tests: toggle renders correctly for admin vs. non-admin
-- [ ] Integration test: changing the setting changes which view a member lands on next open
+- [x] API tests: admin can update, non-admin gets 403, invalid value gets 400
+- [x] Migration test: existing groups backfilled correctly
+- [x] Component tests: toggle renders correctly for admin vs. non-admin
+- [x] Integration test: settings→read round trip a landing-view consumer would rely on (scoped down from "changing the setting changes which view a member lands on next open" — that view doesn't exist yet; see Task 4)
 
 ---
 
@@ -112,6 +113,14 @@ So that the group's landing view matches how that specific group actually likes 
 
 ### Workflow Execution
 - Created via Scrum Master story-preparation pass following FR71 and the sprint-change-proposal-2026-08-19's Epic 2 candidate story
+- Implemented 2026-08-27 by Dev Agent. Tasks 1, 2, 3, 5 complete; Task 4 blocked (see Task 4 note above and Completion Notes below). Story left in `in-progress` rather than `review` per the dev-story workflow's completion gate (any incomplete task halts the move to review) — the blocker is external (Story 3.7 not yet built), not a quality gap.
+
+### Implementation Plan
+- **Migration (023):** Added `planning_style VARCHAR(20) NOT NULL DEFAULT 'availability-first' CHECK (...)` to `groups`. The `NOT NULL DEFAULT` clause backfills existing rows as part of the `ALTER TABLE` itself (AC1, AC5) — no separate UPDATE statement needed.
+- **API:** Extended the existing `PATCH /api/groups/:groupId` handler (rather than adding a new route) per the story's own guidance to extend if a settings endpoint already exists. Added `planning_style` to the Zod schema (`z.enum(['availability-first', 'proposals-first'])`) and to `lib/db/queries.ts`'s `updateGroup`/`getGroupById`/`getGroupDetailsWithMembers`/`createGroupWithMembership`. Admin-role check (403) already ran before body parsing in the existing handler, so invalid-enum 400s and non-admin 403s compose correctly without reordering.
+- **UI:** Added a new `PlanningStyleSetting` component rather than extending `AdminGroupSettings`, because `AdminGroupSettings` is gated entirely behind `isAdmin` on the group page, but AC3 requires non-admins to *see* the setting (read-only) — it needs to render for all members. Wired into `app/groups/[groupId]/page.tsx` outside the admin gate, above the existing `AdminGroupSettings` block. Also extended `lib/services/groupService.ts`'s existing `updateGroupSettings` to accept `planning_style` rather than adding a new service function.
+- **Scope note (Task 4):** Discovered during implementation that Story 3.7 (the story whose "interim hardcoded default" Task 4 was meant to replace) is itself still `ready-for-dev`, not built. Flagged to the user before starting; user chose to proceed with Tasks 1/2/3/5 and leave Task 4 unchecked/blocked rather than either fabricate routing work or halt the whole story. See Task 4 note.
+- **Test environment note:** This sandbox (Node v25) has a pre-existing, repo-wide harness issue unrelated to this story: `jest.setup.js`'s `global.Request` polyfill conflicts with Next.js's real `NextRequest` (which defines `url` as a getter), so every test that constructs a `NextRequest` fails with "Cannot set property url of #<NextRequest> which has only a getter." Confirmed via `git stash` that this fails identically on unmodified `main` (baseline: 67 failed suites / 435 failed tests repo-wide, including the pre-existing `__tests__/api/groups/delete.test.ts`). The new API test for this story (`settings-planning-style.test.ts`) is written against the same proven pattern as `delete.test.ts` and fails only for this pre-existing harness reason — not a logic error. Recommend filing this as its own cross-cutting fix, the way 8-5-jwt-signature-verification was filed separately rather than patched piecemeal.
 
 ### Story Quality Checklist
 - ✅ Explicit default and backfill behavior specified (AC1, AC5) — avoids leaving existing-vs-new-group behavior ambiguous
@@ -123,10 +132,33 @@ So that the group's landing view matches how that specific group actually likes 
 - **Dependencies:** None blocking start; Story 3.7 benefits from this landing (removes its interim default)
 - **Blocking Issues:** None
 
+### Completion Notes
+- Tasks 1, 2, 3, 5 implemented and tested. Task 4 blocked on Story 3.7 not yet existing — see Task 4 note and Implementation Plan above.
+- AC1 (default for new groups), AC2 (admin can change), AC3 (non-admin read-only), AC5 (existing groups backfilled) are implemented and covered by tests. AC4 (setting drives default landing view) cannot be satisfied yet — it requires Story 3.7's routing logic, which doesn't exist.
+- All new/changed code passes `tsc --noEmit` and `eslint` with no new errors (verified against pre-existing baseline via `git stash` comparison).
+- New tests pass except the API route test, which is blocked by a pre-existing, repo-wide Node v25 test-harness incompatibility (not a defect in this story's code — see Implementation Plan note).
+
+### File List
+- `lib/db/migrations/023_add_planning_style_to_groups.sql` (new)
+- `lib/db/queries.ts` (modified — `planning_style` added to `getGroupById`, `getGroupDetailsWithMembers`, `updateGroup`, `createGroupWithMembership`)
+- `app/api/groups/[groupId]/route.ts` (modified — PATCH accepts `planning_style`)
+- `lib/services/groupService.ts` (modified — `updateGroupSettings` accepts `planning_style`)
+- `components/groups/PlanningStyleSetting.tsx` (new)
+- `app/groups/[groupId]/page.tsx` (modified — renders `PlanningStyleSetting` for all members)
+- `__tests__/migrations/023_add_planning_style_to_groups.test.ts` (new)
+- `__tests__/api/groups/settings-planning-style.test.ts` (new)
+- `__tests__/components/groups/PlanningStyleSetting.test.tsx` (new)
+- `__tests__/integration/groups/planning-style.test.ts` (new)
+- `__tests__/services/updateGroupSettings.planningStyle.test.ts` (new)
+
+### Change Log
+- 2026-08-27: Implemented Tasks 1, 2, 3, 5 (DB migration, PATCH API, Settings UI, tests) for the Planning Style setting. Task 4 (routing integration into Story 3.7) deferred — Story 3.7 doesn't exist yet. Story left `in-progress`, not `review`, pending Task 4.
+
 ---
 
 ## Next Steps
 
-1. **Dev Agent:** Invoke `/bmad-bmm-dev-story` with this story file
-2. **Code Review:** Run `/bmad-bmm-code-review` after implementation
-3. **Follow-up:** Once this ships, revisit Story 3.7 to remove its temporary hardcoded default (Task 2 there)
+1. ~~**Dev Agent:** Invoke `/bmad-bmm-dev-story` with this story file~~ — done 2026-08-27 (Tasks 1/2/3/5)
+2. **Task 4:** Once Story 3.7 is implemented (with its interim hardcoded default per its own Task 2), come back to this story to wire the real `planning_style` value into its routing logic, check Task 4's box, and move Status to `review`
+3. **Code Review:** Run `/bmad-bmm-code-review` after Task 4 is complete
+4. **Follow-up:** Story 3.7's own Task 2 already calls for removing its temporary hardcoded default once this handoff happens

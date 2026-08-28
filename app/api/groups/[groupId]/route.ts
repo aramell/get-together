@@ -123,6 +123,7 @@ export async function GET(
 const updateGroupSchema = z.object({
   name: z.string().min(1).max(100).trim().optional(),
   description: z.string().max(500).trim().nullable().optional(),
+  planning_style: z.enum(['availability-first', 'proposals-first']).optional(),
 });
 
 /**
@@ -195,10 +196,10 @@ export async function PATCH(
 
     // Parse and validate request body
     const body = await request.json();
-    const { name, description } = updateGroupSchema.parse(body);
+    const { name, description, planning_style } = updateGroupSchema.parse(body);
 
     // At least one field must be provided
-    if (name === undefined && description === undefined) {
+    if (name === undefined && description === undefined && planning_style === undefined) {
       return NextResponse.json(
         {
           success: false,
@@ -211,9 +212,10 @@ export async function PATCH(
     }
 
     // Update group
-    const updateData: { name?: string; description?: string | null } = {};
+    const updateData: { name?: string; description?: string | null; planning_style?: 'availability-first' | 'proposals-first' } = {};
     if (name !== undefined) updateData.name = name;
     if (description !== undefined) updateData.description = description;
+    if (planning_style !== undefined) updateData.planning_style = planning_style;
 
     const updatedGroup = await updateGroup(groupId, updateData);
 
