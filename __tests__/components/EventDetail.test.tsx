@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ChakraProvider } from '@chakra-ui/react';
 import { EventDetail } from '@/components/groups/EventDetail';
 import { AuthProvider } from '@/lib/contexts/AuthContext';
+import { getGroupDetails } from '@/lib/services/groupService';
 
 // Mock the fetch API
 global.fetch = jest.fn();
@@ -28,6 +29,14 @@ jest.mock('@/lib/contexts/AuthContext', () => ({
     checkTokenExpiration: jest.fn(),
     isTokenExpired: jest.fn(),
   })),
+}));
+
+// Mock groupService.getGroupDetails (drives userRole + planning_style, Story 4.7)
+jest.mock('@/lib/services/groupService', () => ({
+  getGroupDetails: jest.fn().mockResolvedValue({
+    success: true,
+    data: { group: { planning_style: 'proposals-first' }, members: [], currentUserRole: 'member' },
+  }),
 }));
 
 const mockEvent = {
@@ -374,6 +383,62 @@ describe('EventDetail Component', () => {
 
       expect(screen.queryByRole('tab', { name: /details/i })).not.toBeInTheDocument();
       expect(screen.queryByRole('tab', { name: /planning/i })).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Planning Style Variant (Story 4.7)', () => {
+    test('shows full-prominence momentum display when group planning_style is proposals-first', async () => {
+      (getGroupDetails as jest.Mock).mockResolvedValueOnce({
+        success: true,
+        data: { group: { planning_style: 'proposals-first' }, members: [], currentUserRole: 'member' },
+      });
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, data: mockEvent }),
+      });
+
+      renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
+
+      await waitFor(() => {
+        expect(screen.getByText(/RSVPs: 3 in, 1 maybe, 0 out/)).toBeInTheDocument();
+      });
+      expect(screen.queryByTestId('momentum-deemphasized')).not.toBeInTheDocument();
+    });
+
+    test('shows de-emphasized momentum display when group planning_style is availability-first (AC2)', async () => {
+      (getGroupDetails as jest.Mock).mockResolvedValueOnce({
+        success: true,
+        data: { group: { planning_style: 'availability-first' }, members: [], currentUserRole: 'member' },
+      });
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, data: mockEvent }),
+      });
+
+      renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('momentum-deemphasized')).toHaveTextContent('3 in, 1 maybe, 0 out');
+      });
+      // Full-prominence box gone
+      expect(screen.queryByText(/RSVPs: 3 in, 1 maybe, 0 out/)).not.toBeInTheDocument();
+    });
+
+    test('Cancel Event button remains available and unaffected in the de-emphasized variant (AC4)', async () => {
+      (getGroupDetails as jest.Mock).mockResolvedValueOnce({
+        success: true,
+        data: { group: { planning_style: 'availability-first' }, members: [], currentUserRole: 'member' },
+      });
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, data: mockEvent }),
+      });
+
+      renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /cancel event/i })).toBeInTheDocument();
+      });
     });
   });
 

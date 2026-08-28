@@ -18,9 +18,17 @@ interface EventCardProps {
   event: EventWithMomentum;
   userRsvpStatus?: 'in' | 'maybe' | 'out' | null;
   onClick?: () => void;
+  /** Story 2.8 group setting. 'availability-first' de-emphasizes the momentum/threshold
+   * display (Story 4.7); defaults to the original full-prominence 'proposals-first' treatment. */
+  planningStyle?: 'availability-first' | 'proposals-first';
 }
 
-export function EventCard({ event, userRsvpStatus, onClick }: EventCardProps) {
+export function EventCard({
+  event,
+  userRsvpStatus,
+  onClick,
+  planningStyle = 'proposals-first',
+}: EventCardProps) {
   const {
     id: eventId,
     group_id: groupId,
@@ -53,6 +61,8 @@ export function EventCard({ event, userRsvpStatus, onClick }: EventCardProps) {
   const isConfirmed = status === 'confirmed';
   const isCancelled = status === 'cancelled';
   const pinTilt = (eventId.charCodeAt(0) % 5 === 0) ? '1.2deg' : '-1.2deg';
+  const isDeemphasized = planningStyle === 'availability-first';
+  const hasThreshold = initialThreshold !== null && initialThreshold !== undefined;
 
   return (
     <Card
@@ -105,6 +115,29 @@ export function EventCard({ event, userRsvpStatus, onClick }: EventCardProps) {
             <Text fontSize={['14px', '16px']} color="ink.500">
               {formattedDate} {formattedTime}
             </Text>
+            {isDeemphasized && (
+              <VStack align="flex-start" spacing={1} data-testid="momentum-deemphasized">
+                <Text fontSize="xs" color="ink.400">
+                  {momentumText}
+                </Text>
+                {hasThreshold && (
+                  <HStack spacing={2} width="120px">
+                    <Progress
+                      value={inCount}
+                      max={initialThreshold}
+                      colorScheme="gray"
+                      size="xs"
+                      borderRadius="full"
+                      width="100%"
+                      aria-label="Confirmation progress"
+                    />
+                    <Text fontSize="xs" color="ink.400" fontFamily="mono" whiteSpace="nowrap">
+                      {inCount}/{initialThreshold}
+                    </Text>
+                  </HStack>
+                )}
+              </VStack>
+            )}
           </VStack>
           <Badge
             colorScheme={status === 'confirmed' ? 'green' : status === 'cancelled' ? 'gray' : 'yellow'}
@@ -120,29 +153,31 @@ export function EventCard({ event, userRsvpStatus, onClick }: EventCardProps) {
 
       <CardBody px={[3, 4]} py={[3, 4]}>
         <VStack align="stretch" spacing={[3, 4]}>
-          {/* Momentum Counter */}
-          <Box
-            p={[3, 4]}
-            bg="paper.100"
-            borderRadius="md"
-            borderLeft="4px solid"
-            borderColor="marigold.500"
-            aria-live="polite"
-            aria-atomic="true"
-          >
-            <Text fontSize={['14px', '16px']} color="ink.600" fontWeight="medium">
-              RSVPs: {momentumText}
-            </Text>
-          </Box>
-
-          {/* Threshold Display */}
-          {initialThreshold !== null && initialThreshold !== undefined && (
+          {/* Momentum Counter (full prominence — proposals-first groups only; see de-emphasized variant in header) */}
+          {!isDeemphasized && (
             <Box
               p={[3, 4]}
-              bg={inCount >= initialThreshold ? 'meadow.50' : 'paper.100'}
+              bg="paper.100"
               borderRadius="md"
               borderLeft="4px solid"
-              borderColor={inCount >= initialThreshold ? 'meadow.400' : 'cork.300'}
+              borderColor="marigold.500"
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              <Text fontSize={['14px', '16px']} color="ink.600" fontWeight="medium">
+                RSVPs: {momentumText}
+              </Text>
+            </Box>
+          )}
+
+          {/* Threshold Display */}
+          {!isDeemphasized && hasThreshold && (
+            <Box
+              p={[3, 4]}
+              bg={inCount >= initialThreshold! ? 'meadow.50' : 'paper.100'}
+              borderRadius="md"
+              borderLeft="4px solid"
+              borderColor={inCount >= initialThreshold! ? 'meadow.400' : 'cork.300'}
             >
               <HStack justify="space-between" mb={2} flexWrap="wrap" gap={2}>
                 <Text fontSize={['14px', '16px']} color="ink.600" fontWeight="medium">
@@ -156,7 +191,7 @@ export function EventCard({ event, userRsvpStatus, onClick }: EventCardProps) {
                 value={inCount}
                 max={initialThreshold}
                 size="sm"
-                colorScheme={inCount >= initialThreshold ? 'green' : 'blue'}
+                colorScheme={inCount >= initialThreshold! ? 'green' : 'blue'}
                 height={['6px', '8px']}
               />
             </Box>

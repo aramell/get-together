@@ -48,6 +48,7 @@ export const EventDetail: React.FC<EventDetailProps> = ({ groupId, eventId }) =>
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [userRole, setUserRole] = useState<'admin' | 'member' | null>(null);
+  const [planningStyle, setPlanningStyle] = useState<'availability-first' | 'proposals-first'>('proposals-first');
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { isOpen: isShareOpen, onOpen: onShareOpen, onClose: onShareClose } = useDisclosure();
   const cancelRef = React.useRef(null);
@@ -102,6 +103,9 @@ export const EventDetail: React.FC<EventDetailProps> = ({ groupId, eventId }) =>
         const result = await getGroupDetails(groupId, userId);
         if (result.success && result.data?.currentUserRole) {
           setUserRole(result.data.currentUserRole);
+        }
+        if (result.success && result.data?.group?.planning_style) {
+          setPlanningStyle(result.data.group.planning_style);
         }
       } catch (err) {
         // Silently fail - authorization is still enforced server-side
@@ -184,6 +188,8 @@ export const EventDetail: React.FC<EventDetailProps> = ({ groupId, eventId }) =>
     minute: '2-digit',
   });
   const momentum = event.momentum || { in: 0, maybe: 0, out: 0 };
+  const momentumText = `${momentum.in} in, ${momentum.maybe} maybe, ${momentum.out} out`;
+  const isDeemphasized = planningStyle === 'availability-first';
 
   const tabStyle = {
     color: 'ink.500',
@@ -222,6 +228,11 @@ export const EventDetail: React.FC<EventDetailProps> = ({ groupId, eventId }) =>
                   <Text fontSize="md" color="gray.600">
                     {formattedDate} at {formattedTime}
                   </Text>
+                  {isDeemphasized && (
+                    <Text fontSize="xs" color="gray.400" data-testid="momentum-deemphasized">
+                      {momentumText}
+                    </Text>
+                  )}
                 </VStack>
               </CardHeader>
 
@@ -236,12 +247,14 @@ export const EventDetail: React.FC<EventDetailProps> = ({ groupId, eventId }) =>
                     </Box>
                   )}
 
-                  {/* Momentum Counter */}
-                  <Box p={3} bg="gray.50" borderRadius="md" borderLeft="4px solid" borderColor="blue.500">
-                    <Text fontSize="sm" color="gray.600" fontWeight="medium">
-                      RSVPs: {momentum.in} in, {momentum.maybe} maybe, {momentum.out} out
-                    </Text>
-                  </Box>
+                  {/* Momentum Counter (full prominence — proposals-first groups only; see de-emphasized variant in header) */}
+                  {!isDeemphasized && (
+                    <Box p={3} bg="gray.50" borderRadius="md" borderLeft="4px solid" borderColor="blue.500">
+                      <Text fontSize="sm" color="gray.600" fontWeight="medium">
+                        RSVPs: {momentumText}
+                      </Text>
+                    </Box>
+                  )}
 
                   {/* Action Buttons */}
                   <HStack spacing={3} pt={4}>

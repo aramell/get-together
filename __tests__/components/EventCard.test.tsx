@@ -160,6 +160,70 @@ describe('EventCard Component', () => {
     });
   });
 
+  describe('Planning Style Variant (Story 4.7)', () => {
+    it('shows full-prominence momentum/threshold display when planningStyle is proposals-first', () => {
+      render(<EventCard event={mockEvent} userRsvpStatus={null} planningStyle="proposals-first" />);
+
+      // Full CardBody momentum box present
+      expect(screen.getByText(/RSVPs: 3 in, 1 maybe, 0 out/)).toBeInTheDocument();
+      // Full threshold box present
+      expect(screen.getByText('Confirmation Status')).toBeInTheDocument();
+      expect(screen.getByText('3/5')).toBeInTheDocument();
+      // No de-emphasized header variant rendered
+      expect(screen.queryByTestId('momentum-deemphasized')).not.toBeInTheDocument();
+    });
+
+    it('defaults to full-prominence display when planningStyle is omitted (AC3 no regression)', () => {
+      render(<EventCard event={mockEvent} userRsvpStatus={null} />);
+
+      expect(screen.getByText(/RSVPs: 3 in, 1 maybe, 0 out/)).toBeInTheDocument();
+      expect(screen.getByText('Confirmation Status')).toBeInTheDocument();
+      expect(screen.queryByTestId('momentum-deemphasized')).not.toBeInTheDocument();
+    });
+
+    it('shows de-emphasized, secondary momentum/threshold display when planningStyle is availability-first (AC2)', () => {
+      render(<EventCard event={mockEvent} userRsvpStatus={null} planningStyle="availability-first" />);
+
+      // De-emphasized variant present, in the header (below title/date), not the large CardBody section
+      const deemphasized = screen.getByTestId('momentum-deemphasized');
+      expect(deemphasized).toBeInTheDocument();
+      expect(deemphasized).toHaveTextContent('3 in, 1 maybe, 0 out');
+      expect(deemphasized).toHaveTextContent('3/5');
+
+      // Full-prominence CardBody boxes are gone
+      expect(screen.queryByText(/RSVPs: 3 in, 1 maybe, 0 out/)).not.toBeInTheDocument();
+      expect(screen.queryByText('Confirmation Status')).not.toBeInTheDocument();
+    });
+
+    it('does not render a threshold sub-display when de-emphasized and event has no threshold', () => {
+      const noThresholdEvent = { ...mockEvent, threshold: null };
+      render(
+        <EventCard event={noThresholdEvent} userRsvpStatus={null} planningStyle="availability-first" />
+      );
+
+      const deemphasized = screen.getByTestId('momentum-deemphasized');
+      expect(deemphasized).toHaveTextContent('3 in, 1 maybe, 0 out');
+      expect(screen.queryByTestId('progress')).not.toBeInTheDocument();
+    });
+
+    it('leaves the RSVP status indicator equally prominent in both variants (AC4)', () => {
+      const { rerender } = render(
+        <EventCard event={mockEvent} userRsvpStatus="in" planningStyle="proposals-first" />
+      );
+      expect(screen.getByText(/Your RSVP: In/)).toBeInTheDocument();
+
+      rerender(<EventCard event={mockEvent} userRsvpStatus="in" planningStyle="availability-first" />);
+      expect(screen.getByText(/Your RSVP: In/)).toBeInTheDocument();
+    });
+
+    it('conveys momentum info as text (not color alone) in the de-emphasized variant, preserving color-independence', () => {
+      render(<EventCard event={mockEvent} userRsvpStatus={null} planningStyle="availability-first" />);
+
+      // The counts are readable as plain text regardless of any color styling applied
+      expect(screen.getByTestId('momentum-deemphasized')).toHaveTextContent('3 in, 1 maybe, 0 out');
+    });
+  });
+
   describe('Edge Cases', () => {
     it('should handle event with zero RSVPs', () => {
       const zeroRsvpEvent = {

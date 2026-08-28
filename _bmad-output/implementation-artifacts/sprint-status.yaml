@@ -85,7 +85,7 @@ development_status:
   4-5-view-events: done
   4-6-cancel-event: done
   # 4-7 added 2026-08-27 per approved sprint-change-proposal-2026-08-19 (availability-first pivot)
-  4-7-deemphasize-threshold: ready-for-dev
+  4-7-deemphasize-threshold: review
   epic-4-retrospective: optional
 
   # EPIC 5: Wishlists & Discovery
@@ -155,8 +155,8 @@ summary:
   epics_backlog: 0
   stories_done: 45
   stories_in_progress: 2
-  stories_review: 4
+  stories_review: 5
   stories_backlog: 0
-  stories_ready_for_dev: 2
+  stories_ready_for_dev: 1
   retrospectives_optional: 10
   retrospectives_done: 0

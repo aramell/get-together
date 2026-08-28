@@ -3,7 +3,7 @@ story_key: "4-7-deemphasize-threshold"
 epic: "4"
 story: "7"
 title: "De-Emphasize Threshold Display in Availability-First Groups"
-status: "ready-for-dev"
+status: "review"
 created_date: "2026-08-27"
 ---
 
@@ -12,7 +12,7 @@ created_date: "2026-08-27"
 **Epic:** 4 - Event Proposals & RSVP with Real-Time Momentum
 **Story Key:** 4-7-deemphasize-threshold
 **Created:** 2026-08-27
-**Status:** ready-for-dev
+**Status:** review
 
 ---
 
@@ -58,21 +58,22 @@ So that the event card matches my group's chosen planning style instead of pushi
 ## Tasks / Subtasks
 
 **Task 1: Component Variant**
-- [ ] Add a `deemphasized` visual variant (or `size="small"` + reduced-saturation prop, per the existing `MomentumCounter` component's `size` prop) to `MomentumCounter` and the threshold progress bar
-- [ ] Do not create a second component — extend the existing one with a variant/prop, per the UX spec's "reuse, don't duplicate" principle
+- [x] Add a `deemphasized` visual variant to the momentum/threshold display — implemented as a `planningStyle` prop on `EventCard` (defaults to `'proposals-first'`, the original full-prominence treatment) rather than a variant on `MomentumCounter`. See Completion Notes: `MomentumCounter` is dead code, not rendered by any page — the actual momentum/threshold markup lives inline in `EventCard.tsx` and `EventDetail.tsx`. Confirmed with user (Andrewramell) 2026-08-27 before implementing.
+- [x] Reused the existing inline markup with conditional rendering rather than creating a second component/second markup block
 
 **Task 2: Conditional Rendering**
-- [ ] `EventCard` and event detail view read the event's group's `planning_style` (Story 2.8) and pass the appropriate variant to `MomentumCounter`/threshold display
+- [x] `EventCard` (both call sites in `app/groups/[groupId]/page.tsx`) and `EventDetail` (Details tab) read the event's group's `planning_style` (Story 2.8) — `EventCard` via a new `planningStyle` prop passed from the group page's already-loaded `group.planning_style`; `EventDetail` via extending its existing `getGroupDetails` call (previously used only for `userRole`) — and conditionally render the de-emphasized variant
 
 **Task 3: Visual Design**
-- [ ] De-emphasized variant: smaller font size (per existing `size="small"` token, 14px vs. 20-24px default), reduced background saturation, moved to a less prominent position in the card layout (e.g., below the title/date meta line rather than its own large card section)
-- [ ] Keep color + icon + text accessibility pattern intact in both variants (no regression on WCAG AA color-independence requirement)
+- [x] De-emphasized variant: smaller font size (`xs`, 12px vs. 14-16px default), reduced/removed background saturation (plain text vs. colored `Box`, `colorScheme="gray"` vs. blue/green on the threshold bar), moved to a less prominent position (below the title/date meta line in the card header, rather than its own large `CardBody` section)
+- [x] Color + text accessibility pattern intact in both variants: momentum/threshold counts are always rendered as plain text (never color-only), unchanged by this story
 
 **Task 4: Testing**
-- [ ] Component tests: `MomentumCounter` renders both variants correctly
-- [ ] Component tests: `EventCard` selects the correct variant based on group's `planning_style`
-- [ ] Visual regression check: Proposals-first groups render identically to before this story (AC3)
-- [ ] Accessibility test: de-emphasized variant still passes color-contrast and color-independence checks
+- [x] `MomentumCounter` component tests not applicable — component confirmed unused/dead code (see Task 1 note); no variant added to it, so no new tests needed there
+- [x] Component tests: `EventCard` selects the correct variant based on `planningStyle` prop (6 new tests in `__tests__/components/EventCard.test.tsx`)
+- [x] Component tests: `EventDetail` selects the correct variant based on group's `planning_style` (3 new tests in `__tests__/components/EventDetail.test.tsx`)
+- [x] Regression check: proposals-first / default (no prop passed) renders identically to before this story (AC3) — covered by existing test suites (28 `EventCard` + 12 `EventCard.mobile` tests, all passing unmodified) plus new explicit default-variant tests
+- [x] Accessibility: de-emphasized variant asserted to convey momentum/threshold info as text, not color alone (color-independence); no automated contrast-checking tool (e.g. jest-axe) exists elsewhere in this repo, so none was introduced for this presentation-only story — see Completion Notes
 
 ---
 
@@ -112,10 +113,34 @@ So that the event card matches my group's chosen planning style instead of pushi
 - **Dependencies:** Story 2.8 for the real `planning_style` value (can stub in the meantime)
 - **Blocking Issues:** None
 
+### Implementation Plan
+- **Scope correction (flagged to user before implementing, confirmed 2026-08-27):** The story's Dev Notes assumed `MomentumCounter` is the component `EventCard`/event-detail-view render for momentum. It isn't — `MomentumCounter.tsx` and `components/events/RSVPButtons.tsx`/`components/events/EventDetail.tsx` are dead code, imported only by their own test files, not by any page. The live momentum/threshold markup is inline JSX inside `components/groups/EventCard.tsx` and `components/groups/EventDetail.tsx` (used from `app/groups/[groupId]/page.tsx` and `app/groups/[groupId]/events/[eventId]/page.tsx`). Implemented the de-emphasized variant in those live components instead of in the unused `MomentumCounter`, since that's what actually changes what users see. `MomentumCounter.tsx` was left untouched.
+- **`EventCard`:** Added an optional `planningStyle?: 'availability-first' | 'proposals-first'` prop, defaulting to `'proposals-first'` (the original, unchanged treatment — satisfies AC3 for any caller that doesn't pass the prop, including the existing test suites). When `'availability-first'`, the momentum text + a small threshold progress bar render in the `CardHeader`, below the title/date line, using `fontSize="xs"`, `color="ink.400"`, and `colorScheme="gray"` on the progress bar; the original large `CardBody` momentum `Box` and threshold `Box` are suppressed in that mode. Both group-page call sites (`app/groups/[groupId]/page.tsx`, the "Active Proposals" list and the main "Events" list) now pass `planningStyle={group.planning_style}`.
+- **`EventDetail` (Details tab):** Extended the component's existing `getGroupDetails` call (previously used only to derive `userRole` for comment authorization) to also read `data.group.planning_style` into a new `planningStyle` state (default `'proposals-first'`). Added the same de-emphasized text line under the title/date in `CardHeader`, and gated the existing momentum `Box` in `CardBody` behind `!isDeemphasized`. `EventDetail` has no threshold progress bar today (only a momentum count), so there was nothing to de-emphasize there beyond the momentum text.
+- **AC4 (RSVP buttons unaffected):** Investigated and found there are currently no live, clickable RSVP In/Maybe/Out buttons for authenticated group members anywhere in the app — `components/events/RSVPButtons.tsx` is dead code, and neither `EventCard`, `EventDetail`, nor `EventPlanningTab` wire it up. The only working RSVP flow is the public (non-member) link (`PublicRsvpForm.tsx`). This is a pre-existing gap unrelated to this story; noted here rather than fixed, since AC1 scopes this story as presentation-only. AC4 is satisfied vacuously for the code this story touches (nothing there was de-emphasized), and the existing "Your RSVP: ..." status indicator in `EventCard` was left untouched in both variants.
+- **Testing:** Added 6 new tests to `__tests__/components/EventCard.test.tsx` and 3 to `__tests__/components/EventDetail.test.tsx` covering both variants, the default (AC3), the missing-threshold case, and color-independence (text always conveys the counts, not color alone). No `jest-axe`/automated contrast tool exists anywhere else in this repo, so none was introduced for this presentation-only change.
+- **Verification:** `npx tsc --noEmit` and `npx eslint` on all changed files show the identical pre-existing error/warning set as an unmodified checkout (verified via `git stash` diff — no new issues). Full repo test suite: 2864 passed / 458 failed / 26 skipped (71 failed suites), vs. baseline (unmodified tree) of 2855 passed / same 458 failed / same 71 failed suites — the +9 passing tests are exactly this story's new tests; all pre-existing failures are the repo's known Node v25 `NextRequest`/`jest.setup.js` harness incompatibility (see Story 2.8's Implementation Plan note), unrelated to this story.
+
+### Completion Notes
+- All 4 tasks complete. AC1 (no functional change — no FR/business logic touched), AC2 (de-emphasized display in availability-first groups), AC3 (unchanged full-prominence display in proposals-first groups / default), and AC4 (RSVP status indicator unaffected; no live RSVP action buttons exist to de-emphasize — see Implementation Plan) are all implemented and covered by tests.
+- Key scope correction from the story's Dev Notes: implemented against the actually-live `EventCard`/`EventDetail` components rather than the dead-code `MomentumCounter`, confirmed with user before starting (see Implementation Plan).
+- `tsc --noEmit` and `eslint` show no new errors/warnings vs. baseline. Full test suite: +9 new passing tests, 0 regressions (458 pre-existing failures unchanged, same Node v25 harness issue noted in Story 2.8).
+
+### File List
+- `components/groups/EventCard.tsx` (modified — added `planningStyle` prop and de-emphasized variant)
+- `components/groups/EventDetail.tsx` (modified — reads group `planning_style` via existing `getGroupDetails` call, added de-emphasized variant)
+- `app/groups/[groupId]/page.tsx` (modified — passes `planningStyle={group.planning_style}` to both `EventCard` call sites)
+- `__tests__/components/EventCard.test.tsx` (modified — added "Planning Style Variant (Story 4.7)" test suite, 6 tests)
+- `__tests__/components/EventDetail.test.tsx` (modified — added "Planning Style Variant (Story 4.7)" test suite + `getGroupDetails` mock, 3 tests)
+
+### Change Log
+- 2026-08-27: Implemented Story 4.7 — de-emphasized momentum/threshold display for availability-first groups in `EventCard` and `EventDetail`. Reinterpreted Task 1's target from the unused `MomentumCounter` component to the live inline markup in `EventCard`/`EventDetail` (confirmed with user). 9 new tests added, 0 regressions. Status moved to `review`.
+
 ---
 
 ## Next Steps
 
-1. **Dev Agent:** Invoke `/bmad-bmm-dev-story` with this story file
-2. **Code Review:** Run `/bmad-bmm-code-review` after implementation, with attention to AC3's regression check
+1. ~~**Dev Agent:** Invoke `/bmad-bmm-dev-story` with this story file~~ — done 2026-08-27
+2. **Code Review:** Run `/bmad-bmm-code-review` after implementation, with attention to AC3's regression check and the Task 1/AC4 scope notes above
 3. **Epic 4 note:** This is a small addition to an already-`done` epic — no epic-level retrospective re-trigger needed, just this one story
+4. **Follow-up (not this story):** No group member currently has a working RSVP button in the app UI (see AC4 note above) — worth filing as its own story if intentional gap needs closing

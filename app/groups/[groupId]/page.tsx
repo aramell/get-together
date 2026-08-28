@@ -516,7 +516,11 @@ export default function GroupDetailsPage() {
                       {events
                         .filter((e) => e.status === 'proposal')
                         .map((event) => (
-                          <EventCard key={event.id} event={event} />
+                          <EventCard
+                            key={event.id}
+                            event={event}
+                            planningStyle={group.planning_style}
+                          />
                         ))}
                     </VStack>
                   ) : (
@@ -660,6 +664,7 @@ export default function GroupDetailsPage() {
                   <EventCard
                     key={event.id}
                     event={event}
+                    planningStyle={group.planning_style}
                   />
                 ))}
               </VStack>
