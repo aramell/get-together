@@ -29,13 +29,28 @@ describe('sortMigrationFiles', () => {
   });
 
   it('matches the real migrations directory contents and order', () => {
-    const files = require('fs').readdirSync(
+    // Asserts structural properties rather than a hardcoded filename/count,
+    // which broke every time a new migration was added (e.g. this exact
+    // test previously pinned '021_...' as "the last file" and a hardcoded
+    // count of 24 — both went stale the moment migration 022 shipped).
+    const files: string[] = require('fs').readdirSync(
       require('path').join(__dirname, '../../lib/db/migrations')
     );
+    const sqlFiles = files.filter((f) => f.endsWith('.sql'));
     const sorted = sortMigrationFiles(files);
+
+    expect(sorted).toHaveLength(sqlFiles.length);
     expect(sorted[0]).toBe('000_create_groups_schema.sql');
-    expect(sorted[sorted.length - 1]).toBe('021_create_event_poll_votes_table.sql');
-    expect(sorted).toHaveLength(24);
+
+    // Sorting must be idempotent and every entry must be a real .sql file.
+    expect(sortMigrationFiles(sorted)).toEqual(sorted);
+    expect(sorted.every((f) => f.endsWith('.sql'))).toBe(true);
+
+    // Numeric prefixes must be non-decreasing across the sorted list.
+    const prefixes = sorted.map((f) => parseInt(f.split('_')[0], 10));
+    for (let i = 1; i < prefixes.length; i++) {
+      expect(prefixes[i]).toBeGreaterThanOrEqual(prefixes[i - 1]);
+    }
   });
 });
 

@@ -129,13 +129,14 @@ development_status:
   epic-11-retrospective: optional
 
   # EPIC 12: Event Planning Dashboard (added ad hoc 2026-08-03, see epics.md — not derived from an FR in the PRD)
-  epic-12: in-progress
+  # All 6 stories code-reviewed 2026-08-27 — each had a real bug, all fixed; see each story's "Code Review & Fixes" section
+  epic-12: done
   12-1-event-page-tab-navigation: done
   12-2-pre-event-photo-uploads: done
   12-3-event-checklists: done
   12-4-event-timeline-agenda: done
   12-5-logistics-coordination: done
-  12-6-quick-polls: review
+  12-6-quick-polls: done
   epic-12-retrospective: optional
 
   # NOTE: Epics 9 (SMS Magic Link) and 10 (Social Circles) exist in epics.md and have

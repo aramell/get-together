@@ -1,6 +1,6 @@
 # Story 12.6: Quick Polls
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -116,3 +116,13 @@ claude-sonnet-5
 ## Change Log
 
 - 2026-08-04: Implemented Story 12.6 (Quick Polls) — migrations, service layer, API routes, UI component, tests, and the final Epic 12 combined-sections check. Status set to "review". This is the last of Epic 12's six stories.
+- 2026-08-27: Code review found `migrate.test.ts` failing against the live repo (a later migration broke its hardcoded snapshot). Fixed and made the assertion non-brittle. Status set to "done".
+
+## Code Review & Fixes (2026-08-27)
+
+- **Review:** Adversarial code review found `__tests__/scripts/migrate.test.ts` — a file this story modified — was **currently failing**: it hardcoded the expected last-migration filename and total count, and a later migration (`022_fix_user_reference_column_types.sql`, added by an unrelated commit) broke both assertions. This directly contradicted the story's own "zero regressions" claim, and the same brittle pattern had already been re-broken by every migration-adding story before it.
+- **Fixed:** Rewrote the test to assert structural properties (sorted list length matches the real `.sql` file count, starts with `000_...`, sorting is idempotent, numeric prefixes are non-decreasing) instead of a hardcoded filename/count that goes stale on every new migration. Also fixed the same brittleness pattern in `__tests__/components/EventDetail.test.tsx` (a hardcoded fetch-count assertion broken by the same accumulation of Planning-tab sections) while in the area, splitting it into a "fetches happened" check plus a dedicated "switching back to Details doesn't refetch" test.
+- **Filed separately:** The review also flagged the app-wide unverified-JWT gap and an authorization-ordering leak (resource checks running before the membership check, letting non-members enumerate poll/option validity) as systemic issues shared with other stories. The JWT gap is tracked as its own story: `8-5-jwt-signature-verification.md`.
+- **Review Follow-ups (AI):**
+  - [ ] [AI-Review][MEDIUM] Authorization-ordering leak: `verifyEventInGroup`/poll-exists/option-exists checks run before the group-membership check in `castVote`, `createPoll`, and `getPolls` — a non-member can distinguish 404/400/403 responses to probe whether a guessed event/poll/option combination is real, without ever passing the membership gate. Same pattern exists in `eventLogisticsService.ts` (Story 12.5). `lib/services/eventPollService.ts`
+  - [ ] [AI-Review][LOW] `removeVote` and `deletePoll` don't check for soft-deleted events the way `castVote` does — once an event is soft-deleted, users can't vote/create polls on it but can still delete existing polls or remove their own votes. `lib/services/eventPollService.ts`

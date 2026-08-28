@@ -263,13 +263,18 @@ describe('EventDetail Component', () => {
       expect(screen.getByText('Team Lunch')).toBeInTheDocument();
     });
 
-    test('switching to Planning tab shows its sections and fires their fetches (Stories 12.3, 12.2)', async () => {
-      // Story 12.1's original version of this test asserted ZERO additional
-      // fetches, because the Planning tab had no content yet. Story 12.3 added
-      // a checklist section (items + group members for the assignee dropdown
-      // = 2 fetches on open). Story 12.2 added a photo grid alongside it
-      // (+1 more, for the photos list) — updated again to assert exactly
-      // those three new calls rather than an unbounded/unexpected number.
+    test('switching to Planning tab shows its sections and fires their fetches (Stories 12.2-12.6)', async () => {
+      // Previously asserted an exact "+3" fetch count, hardcoded when only
+      // Checklist+Photos existed. Every later Planning-tab section (Timeline,
+      // Logistics, Polls) added its own mount-time fetch and broke that
+      // constant — asserts the structural property this test actually cares
+      // about instead (fetches happened) rather than a number that goes
+      // stale every time a section is added. (A stronger "no refetch on
+      // switching back and forth" assertion was tried here but several
+      // Planning sections poll on independent 5s real-timer intervals,
+      // which made that assertion flaky depending on wall-clock timing
+      // during the test's awaits — not something this test can reliably
+      // control without fake timers across every polling child.)
       (global.fetch as jest.Mock)
         .mockResolvedValueOnce({
           ok: true,
@@ -297,7 +302,46 @@ describe('EventDetail Component', () => {
 
       expect(screen.getByRole('tab', { name: /planning/i })).toHaveAttribute('aria-selected', 'true');
       expect(screen.getByRole('tab', { name: /details/i })).toHaveAttribute('aria-selected', 'false');
-      expect((global.fetch as jest.Mock).mock.calls.length).toBe(fetchCallsBeforeSwitch + 3);
+
+      expect((global.fetch as jest.Mock).mock.calls.length).toBeGreaterThan(fetchCallsBeforeSwitch);
+    });
+
+    test('switching from Planning back to Details does not remount or refetch Details content', async () => {
+      (global.fetch as jest.Mock)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ success: true, data: mockEvent }),
+        })
+        .mockResolvedValue({
+          ok: true,
+          json: async () => ({ success: true, data: [] }),
+        });
+
+      renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('tab', { name: /planning/i })).toBeInTheDocument();
+      });
+
+      const isDetailsFetchCall = (call: any[]) =>
+        typeof call[0] === 'string' && /\/events\/event-1\/?$/.test(call[0].split('?')[0]);
+      const detailsFetchCallsBeforeSwitch = (global.fetch as jest.Mock).mock.calls.filter(isDetailsFetchCall).length;
+
+      fireEvent.click(screen.getByRole('tab', { name: /planning/i }));
+      await waitFor(() => {
+        expect(screen.getByRole('tab', { name: /planning/i })).toHaveAttribute('aria-selected', 'true');
+      });
+
+      fireEvent.click(screen.getByRole('tab', { name: /details/i }));
+      await waitFor(() => {
+        expect(screen.getByRole('tab', { name: /details/i })).toHaveAttribute('aria-selected', 'true');
+      });
+
+      // Details content (event title/date/momentum) is still present without
+      // a fresh fetch of the event itself — the panel stayed mounted.
+      expect(screen.getByText(mockEvent.title)).toBeInTheDocument();
+      const detailsFetchCallsAfterSwitchBack = (global.fetch as jest.Mock).mock.calls.filter(isDetailsFetchCall).length;
+      expect(detailsFetchCallsAfterSwitchBack).toBe(detailsFetchCallsBeforeSwitch);
     });
 
     test('keyboard: arrow key moves selection between tabs', async () => {
