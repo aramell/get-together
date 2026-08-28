@@ -72,7 +72,7 @@ development_status:
   # 3-5..3-8 added 2026-08-27 per approved sprint-change-proposal-2026-08-19 (availability-first pivot)
   3-5-connect-google-calendar: in-progress
   3-6-sync-google-availability: review
-  3-7-availability-home-screen: ready-for-dev
+  3-7-availability-home-screen: review
   3-8-disconnect-google-calendar: ready-for-dev
   epic-3-retrospective: optional
 

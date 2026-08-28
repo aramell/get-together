@@ -3,7 +3,7 @@ story_key: "3-7-availability-home-screen"
 epic: "3"
 story: "7"
 title: "Availability-First Home Screen"
-status: "ready-for-dev"
+status: "review"
 created_date: "2026-08-27"
 ---
 
@@ -12,7 +12,7 @@ created_date: "2026-08-27"
 **Epic:** 3 - Soft Calendar & Availability
 **Story Key:** 3-7-availability-home-screen
 **Created:** 2026-08-27
-**Status:** ready-for-dev
+**Status:** review
 
 ---
 
@@ -76,29 +76,29 @@ So that I can see who's free and propose plans without navigating anywhere first
 ## Tasks / Subtasks
 
 **Task 1: AvailabilityGrid Component**
-- [ ] Build `AvailabilityGrid` component per the UX spec's component props (`days`, `members`, `overlapThreshold`, `onSlotTap`, `onConnectGoogleCalendar`)
-- [ ] Implement overlap highlighting logic (day is highlighted when free-member-count meets `overlapThreshold`, default: majority of group)
-- [ ] Implement accessibility per spec: `role="table"`, proper row/col headers, per-cell `aria-label`, color + icon + text (never color alone)
+- [x] Build `AvailabilityGrid` component per the UX spec's component props (`days`, `members`, `overlapThreshold`, `onSlotTap`, `onConnectGoogleCalendar`)
+- [x] Implement overlap highlighting logic (day is highlighted when free-member-count meets `overlapThreshold`, default: majority of group)
+- [x] Implement accessibility per spec: `role="table"`, proper row/col headers, per-cell `aria-label`, color + icon + text (never color alone)
 
 **Task 2: Routing Logic**
-- [ ] On group landing, check the group's `planning_style` setting and route to Availability view or existing Feed accordingly
-- [ ] **Dependency note:** the `planning_style` column/setting doesn't exist yet — it's Story 2.8, not yet built. Until 2.8 lands, gate this behind a temporary default (e.g., hardcode `'availability-first'` or a feature flag) so this story isn't blocked waiting on Epic 2 sequencing
+- [x] On group landing, check the group's `planning_style` setting and route to Availability view or existing Feed accordingly
+- [x] **Dependency note superseded:** Story 2.8's real `planning_style` setting is already implemented and wired into `getGroupDetails`/`groupService` in the working tree (columns, queries, and `PlanningStyleSetting` UI all present), so this story wires to the real value directly instead of the interim hardcode originally planned — see Dev Agent Record.
 
 **Task 3: Merged Availability Overview Endpoint**
-- [ ] `GET /api/groups/:groupId/availability-overview` — returns merged availability (via Story 3.6's merge function) for all members across the forward window, plus active proposals for that group
+- [x] `GET /api/groups/:groupId/availability-overview` — returns merged availability (via Story 3.6's merge function) for all members across the forward window, plus active proposals for that group
 
 **Task 4: Propose-From-Slot Wiring**
-- [ ] Wire `AvailabilityGrid`'s `onSlotTap` to open the existing Create Event modal, pre-filled with the tapped date — verify no duplicate modal is created
+- [x] Wire `AvailabilityGrid`'s `onSlotTap` to open the existing Create Event modal, pre-filled with the tapped date — verify no duplicate modal is created
 
 **Task 5: Google Calendar Connect Banner**
-- [ ] Conditional banner render based on `calendar_connections` existence for current user (from Story 3.5)
-- [ ] Session-scoped dismissal (not persisted — reappears next session if still not connected, per typical onboarding-nudge pattern)
+- [x] Conditional banner render based on `calendar_connections` existence for current user (from Story 3.5)
+- [x] Session-scoped dismissal (not persisted — reappears next session if still not connected, per typical onboarding-nudge pattern)
 
 **Task 6: Testing**
-- [ ] Component tests: grid rendering, overlap highlighting, cell accessibility labels
-- [ ] API test: availability-overview endpoint returns correctly merged + shaped data
-- [ ] Integration test: full flow — land on Availability view → see highlighted day → tap → modal opens pre-filled → create event
-- [ ] Integration test: Proposals-first group still lands on existing Feed (regression check)
+- [x] Component tests: grid rendering, overlap highlighting, cell accessibility labels
+- [x] API test: availability-overview endpoint returns correctly merged + shaped data
+- [~] Integration test: full flow — land on Availability view → see highlighted day → tap → modal opens pre-filled → create event — **scoped down** per explicit request to limit testing; not written (see Dev Agent Record)
+- [~] Integration test: Proposals-first group still lands on existing Feed (regression check) — **scoped down** for the same reason; verified by code inspection instead (the new section is behind a single `planning_style === 'availability-first'` guard that touches nothing else on the page)
 
 ---
 
@@ -128,6 +128,16 @@ So that I can see who's free and propose plans without navigating anywhere first
 
 ### Workflow Execution
 - Created via Scrum Master story-preparation pass following the UX design specification's Section 2.6 and AvailabilityGrid component spec
+- Implemented 2026-08-27 via `/bmad-bmm-dev-story`, with testing scope explicitly limited per user instruction ("limit the testing to save on tokens")
+
+### Implementation Notes
+- **Task 2 dependency reassessed:** Before implementing, checked the working tree (not just sprint-status.yaml, which still shows 2-8/3-5/3-6 as in-progress/review) and found Story 2.8's `planning_style` column, queries (`lib/db/queries.ts`), `groupService`, and `PlanningStyleSetting` UI are all already implemented and wired into `getGroupDetails`. Story 3.5's `calendarConnectionService` (connection status) and Story 3.6's `mergeAvailability`/`getGroupAvailabilitiesForCalendar` (merged availability) are likewise already implemented. Given that, this story consumes the real `group.planning_style` value and real merge/connection services directly rather than the interim hardcode the story anticipated — a better outcome than planned, not a shortcut.
+- **AvailabilityGrid component** (`components/groups/AvailabilityGrid.tsx`): implements the exact prop contract from the UX spec. The Google Calendar banner and its session-scoped dismissal are self-contained in the component (driven by the presence/absence of `onConnectGoogleCalendar`, since the prop contract has no separate "connected" boolean). "Active Proposals" is deliberately NOT part of this component — the UX spec's prop interface for `AvailabilityGrid` has no `proposals` field, so per AC5's "alongside the grid" wording, proposals are rendered as a sibling section by the group page, reusing the already-fetched `events` state and existing `EventCard` (no new proposal-rendering code).
+- **API endpoint** (`app/api/groups/[groupId]/availability-overview/route.ts`): reuses `getGroupAvailabilitiesForCalendar` (Story 3.6) for the merge and `getGroupEvents` (existing) for proposals; adds only the day-bucketing reduction (Google-busy > manual-busy > manual-free > unknown per day, matching `SoftCalendar`'s existing client-side precedence) needed to match `AvailabilityGridProps`' per-day array shape. Fixed 14-day forward window (within the AC2 "7-14 day" range); no query-param configurability was added since the story didn't ask for it.
+- **Routing** (`app/groups/[groupId]/page.tsx`): the existing group page is a single scrolling page, not a tabbed feed/landing split, so "lands on the Availability view" was implemented as: for `availability-first` groups, an Availability section (grid + inline active proposals) renders immediately under the page header — the first substantive content on the page, i.e. zero taps. For `proposals-first` groups, nothing new renders and no new fetches fire, so their existing experience is provably unchanged (AC1's regression requirement).
+- **Propose-from-slot** (`components/groups/CreateEventModal.tsx`): added an optional `prefilledDate` prop (defaults to noon on the tapped day for the `datetime-local` input) rather than building a new creation UI, per the story's explicit "reuse, don't duplicate" instruction. The existing "Propose Event" button continues to open the modal with no prefill.
+- **Testing trade-off (explicit user instruction):** wrote a focused unit test suite for `AvailabilityGrid` (rendering/accessibility labels, overlap-threshold highlighting + tap, banner show/dismiss/omit) and for the new API route (auth, 14-day window shape, merge precedence, proposal filtering, 500 handling) — 8 tests total, all passing. Did **not** write the RTL end-to-end flow test or the proposals-first regression test called out in Task 6, since those require mounting the full 637-line group page with heavy mocking (auth, router, toast, 3+ fetches, half a dozen child components) and there's no existing page-level test in the repo to extend. The proposals-first "unchanged" behavior was instead verified by inspection: the entire new section is gated by one `group.planning_style === 'availability-first' &&` condition that introduces no other change to the page.
+- **Full regression run:** `npx jest` was run twice — once with this story's changes, once with them stashed out — to isolate any regressions this story introduced. Both runs report the same 453 pre-existing failing tests (from the already-uncommitted, in-progress Stories 2.8/3.5/3.6 work already in the tree — e.g. `SoftCalendar.test.tsx` fails on a pre-existing `useAuth must be used within AuthProvider` issue this story doesn't touch). This story's two new test files add 8 tests, all passing, and account for the only test-count delta between the two runs. No regressions were introduced by this story.
 
 ### Story Quality Checklist
 - ✅ Explicit dependency on not-yet-built Story 2.8 (Planning Style setting) called out with a concrete interim workaround (Task 2), not left ambiguous
@@ -139,6 +149,17 @@ So that I can see who's free and propose plans without navigating anywhere first
 - **Ready for Dev:** Yes, with the Task 2 interim workaround noted
 - **Dependencies:** Story 3.5 and 3.6 for real data; Story 2.8 for the real Planning Style setting (interim default in the meantime)
 - **Blocking Issues:** None — the interim default in Task 2 unblocks this from Epic 2's sequencing
+
+### File List
+- New: `components/groups/AvailabilityGrid.tsx`
+- New: `app/api/groups/[groupId]/availability-overview/route.ts`
+- New: `__tests__/components/groups/AvailabilityGrid.test.tsx`
+- New: `__tests__/api/groups/availability-overview.test.ts`
+- Modified: `app/groups/[groupId]/page.tsx` (Availability section for `availability-first` groups; slot-tap wiring)
+- Modified: `components/groups/CreateEventModal.tsx` (added optional `prefilledDate` prop)
+
+### Change Log
+- 2026-08-27: Implemented Story 3.7 — AvailabilityGrid component, availability-overview endpoint, group-page routing by `planning_style`, propose-from-slot wiring, Google Calendar connect banner. Testing scope limited to focused unit/API tests per explicit user instruction; full regression suite run and confirmed zero new failures (453 pre-existing failures unchanged, from other in-progress stories already in the tree).
 
 ---
 

@@ -37,6 +37,7 @@ import { CreateEventModal } from '@/components/groups/CreateEventModal';
 import { EventCard } from '@/components/groups/EventCard';
 import { WishlistList } from '@/components/groups/WishlistList';
 import SoftCalendar from '@/components/groups/SoftCalendar';
+import AvailabilityGrid, { AvailabilityGridMember } from '@/components/groups/AvailabilityGrid';
 
 interface GroupDetailsData {
   group: {
@@ -96,6 +97,59 @@ export default function GroupDetailsPage() {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { isOpen: isEventModalOpen, onOpen: onEventModalOpen, onClose: onEventModalClose } = useDisclosure();
   const cancelRef = useRef(null);
+
+  // Story 3.7: Availability-first home screen state
+  const [availability, setAvailability] = useState<{
+    days: string[];
+    members: AvailabilityGridMember[];
+  } | null>(null);
+  const [loadingAvailability, setLoadingAvailability] = useState(false);
+  const [googleConnected, setGoogleConnected] = useState<boolean | null>(null);
+  const [prefilledDate, setPrefilledDate] = useState<string | undefined>(undefined);
+
+  const loadAvailabilityOverview = async (gid: string) => {
+    setLoadingAvailability(true);
+    try {
+      const response = await fetch(`/api/groups/${gid}/availability-overview`, {
+        headers: userId ? { 'x-user-id': userId } : undefined,
+      });
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.data) {
+          setAvailability({ days: result.data.days, members: result.data.members });
+        }
+      }
+    } catch (err) {
+      console.error('Error loading availability overview:', err);
+    } finally {
+      setLoadingAvailability(false);
+    }
+  };
+
+  const loadGoogleConnectionStatus = async () => {
+    try {
+      const response = await fetch('/api/calendar/google/status');
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          setGoogleConnected(!!result.data?.connected);
+        }
+      }
+    } catch (err) {
+      console.error('Error loading Google Calendar connection status:', err);
+    }
+  };
+
+  const handleSlotTap = (day: string) => {
+    setPrefilledDate(day);
+    onEventModalOpen();
+  };
+
+  const handleProposeEventClick = () => {
+    setPrefilledDate(undefined);
+    onEventModalOpen();
+  };
+
   const loadEvents = async (gid: string) => {
     setLoadingEvents(true);
     try {
@@ -115,8 +169,12 @@ export default function GroupDetailsPage() {
 
   const handleEventCreated = () => {
     onEventModalClose();
+    setPrefilledDate(undefined);
     if (groupId) {
       loadEvents(groupId);
+      if (data?.group.planning_style === 'availability-first') {
+        loadAvailabilityOverview(groupId);
+      }
     }
     toast({
       title: 'Success',
@@ -149,6 +207,13 @@ export default function GroupDetailsPage() {
           setError(null);
           // Load events after group details
           loadEvents(groupId);
+          // Story 3.7: Availability-first groups land on the Availability view, which
+          // needs merged availability + Google connection status; Proposals-first groups
+          // don't fetch either, keeping their landing experience unchanged (AC1).
+          if (result.data.group.planning_style === 'availability-first') {
+            loadAvailabilityOverview(groupId);
+            loadGoogleConnectionStatus();
+          }
         } else {
           setError(result.message || 'Failed to load group details');
         }
@@ -398,7 +463,7 @@ export default function GroupDetailsPage() {
                 )}
               </VStack>
               <HStack spacing={3}>
-                <Button colorScheme="teal" onClick={onEventModalOpen}>
+                <Button colorScheme="teal" onClick={handleProposeEventClick}>
                   Propose Event
                 </Button>
                 <Button colorScheme="red" variant="outline" onClick={handleLeaveGroup}>
@@ -406,6 +471,59 @@ export default function GroupDetailsPage() {
                 </Button>
               </HStack>
             </HStack>
+
+            {/* Availability-First Home Screen (Story 3.7) — only for Availability-first
+                groups (AC1); Proposals-first groups keep the existing feed, unchanged. */}
+            {group.planning_style === 'availability-first' && (
+              <Box mt={8}>
+                <Heading size="lg" mb={4}>
+                  Availability
+                </Heading>
+                {loadingAvailability && !availability ? (
+                  <HStack justify="center" py={8}>
+                    <Spinner color="blue.500" />
+                    <Text>Loading availability...</Text>
+                  </HStack>
+                ) : availability ? (
+                  <AvailabilityGrid
+                    days={availability.days}
+                    members={availability.members}
+                    onSlotTap={handleSlotTap}
+                    onConnectGoogleCalendar={
+                      googleConnected === false
+                        ? () => {
+                            window.location.href = '/api/calendar/google/connect';
+                          }
+                        : undefined
+                    }
+                  />
+                ) : (
+                  <Alert status="info" borderRadius="md">
+                    <AlertIcon />
+                    <Text>Availability data is not available right now.</Text>
+                  </Alert>
+                )}
+
+                <Box mt={6}>
+                  <Heading size="md" mb={3}>
+                    Active Proposals
+                  </Heading>
+                  {events.filter((e) => e.status === 'proposal').length > 0 ? (
+                    <VStack spacing={4} align="stretch">
+                      {events
+                        .filter((e) => e.status === 'proposal')
+                        .map((event) => (
+                          <EventCard key={event.id} event={event} />
+                        ))}
+                    </VStack>
+                  ) : (
+                    <Text color="gray.500" fontSize="sm">
+                      No active proposals right now.
+                    </Text>
+                  )}
+                </Box>
+              </Box>
+            )}
 
             {/* Info Cards */}
             <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
@@ -627,9 +745,13 @@ export default function GroupDetailsPage() {
       {/* Create Event Modal */}
       <CreateEventModal
         isOpen={isEventModalOpen}
-        onClose={onEventModalClose}
+        onClose={() => {
+          onEventModalClose();
+          setPrefilledDate(undefined);
+        }}
         groupId={groupId}
         onSuccess={handleEventCreated}
+        prefilledDate={prefilledDate}
       />
       </Container>
     </Box>

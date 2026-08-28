@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   ModalOverlay,
@@ -28,6 +28,15 @@ interface CreateEventModalProps {
   onClose: () => void;
   groupId: string;
   onSuccess: () => void;
+  // Story 3.7: pre-fills the date field when opened from the Availability grid's
+  // onSlotTap, e.g. "2026-08-27" (date-only). Left blank by the standard entry point.
+  prefilledDate?: string;
+}
+
+function toDateTimeLocalValue(prefilledDate?: string): string {
+  if (!prefilledDate) return '';
+  // datetime-local needs a time component; default to noon on the tapped day.
+  return `${prefilledDate}T12:00`;
 }
 
 export const CreateEventModal: React.FC<CreateEventModalProps> = ({
@@ -35,6 +44,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
   onClose,
   groupId,
   onSuccess,
+  prefilledDate,
 }) => {
   const toast = useToast();
   const [isLoading, setIsLoading] = useState(false);
@@ -42,10 +52,17 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
 
   const [formData, setFormData] = useState({
     title: '',
-    date: '',
+    date: toDateTimeLocalValue(prefilledDate),
     threshold: '',
     description: '',
   });
+
+  // Re-apply the prefilled date each time the modal is (re)opened from a new slot tap.
+  useEffect(() => {
+    if (isOpen) {
+      setFormData((prev) => ({ ...prev, date: toDateTimeLocalValue(prefilledDate) }));
+    }
+  }, [isOpen, prefilledDate]);
 
   const handleClose = () => {
     if (!isLoading) {
