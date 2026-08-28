@@ -193,6 +193,10 @@ export const EventDetail: React.FC<EventDetailProps> = ({ groupId, eventId }) =>
     px: 4,
     justifyContent: tabOrientation === 'vertical' ? 'flex-start' : 'center',
     _selected: { color: 'coral.600', fontWeight: '700' },
+    // Suppress Chakra's default blue focus box-shadow so only the app's
+    // global coral :focus-visible outline (lib/theme.ts) shows — otherwise
+    // both render stacked on top of each other.
+    _focusVisible: { boxShadow: 'none' },
   } as const;
 
   return (

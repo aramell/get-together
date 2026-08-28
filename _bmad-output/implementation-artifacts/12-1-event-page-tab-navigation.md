@@ -1,6 +1,6 @@
 # Story 12.1: Event Page Tab Navigation
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -119,3 +119,12 @@ claude-sonnet-5
 - `__tests__/components/EventPlanningTab.test.tsx` (new)
 - `__tests__/components/EventDetail.test.tsx` (modified — fixed pre-existing `next/navigation` mock and two pre-existing broken assertions; added "Tab Navigation" test block)
 - `__tests__/accessibility/keyboard-navigation.test.tsx` (modified — added `2.9` tab-navigation keyboard/ARIA coverage)
+
+### Code Review & Fixes (2026-08-27)
+
+- **Review:** Adversarial code review found AC #6 was violated — Chakra's Tabs theme applies a default blue `_focusVisible` box-shadow unconditionally (even under `variant="unstyled"`), stacking on top of the app's global coral `:focus-visible` outline instead of the AC's "no new focus style."
+- **Fixed:** Added `_focusVisible: { boxShadow: 'none' }` to `tabStyle` in `components/groups/EventDetail.tsx`, suppressing Chakra's default so only the existing global coral outline shows.
+- **Review Follow-ups (AI):**
+  - [ ] [AI-Review][MEDIUM] AC #12's required test coverage is incomplete — no test for switching to Planning and back to Details, no test for Enter/Space activating a tab. `__tests__/components/EventDetail.test.tsx`
+  - [ ] [AI-Review][LOW] Two keyboard-accessibility tests are structurally vacuous (would pass even if the behavior they claim to test were broken) — "reaches tabs via Tab key" calls `.focus()` directly instead of simulating real Tab traversal, and "no keyboard trap" only asserts `activeElement` is non-null. `__tests__/accessibility/keyboard-navigation.test.tsx:658-664,679-689`
+  - [ ] **Manual viewport check still outstanding** — the live-browser check (vertical/horizontal tab layout at the 768px breakpoint, no collision with `BottomNav` on mobile) was waived once already by Andrewramell and deferred here again since no authenticated browser session was available in this review either. This is the one item in Epic 12 that genuinely can't be closed by an automated review — flagging again for whoever next has a live session against a real event.
