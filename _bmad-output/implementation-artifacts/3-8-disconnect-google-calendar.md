@@ -3,7 +3,7 @@ story_key: "3-8-disconnect-google-calendar"
 epic: "3"
 story: "8"
 title: "Disconnect / Re-Auth Google Calendar"
-status: "ready-for-dev"
+status: "review"
 created_date: "2026-08-27"
 ---
 
@@ -12,7 +12,7 @@ created_date: "2026-08-27"
 **Epic:** 3 - Soft Calendar & Availability
 **Story Key:** 3-8-disconnect-google-calendar
 **Created:** 2026-08-27
-**Status:** ready-for-dev
+**Status:** review
 
 ---
 
@@ -66,26 +66,26 @@ So that I control my calendar data and can recover from expired or revoked acces
 ## Tasks / Subtasks
 
 **Task 1: Disconnect Endpoint**
-- [ ] `DELETE /api/calendar/google/disconnect` — deletes the user's `calendar_connections` row and cascades deletion of their `google_calendar_busy_blocks` rows (single transaction)
+- [x] `DELETE /api/calendar/google/disconnect` — deletes the user's `calendar_connections` row and cascades deletion of their `google_calendar_busy_blocks` rows (single transaction)
 
 **Task 2: Disconnect UI**
-- [ ] "Disconnect" action in calendar/availability settings (from Story 3.5's connected-state display)
-- [ ] Confirmation dialog reusing the existing `ConfirmDialog` component pattern
+- [x] "Disconnect" action in calendar/availability settings (from Story 3.5's connected-state display)
+- [x] Confirmation dialog reusing the existing `DeleteConfirmationDialog` component pattern (extended with optional `confirmLabel`/`confirmLoadingLabel` props so its wording fits a disconnect action, not just deletes)
 
 **Task 3: Needs-Reauth Handling**
-- [ ] Ensure Story 3.6's sync job sets `needs_reauth = true` on refresh failure (this may already be covered by Story 3.6 — verify, don't duplicate)
-- [ ] On `needs_reauth`, explicitly do NOT delete existing busy blocks (AC3) — only a full disconnect clears data
+- [x] Ensure Story 3.6's sync job sets `needs_reauth = true` on refresh failure (already covered by Story 3.6's `syncUserAvailability` — verified, not duplicated)
+- [x] On `needs_reauth`, explicitly do NOT delete existing busy blocks (AC3) — only a full disconnect clears data (already true of the existing 3.6 code path; added an explicit test assertion)
 
 **Task 4: Re-Auth Prompt UI**
-- [ ] Banner/prompt in the Availability view (Story 3.7) when `needs_reauth = true` for the current user
-- [ ] "Reconnect" action routes into the same OAuth flow as Story 3.5
+- [x] Banner/prompt in the Availability view (Story 3.7) when `needs_reauth = true` for the current user
+- [x] "Reconnect" action routes into the same OAuth flow as Story 3.5
 
 **Task 5: Testing**
-- [ ] API test: disconnect deletes both the connection and cached blocks
-- [ ] API test: `needs_reauth` flag does not trigger data deletion
-- [ ] Component test: confirmation dialog blocks disconnect until confirmed
-- [ ] Integration test: full disconnect → data cleanup → UI reflects "Not Connected"
-- [ ] Integration test: simulated refresh failure → `needs_reauth` set → prompt appears → reconnect clears it
+- [x] API test: disconnect deletes both the connection and cached blocks
+- [x] API test: `needs_reauth` flag does not trigger data deletion
+- [x] Component test: confirmation dialog blocks disconnect until confirmed
+- [x] Integration test: full disconnect → data cleanup → UI reflects "Not Connected"
+- [x] Integration test: simulated refresh failure → `needs_reauth` set → prompt appears → reconnect clears it
 
 ---
 
@@ -128,8 +128,40 @@ So that I control my calendar data and can recover from expired or revoked acces
 
 ---
 
+## Dev Agent Record (Completion Notes)
+
+- Task 3 (needs-reauth) required no new production code: Story 3.6's `syncUserAvailability` already sets `needs_reauth = true` on refresh failure and never touches `google_calendar_busy_blocks` on that path. Verified by reading the code and added an explicit test assertion (`calendarSyncService.test.ts`) that the failure path issues no `google_calendar_busy_blocks` query, satisfying AC3 without duplicating Story 3.6's logic.
+- `DeleteConfirmationDialog` (originally comment-deletion-specific) gained optional `confirmLabel`/`confirmLoadingLabel` props (defaulting to the prior "Delete"/"Deleting..." wording) so Story 3.8 could reuse it verbatim for the disconnect confirmation per the Dev Notes' explicit instruction to reuse the existing pattern, rather than hand-rolling a second dialog.
+- `AvailabilityGrid` already had a "not connected" banner (Story 3.7). Added a second, mutually-exclusive `needsReauth` banner state (orange, "Reconnect" CTA) rather than overloading the existing one, since AC4's prompt text and intent ("reconnect" vs "connect for the first time") differ from AC1 of Story 3.7.
+- Fixed a pre-existing test-only regex collision: the new "Disconnect" button's accessible name originally matched an older test's `/connect google calendar/i` query, because "Disconnect" contains "connect" as a substring. Renamed the aria-label to "Disconnect from Google Calendar" to disambiguate.
+- Encountered but did not fix: all `NextRequest`-based API-route tests in this repo (including this story's new `disconnect.test.ts` and `disconnect-flow.test.ts`, and Story 3.5's already-committed `status.test.ts`/`connect.test.ts`/`callback.test.ts`) fail in this environment with `Cannot set property url of #<NextRequest> which has only a getter`, thrown from `jest.setup.js`'s hand-rolled `Request` polyfill. Confirmed this is pre-existing and environment-wide (identical failure on Story 3.5's untouched tests run in isolation), not a regression from this story. Out of scope to fix here — a jest/jsdom-vs-Next.js-`NextRequest` compatibility issue affecting every calendar API route test, not specific to Story 3.8.
+- Full regression suite: 458 failed / 2855 passed (baseline before this story: 453 failed / 2848 passed) — the only new failures are the 5 new `NextRequest`-based tests hitting the pre-existing infra issue above; all 7 non-`NextRequest` new/changed tests pass.
+
+### File List
+
+**Added:**
+- `app/api/calendar/google/disconnect/route.ts`
+- `__tests__/api/calendar/google/disconnect.test.ts`
+- `__tests__/integration/calendar/disconnect-flow.test.ts`
+
+**Modified:**
+- `lib/services/calendarConnectionService.ts` (added `disconnect(userId)`)
+- `components/settings/CalendarConnectionSetting.tsx` (Disconnect button + confirmation dialog)
+- `components/groups/DeleteConfirmationDialog.tsx` (added optional `confirmLabel`/`confirmLoadingLabel` props)
+- `components/groups/AvailabilityGrid.tsx` (added `needsReauth` prop and reconnect banner)
+- `app/groups/[groupId]/page.tsx` (fetches and passes `needsReauth`; reuses the connect handler for reconnect)
+- `__tests__/services/calendarConnectionService.test.ts` (added `disconnect` tests)
+- `__tests__/components/settings/CalendarConnectionSetting.test.tsx` (added disconnect tests; fixed a pre-existing selector collision)
+- `__tests__/components/groups/AvailabilityGrid.test.tsx` (added needsReauth banner test)
+- `__tests__/services/calendarSyncService.test.ts` (added an explicit no-busy-block-deletion assertion to the existing needs_reauth test, AC3)
+
+## Change Log
+
+- 2026-08-27: Implemented all 5 tasks (disconnect endpoint, disconnect UI with confirmation, needs-reauth verification, re-auth prompt UI, tests). Status set to "review".
+
+---
+
 ## Next Steps
 
-1. **Dev Agent:** Invoke `/bmad-bmm-dev-story` with this story file
-2. **Code Review:** Run `/bmad-bmm-code-review` after implementation
-3. **Epic 3 Complete:** After this story, all 4 new Epic 3 stories (3.5-3.8) plus the original 4 (3.1-3.4) are done — consider an epic-3 retrospective
+1. **Code Review:** Run `/bmad-bmm-code-review`, with attention to the pre-existing `NextRequest` test-infra issue noted above (separate from this story's own correctness)
+2. **Epic 3 Complete:** After this story, all 4 new Epic 3 stories (3.5-3.8) plus the original 4 (3.1-3.4) are done — consider an epic-3 retrospective

@@ -78,4 +78,23 @@ describe('AvailabilityGrid (Story 3.7)', () => {
 
     expect(screen.queryByText(/Connect Google Calendar/i)).not.toBeInTheDocument();
   });
+
+  it('shows a reconnect prompt instead of the connect prompt when needsReauth is true (Story 3.8, AC4)', () => {
+    const onReconnect = jest.fn();
+    renderWithChakra(
+      <AvailabilityGrid
+        days={DAYS}
+        members={[{ id: 'u1', name: 'You', isCurrentUser: true, availability: ['free', 'free'] }]}
+        onSlotTap={jest.fn()}
+        onConnectGoogleCalendar={onReconnect}
+        needsReauth
+      />
+    );
+
+    expect(screen.getByText(/your google calendar connection needs to be reconnected/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Connect Google Calendar to see your real availability/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /^reconnect$/i }));
+    expect(onReconnect).toHaveBeenCalled();
+  });
 });

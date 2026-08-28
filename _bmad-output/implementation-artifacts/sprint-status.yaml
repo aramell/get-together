@@ -73,7 +73,7 @@ development_status:
   3-5-connect-google-calendar: in-progress
   3-6-sync-google-availability: review
   3-7-availability-home-screen: review
-  3-8-disconnect-google-calendar: ready-for-dev
+  3-8-disconnect-google-calendar: review
   epic-3-retrospective: optional
 
   # EPIC 4: Event Proposals & RSVP with Real-Time Momentum
@@ -149,14 +149,14 @@ development_status:
 
 summary:
   total_epics: 10
-  total_stories: 51
+  total_stories: 53
   epics_done: 5
   epics_in_progress: 5
   epics_backlog: 0
-  stories_done: 44
-  stories_in_progress: 1
-  stories_review: 1
+  stories_done: 45
+  stories_in_progress: 2
+  stories_review: 4
   stories_backlog: 0
-  stories_ready_for_dev: 5
+  stories_ready_for_dev: 2
   retrospectives_optional: 10
   retrospectives_done: 0

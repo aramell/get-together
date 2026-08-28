@@ -15,6 +15,7 @@ const {
   initiateConnect,
   handleCallback,
   getConnectionStatus,
+  disconnect,
 } = require('@/lib/services/calendarConnectionService');
 
 describe('calendarConnectionService', () => {
@@ -176,6 +177,50 @@ describe('calendarConnectionService', () => {
       const result = await getConnectionStatus('user-1');
 
       expect(result.success).toBe(false);
+      expect(mockClient.release).toHaveBeenCalled();
+    });
+  });
+
+  describe('disconnect', () => {
+    it('deletes the connection and cached busy blocks in one transaction (AC1)', async () => {
+      mockClient.query
+        .mockResolvedValueOnce(undefined) // BEGIN
+        .mockResolvedValueOnce(undefined) // DELETE calendar_connections
+        .mockResolvedValueOnce(undefined) // DELETE google_calendar_busy_blocks
+        .mockResolvedValueOnce(undefined); // COMMIT
+
+      const result = await disconnect('user-1');
+
+      expect(result.success).toBe(true);
+      const calls = mockClient.query.mock.calls.map((call: any[]) => call[0]);
+      expect(calls[0]).toBe('BEGIN');
+      expect(calls[1]).toMatch(/DELETE FROM calendar_connections WHERE user_id = \$1/);
+      expect(calls[2]).toMatch(/DELETE FROM google_calendar_busy_blocks WHERE user_id = \$1/);
+      expect(calls[3]).toBe('COMMIT');
+      expect(mockClient.query.mock.calls[1][1]).toEqual(['user-1']);
+      expect(mockClient.query.mock.calls[2][1]).toEqual(['user-1']);
+    });
+
+    it('rolls back and returns an error result if the transaction fails', async () => {
+      mockClient.query
+        .mockResolvedValueOnce(undefined) // BEGIN
+        .mockRejectedValueOnce(new Error('db error')); // DELETE calendar_connections fails
+
+      const result = await disconnect('user-1');
+
+      expect(result.success).toBe(false);
+      expect(result.errorCode).toBe('INTERNAL_ERROR');
+      const calls = mockClient.query.mock.calls.map((call: any[]) => call[0]);
+      expect(calls).toContain('ROLLBACK');
+    });
+
+    it('releases the client even when the transaction fails', async () => {
+      mockClient.query
+        .mockResolvedValueOnce(undefined) // BEGIN
+        .mockRejectedValueOnce(new Error('db error'));
+
+      await disconnect('user-1');
+
       expect(mockClient.release).toHaveBeenCalled();
     });
   });

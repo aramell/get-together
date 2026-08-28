@@ -105,6 +105,7 @@ export default function GroupDetailsPage() {
   } | null>(null);
   const [loadingAvailability, setLoadingAvailability] = useState(false);
   const [googleConnected, setGoogleConnected] = useState<boolean | null>(null);
+  const [googleNeedsReauth, setGoogleNeedsReauth] = useState(false);
   const [prefilledDate, setPrefilledDate] = useState<string | undefined>(undefined);
 
   const loadAvailabilityOverview = async (gid: string) => {
@@ -133,6 +134,7 @@ export default function GroupDetailsPage() {
         const result = await response.json();
         if (result.success) {
           setGoogleConnected(!!result.data?.connected);
+          setGoogleNeedsReauth(!!result.data?.needsReauth);
         }
       }
     } catch (err) {
@@ -490,12 +492,13 @@ export default function GroupDetailsPage() {
                     members={availability.members}
                     onSlotTap={handleSlotTap}
                     onConnectGoogleCalendar={
-                      googleConnected === false
+                      googleConnected === false || googleNeedsReauth
                         ? () => {
                             window.location.href = '/api/calendar/google/connect';
                           }
                         : undefined
                     }
+                    needsReauth={googleNeedsReauth}
                   />
                 ) : (
                   <Alert status="info" borderRadius="md">

@@ -145,6 +145,13 @@ describe('calendarSyncService', () => {
       const [updateSql, updateParams] = mockClient.query.mock.calls[1];
       expect(updateSql).toMatch(/UPDATE calendar_connections SET needs_reauth = true/);
       expect(updateParams).toEqual(['user-1']);
+
+      // Story 3.8, AC3: a refresh failure must not touch existing busy blocks -- only an
+      // explicit disconnect (calendarConnectionService.disconnect) clears synced data.
+      const busyBlockCalls = mockClient.query.mock.calls.filter((call: any[]) =>
+        String(call[0]).includes('google_calendar_busy_blocks')
+      );
+      expect(busyBlockCalls).toHaveLength(0);
     });
 
     it('rolls back the transaction if the busy-block replace fails partway through', async () => {

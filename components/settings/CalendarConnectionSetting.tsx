@@ -14,6 +14,7 @@ import {
   Alert,
   AlertIcon,
 } from '@chakra-ui/react';
+import { DeleteConfirmationDialog } from '@/components/groups/DeleteConfirmationDialog';
 
 interface ConnectionStatus {
   connected: boolean;
@@ -22,9 +23,8 @@ interface ConnectionStatus {
 }
 
 /**
- * CalendarConnectionSetting (Story 3.5 / FR21)
- * Lets a user connect/view their Google Calendar connection. Disconnect (Story 3.8)
- * is wired in once that story lands.
+ * CalendarConnectionSetting (Story 3.5 / FR21, Disconnect: Story 3.8)
+ * Lets a user connect, view, or disconnect their Google Calendar connection.
  */
 export const CalendarConnectionSetting: React.FC = () => {
   const router = useRouter();
@@ -34,6 +34,8 @@ export const CalendarConnectionSetting: React.FC = () => {
   const [status, setStatus] = useState<ConnectionStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [callbackMessage, setCallbackMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [isDisconnectDialogOpen, setIsDisconnectDialogOpen] = useState(false);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
 
   useEffect(() => {
     const loadStatus = async () => {
@@ -80,6 +82,26 @@ export const CalendarConnectionSetting: React.FC = () => {
     window.location.href = '/api/calendar/google/connect';
   };
 
+  const handleDisconnect = async () => {
+    setIsDisconnecting(true);
+    try {
+      const response = await fetch('/api/calendar/google/disconnect', { method: 'DELETE' });
+      const result = await response.json();
+      if (result.success) {
+        setStatus({ connected: false });
+        setCallbackMessage(null);
+      } else {
+        setCallbackMessage({ type: 'error', text: result.message || 'Failed to disconnect Google Calendar' });
+      }
+    } catch (error) {
+      console.error('Error disconnecting Google Calendar:', error);
+      setCallbackMessage({ type: 'error', text: 'Failed to disconnect Google Calendar' });
+    } finally {
+      setIsDisconnecting(false);
+      setIsDisconnectDialogOpen(false);
+    }
+  };
+
   return (
     <Box borderWidth="1px" borderRadius="lg" p={{ base: '6', md: '8' }} bg="white">
       <VStack align="stretch" spacing={4}>
@@ -114,6 +136,15 @@ export const CalendarConnectionSetting: React.FC = () => {
                 {status.connectedEmail}
               </Text>
             </HStack>
+            <Button
+              size="sm"
+              variant="outline"
+              colorScheme="red"
+              onClick={() => setIsDisconnectDialogOpen(true)}
+              aria-label="Disconnect from Google Calendar"
+            >
+              Disconnect
+            </Button>
           </HStack>
         ) : (
           <Button colorScheme="blue" alignSelf="flex-start" onClick={handleConnect} aria-label="Connect Google Calendar">
@@ -121,6 +152,17 @@ export const CalendarConnectionSetting: React.FC = () => {
           </Button>
         )}
       </VStack>
+
+      <DeleteConfirmationDialog
+        isOpen={isDisconnectDialogOpen}
+        onClose={() => setIsDisconnectDialogOpen(false)}
+        onConfirm={handleDisconnect}
+        isLoading={isDisconnecting}
+        title="Disconnect Google Calendar"
+        message="This will delete your synced availability data. Groupmates will no longer see it in the merged calendar until you reconnect."
+        confirmLabel="Disconnect"
+        confirmLoadingLabel="Disconnecting..."
+      />
     </Box>
   );
 };

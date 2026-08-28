@@ -21,6 +21,8 @@ interface DeleteConfirmationDialogProps {
   isLoading?: boolean;
   title?: string;
   message?: string;
+  confirmLabel?: string;
+  confirmLoadingLabel?: string;
 }
 
 /**
@@ -37,6 +39,8 @@ export const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> =
   isLoading = false,
   title = 'Delete Comment',
   message = 'Are you sure? This cannot be undone.',
+  confirmLabel = 'Delete',
+  confirmLoadingLabel = 'Deleting...',
 }) => {
   const handleConfirm = () => {
     onConfirm();
@@ -73,16 +77,16 @@ export const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> =
               onClick={handleConfirm}
               isDisabled={isLoading}
               isLoading={isLoading}
-              loadingText="Deleting..."
-              aria-label="Confirm delete"
+              loadingText={confirmLoadingLabel}
+              aria-label={`Confirm ${confirmLabel.toLowerCase()}`}
             >
               {isLoading ? (
                 <>
                   <Spinner size="sm" mr={2} />
-                  Deleting...
+                  {confirmLoadingLabel}
                 </>
               ) : (
-                'Delete'
+                confirmLabel
               )}
             </Button>
           </HStack>

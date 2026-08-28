@@ -220,6 +220,39 @@ export async function getConnectionStatus(userId: string): Promise<ServiceResult
 }
 
 /**
+ * Disconnect a user's Google Calendar connection (Story 3.8, AC1): deletes the stored
+ * refresh token and all cached busy blocks in one transaction, so a disconnect always
+ * leaves both tables consistent (no orphaned busy blocks with no owning connection).
+ */
+export async function disconnect(userId: string): Promise<ServiceResult<void>> {
+  const client = await getClient();
+
+  try {
+    await client.query('BEGIN');
+    try {
+      await client.query(`DELETE FROM calendar_connections WHERE user_id = $1`, [userId]);
+      await client.query(`DELETE FROM google_calendar_busy_blocks WHERE user_id = $1`, [userId]);
+      await client.query('COMMIT');
+    } catch (transactionError) {
+      await client.query('ROLLBACK');
+      throw transactionError;
+    }
+
+    return { success: true, message: 'Google Calendar disconnected' };
+  } catch (error: any) {
+    console.error(`Error disconnecting Google Calendar for user ${userId}:`, error);
+    return {
+      success: false,
+      message: 'Failed to disconnect Google Calendar',
+      error: error.message,
+      errorCode: 'INTERNAL_ERROR',
+    };
+  } finally {
+    client.release();
+  }
+}
+
+/**
  * Decrypt the stored refresh token for a user's Google Calendar connection.
  * Used by the sync worker (Story 3.6) -- never exposed via any API response.
  */

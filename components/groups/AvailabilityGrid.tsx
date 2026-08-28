@@ -20,7 +20,8 @@ export interface AvailabilityGridProps {
   members: AvailabilityGridMember[];
   overlapThreshold?: number; // minimum free members to highlight a day, default: majority
   onSlotTap: (day: string) => void; // opens creation modal pre-filled with that day
-  onConnectGoogleCalendar?: () => void; // presence signals current user hasn't connected
+  onConnectGoogleCalendar?: () => void; // presence signals an action is available (connect, or reconnect when needsReauth)
+  needsReauth?: boolean; // true when already connected but the token needs re-authentication (Story 3.8, AC4)
 }
 
 function formatDayLabel(day: string): { weekday: string; short: string } {
@@ -37,6 +38,7 @@ export default function AvailabilityGrid({
   overlapThreshold,
   onSlotTap,
   onConnectGoogleCalendar,
+  needsReauth,
 }: AvailabilityGridProps) {
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
@@ -53,7 +55,33 @@ export default function AvailabilityGrid({
 
   return (
     <VStack align="stretch" spacing={4}>
-      {onConnectGoogleCalendar && !bannerDismissed && (
+      {onConnectGoogleCalendar && needsReauth && !bannerDismissed && (
+        <Box
+          borderWidth="1px"
+          borderColor="orange.200"
+          bg="orange.50"
+          borderRadius="md"
+          p={3}
+        >
+          <HStack justify="space-between" align="center">
+            <Text fontSize="sm">⚠️ Your Google Calendar connection needs to be reconnected</Text>
+            <HStack spacing={2}>
+              <Button size="sm" colorScheme="orange" onClick={onConnectGoogleCalendar}>
+                Reconnect
+              </Button>
+              <IconButton
+                size="sm"
+                variant="ghost"
+                aria-label="Dismiss Google Calendar reconnect prompt"
+                icon={<CloseIcon boxSize={2.5} />}
+                onClick={() => setBannerDismissed(true)}
+              />
+            </HStack>
+          </HStack>
+        </Box>
+      )}
+
+      {onConnectGoogleCalendar && !needsReauth && !bannerDismissed && (
         <Box
           borderWidth="1px"
           borderColor="blue.200"
