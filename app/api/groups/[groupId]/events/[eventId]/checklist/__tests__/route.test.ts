@@ -28,13 +28,13 @@ describe('GET /api/groups/:groupId/events/:eventId/checklist', () => {
   });
 
   it('returns 401 with an invalid token', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue(null);
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue(null);
     const res = await GET(makeRequest({ authHeader: 'Bearer bad-token' }), { params });
     expect(res.status).toBe(401);
   });
 
   it('returns 200 with items on success', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     (checklistService.getChecklistItems as jest.Mock).mockResolvedValue({
       success: true,
       data: [{ id: 'item-1', title: 'Book venue' }],
@@ -48,7 +48,7 @@ describe('GET /api/groups/:groupId/events/:eventId/checklist', () => {
   });
 
   it('returns 403 when the service reports FORBIDDEN', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     (checklistService.getChecklistItems as jest.Mock).mockResolvedValue({
       success: false,
       error: 'Not a member',
@@ -60,7 +60,7 @@ describe('GET /api/groups/:groupId/events/:eventId/checklist', () => {
   });
 
   it('returns 404 when the event does not exist', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     (checklistService.getChecklistItems as jest.Mock).mockResolvedValue({
       success: false,
       error: 'Event not found',
@@ -81,13 +81,13 @@ describe('POST /api/groups/:groupId/events/:eventId/checklist', () => {
   });
 
   it('returns 400 when title is missing', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     const res = await POST(makeRequest({ authHeader: 'Bearer good-token', body: {} }), { params });
     expect(res.status).toBe(400);
   });
 
   it('returns 201 with the created item on success', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     (checklistService.addChecklistItem as jest.Mock).mockResolvedValue({
       success: true,
       message: 'Checklist item added',
@@ -105,7 +105,7 @@ describe('POST /api/groups/:groupId/events/:eventId/checklist', () => {
   });
 
   it('returns 400 when the service reports VALIDATION_ERROR (e.g. invalid assignee)', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     (checklistService.addChecklistItem as jest.Mock).mockResolvedValue({
       success: false,
       error: 'Assignee must be a member of this group',

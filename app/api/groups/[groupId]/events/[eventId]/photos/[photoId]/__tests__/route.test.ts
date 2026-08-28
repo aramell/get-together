@@ -25,7 +25,7 @@ describe('DELETE /api/groups/:groupId/events/:eventId/photos/:photoId', () => {
   });
 
   it('returns 200 on successful delete', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('uploader-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('uploader-1');
     (photoService.deleteEventPhoto as jest.Mock).mockResolvedValue({
       success: true,
       message: 'Photo deleted',
@@ -36,7 +36,7 @@ describe('DELETE /api/groups/:groupId/events/:eventId/photos/:photoId', () => {
   });
 
   it('returns 403 for a non-uploader, non-admin', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('random-member');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('random-member');
     (photoService.deleteEventPhoto as jest.Mock).mockResolvedValue({
       success: false,
       error: 'Only the uploader or a group admin can delete this photo',
@@ -48,7 +48,7 @@ describe('DELETE /api/groups/:groupId/events/:eventId/photos/:photoId', () => {
   });
 
   it('returns 404 for a nonexistent photo', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     (photoService.deleteEventPhoto as jest.Mock).mockResolvedValue({
       success: false,
       error: 'Photo not found',

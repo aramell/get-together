@@ -27,7 +27,7 @@ describe('DELETE /api/groups/:groupId/events/:eventId/polls/:pollId', () => {
   });
 
   it('returns 200 on successful delete', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('creator-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('creator-1');
     (pollService.deletePoll as jest.Mock).mockResolvedValue({
       success: true,
       message: 'Poll deleted',
@@ -38,7 +38,7 @@ describe('DELETE /api/groups/:groupId/events/:eventId/polls/:pollId', () => {
   });
 
   it('returns 403 for a non-creator, non-admin', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('random-member');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('random-member');
     (pollService.deletePoll as jest.Mock).mockResolvedValue({
       success: false,
       error: 'Only the creator or a group admin can delete this poll',
@@ -50,7 +50,7 @@ describe('DELETE /api/groups/:groupId/events/:eventId/polls/:pollId', () => {
   });
 
   it('returns 404 when the poll does not exist', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     (pollService.deletePoll as jest.Mock).mockResolvedValue({
       success: false,
       error: 'Poll not found',

@@ -26,6 +26,7 @@
     "@emotion/styled": "^11.14.1",
     "@hookform/resolvers": "^5.2.2",
     "aws-amplify": "^6.16.3",
+    "aws-jwt-verify": "^5.2.1",
     "bcrypt": "^5.1.1",
     "date-fns": "^4.1.0",
     "framer-motion": "^12.38.0",

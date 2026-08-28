@@ -27,7 +27,7 @@ function redirectToSettings(
  * and redirects back to settings with a success/denial message (AC2, AC4).
  */
 export async function GET(request: NextRequest) {
-  const userId = getUserIdFromRequest(request);
+  const userId = await getUserIdFromRequest(request);
   if (!userId) {
     return NextResponse.redirect(new URL('/auth/login', request.url));
   }

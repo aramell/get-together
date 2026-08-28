@@ -19,7 +19,7 @@ describe('GET /api/calendar/google/status', () => {
   });
 
   it('returns 401 when not authenticated', async () => {
-    (getUserIdFromRequest as jest.Mock).mockReturnValue(null);
+    (getUserIdFromRequest as jest.Mock).mockResolvedValue(null);
 
     const response = await GET(new NextRequest(new URL('http://localhost:3000/api/calendar/google/status')));
 
@@ -27,7 +27,7 @@ describe('GET /api/calendar/google/status', () => {
   });
 
   it('returns connection status for the authenticated user (AC3)', async () => {
-    (getUserIdFromRequest as jest.Mock).mockReturnValue('user-1');
+    (getUserIdFromRequest as jest.Mock).mockResolvedValue('user-1');
     (getConnectionStatus as jest.Mock).mockResolvedValue({
       success: true,
       data: { connected: true, connectedEmail: 'user@example.com', needsReauth: false },
@@ -42,7 +42,7 @@ describe('GET /api/calendar/google/status', () => {
   });
 
   it('returns 500 when the service call fails', async () => {
-    (getUserIdFromRequest as jest.Mock).mockReturnValue('user-1');
+    (getUserIdFromRequest as jest.Mock).mockResolvedValue('user-1');
     (getConnectionStatus as jest.Mock).mockResolvedValue({
       success: false,
       message: 'Failed to fetch calendar connection status',

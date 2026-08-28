@@ -9,7 +9,7 @@ import { getConnectionStatus } from '@/lib/services/calendarConnectionService';
  * routes themselves returning JSON (they redirect the browser through Google).
  */
 export async function GET(request: NextRequest) {
-  const userId = getUserIdFromRequest(request);
+  const userId = await getUserIdFromRequest(request);
   if (!userId) {
     return NextResponse.json(
       {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateChecklistItem, deleteChecklistItem } from '@/lib/services/eventChecklistService';
-import { getSubFromJWT } from '@/lib/auth/jwt';
+import { getVerifiedSubFromJWT } from '@/lib/auth/jwt';
 
 /**
  * PATCH /api/groups/:groupId/events/:eventId/checklist/:itemId
@@ -30,7 +30,7 @@ export async function PATCH(
     }
 
     const token = authHeader.substring(7);
-    const userId = getSubFromJWT(token);
+    const userId = await getVerifiedSubFromJWT(token);
 
     if (!userId) {
       return NextResponse.json(
@@ -123,7 +123,7 @@ export async function DELETE(
     }
 
     const token = authHeader.substring(7);
-    const userId = getSubFromJWT(token);
+    const userId = await getVerifiedSubFromJWT(token);
 
     if (!userId) {
       return NextResponse.json(

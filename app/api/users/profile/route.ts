@@ -9,7 +9,7 @@ import { updateProfileSchema } from '@/lib/validation/profileSchema';
  * Requires authentication
  */
 export async function GET(req: NextRequest) {
-  const userId = getUserIdFromRequest(req);
+  const userId = await getUserIdFromRequest(req);
 
   if (!userId) {
     return NextResponse.json(
@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
  * AC4: GDPR Right to Rectification - Users can correct their profile data
  */
 export async function PATCH(req: NextRequest) {
-  const userId = getUserIdFromRequest(req);
+  const userId = await getUserIdFromRequest(req);
 
   if (!userId) {
     return NextResponse.json(

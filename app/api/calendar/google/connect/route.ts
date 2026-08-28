@@ -11,7 +11,7 @@ const STATE_COOKIE_MAX_AGE_SECONDS = 600; // 10 minutes -- long enough for a use
  * CSRF `state` param (AC1), stored in a short-lived httpOnly cookie for callback validation.
  */
 export async function GET(request: NextRequest) {
-  const userId = getUserIdFromRequest(request);
+  const userId = await getUserIdFromRequest(request);
   if (!userId) {
     return NextResponse.json(
       {

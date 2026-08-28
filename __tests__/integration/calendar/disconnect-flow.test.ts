@@ -32,7 +32,7 @@ describe('Google Calendar disconnect / re-auth flow (integration)', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (getUserIdFromRequest as jest.Mock).mockReturnValue('user-1');
+    (getUserIdFromRequest as jest.Mock).mockResolvedValue('user-1');
     (getClient as jest.Mock).mockResolvedValue(mockClient);
     (global as any).fetch = jest.fn();
   });

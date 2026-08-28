@@ -28,13 +28,13 @@ describe('PATCH /api/groups/:groupId/events/:eventId/timeline/:itemId', () => {
   });
 
   it('returns 400 when no valid fields are provided', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     const res = await PATCH(makeRequest({ authHeader: 'Bearer good-token', body: {} }), { params });
     expect(res.status).toBe(400);
   });
 
   it('returns 200 on a successful update', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     (timelineService.updateTimelineItem as jest.Mock).mockResolvedValue({
       success: true,
       data: { id: 'item-1', title: 'Updated' },
@@ -48,7 +48,7 @@ describe('PATCH /api/groups/:groupId/events/:eventId/timeline/:itemId', () => {
   });
 
   it('returns 403 when the service reports FORBIDDEN', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     (timelineService.updateTimelineItem as jest.Mock).mockResolvedValue({
       success: false,
       error: 'Only the creator or a group admin can edit this item',
@@ -63,7 +63,7 @@ describe('PATCH /api/groups/:groupId/events/:eventId/timeline/:itemId', () => {
   });
 
   it('returns 404 when the item does not exist', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     (timelineService.updateTimelineItem as jest.Mock).mockResolvedValue({
       success: false,
       error: 'Timeline item not found',
@@ -78,7 +78,7 @@ describe('PATCH /api/groups/:groupId/events/:eventId/timeline/:itemId', () => {
   });
 
   it('returns 400 when the service reports VALIDATION_ERROR', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     (timelineService.updateTimelineItem as jest.Mock).mockResolvedValue({
       success: false,
       error: 'A valid item time is required',
@@ -102,7 +102,7 @@ describe('DELETE /api/groups/:groupId/events/:eventId/timeline/:itemId', () => {
   });
 
   it('returns 200 on successful delete', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('creator-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('creator-1');
     (timelineService.deleteTimelineItem as jest.Mock).mockResolvedValue({
       success: true,
       message: 'Timeline item deleted',
@@ -113,7 +113,7 @@ describe('DELETE /api/groups/:groupId/events/:eventId/timeline/:itemId', () => {
   });
 
   it('returns 403 for a non-creator, non-admin', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('random-member');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('random-member');
     (timelineService.deleteTimelineItem as jest.Mock).mockResolvedValue({
       success: false,
       error: 'Only the creator or a group admin can delete this item',
@@ -125,7 +125,7 @@ describe('DELETE /api/groups/:groupId/events/:eventId/timeline/:itemId', () => {
   });
 
   it('returns 404 when the item does not exist', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     (timelineService.deleteTimelineItem as jest.Mock).mockResolvedValue({
       success: false,
       error: 'Timeline item not found',

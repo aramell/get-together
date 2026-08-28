@@ -8,7 +8,7 @@ import { disconnect } from '@/lib/services/calendarConnectionService';
  * calendar_connections row and cached google_calendar_busy_blocks rows.
  */
 export async function DELETE(request: NextRequest) {
-  const userId = getUserIdFromRequest(request);
+  const userId = await getUserIdFromRequest(request);
   if (!userId) {
     return NextResponse.json(
       {

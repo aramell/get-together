@@ -4,14 +4,15 @@
  */
 
 import { NextRequest } from 'next/server';
-import { getSubFromJWT } from '@/lib/auth/jwt';
+import { getVerifiedSubFromJWT } from '@/lib/auth/jwt';
 
 /**
  * Extract Cognito sub (user ID) from request
- * Returns the Cognito subject claim which uniquely identifies the user
- * No database lookups needed - sub is directly from the JWT token
+ * Returns the Cognito subject claim which uniquely identifies the user, only
+ * after verifying the token's signature, expiration, issuer, and client ID.
+ * No database lookups needed - sub is directly from the verified JWT.
  */
-export function getUserIdFromRequest(request: NextRequest): string | null {
+export async function getUserIdFromRequest(request: NextRequest): Promise<string | null> {
   try {
     // Get JWT token from cookies
     const accessToken = request.cookies.get('accessToken')?.value;
@@ -20,9 +21,8 @@ export function getUserIdFromRequest(request: NextRequest): string | null {
       return null;
     }
 
-    // Extract sub (Cognito user ID) from JWT
-    const sub = getSubFromJWT(accessToken);
-    return sub;
+    // Extract sub (Cognito user ID) from the verified JWT
+    return await getVerifiedSubFromJWT(accessToken);
   } catch (error) {
     console.error('Error extracting user ID from request:', error);
     return null;

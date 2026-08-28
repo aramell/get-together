@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getChecklistItems, addChecklistItem } from '@/lib/services/eventChecklistService';
-import { getSubFromJWT } from '@/lib/auth/jwt';
+import { getVerifiedSubFromJWT } from '@/lib/auth/jwt';
 
 /**
  * GET /api/groups/:groupId/events/:eventId/checklist
@@ -36,7 +36,7 @@ export async function GET(
     }
 
     const token = authHeader.substring(7);
-    const userId = getSubFromJWT(token);
+    const userId = await getVerifiedSubFromJWT(token);
 
     if (!userId) {
       return NextResponse.json(
@@ -114,7 +114,7 @@ export async function POST(
     }
 
     const token = authHeader.substring(7);
-    const userId = getSubFromJWT(token);
+    const userId = await getVerifiedSubFromJWT(token);
 
     if (!userId) {
       return NextResponse.json(

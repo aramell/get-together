@@ -32,7 +32,7 @@ describe('GET /api/groups/:groupId/events/:eventId/photos', () => {
   });
 
   it('returns 200 with photos on success', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     (photoService.getEventPhotos as jest.Mock).mockResolvedValue({
       success: true,
       data: [{ id: 'photo-1', url: 'https://example.com/photo.jpg' }],
@@ -46,7 +46,7 @@ describe('GET /api/groups/:groupId/events/:eventId/photos', () => {
   });
 
   it('returns 403 when the service reports FORBIDDEN', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     (photoService.getEventPhotos as jest.Mock).mockResolvedValue({
       success: false,
       error: 'Not a member',
@@ -67,13 +67,13 @@ describe('POST /api/groups/:groupId/events/:eventId/photos', () => {
   });
 
   it('returns 400 when no file is provided', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     const res = await POST(makePostRequest({ authHeader: 'Bearer good-token', formData: new FormData() }), { params });
     expect(res.status).toBe(400);
   });
 
   it('returns 201 with the created photo on success', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     (photoService.addEventPhoto as jest.Mock).mockResolvedValue({
       success: true,
       message: 'Photo uploaded',
@@ -92,7 +92,7 @@ describe('POST /api/groups/:groupId/events/:eventId/photos', () => {
   });
 
   it('returns 400 when the service reports VALIDATION_ERROR (bad type/size)', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     (photoService.addEventPhoto as jest.Mock).mockResolvedValue({
       success: false,
       error: 'Please upload a JPEG, PNG, or WebP image',

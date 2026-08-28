@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTimelineItems, addTimelineItem } from '@/lib/services/eventTimelineService';
-import { getSubFromJWT } from '@/lib/auth/jwt';
+import { getVerifiedSubFromJWT } from '@/lib/auth/jwt';
 
 /**
  * GET /api/groups/:groupId/events/:eventId/timeline
@@ -36,7 +36,7 @@ export async function GET(
     }
 
     const token = authHeader.substring(7);
-    const userId = getSubFromJWT(token);
+    const userId = await getVerifiedSubFromJWT(token);
 
     if (!userId) {
       return NextResponse.json(
@@ -114,7 +114,7 @@ export async function POST(
     }
 
     const token = authHeader.substring(7);
-    const userId = getSubFromJWT(token);
+    const userId = await getVerifiedSubFromJWT(token);
 
     if (!userId) {
       return NextResponse.json(

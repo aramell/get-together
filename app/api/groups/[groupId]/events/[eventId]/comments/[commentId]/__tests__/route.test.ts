@@ -28,7 +28,7 @@ describe('PATCH /api/groups/:groupId/events/:eventId/comments/:commentId', () =>
   });
 
   it('returns 200 when the author edits their own comment', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('author-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('author-1');
     (commentService.editEventComment as jest.Mock).mockResolvedValue({
       success: true,
       data: { id: 'comment-1', content: 'updated', edited_at: '2026-03-20T10:00:00Z', updated_count: 1 },
@@ -45,7 +45,7 @@ describe('PATCH /api/groups/:groupId/events/:eventId/comments/:commentId', () =>
   });
 
   it('returns 200 when a group admin edits someone else\'s comment', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('admin-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('admin-1');
     (commentService.editEventComment as jest.Mock).mockResolvedValue({
       success: true,
       data: { id: 'comment-1', content: 'moderated', edited_at: '2026-03-20T10:00:00Z', updated_count: 1 },
@@ -59,7 +59,7 @@ describe('PATCH /api/groups/:groupId/events/:eventId/comments/:commentId', () =>
   });
 
   it('returns 403 for a non-author, non-admin', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('random-member');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('random-member');
     (commentService.editEventComment as jest.Mock).mockResolvedValue({
       success: false,
       message: 'You do not have permission to edit this comment',
@@ -74,7 +74,7 @@ describe('PATCH /api/groups/:groupId/events/:eventId/comments/:commentId', () =>
   });
 
   it('returns 404 when the comment does not exist', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('author-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('author-1');
     (commentService.editEventComment as jest.Mock).mockResolvedValue({
       success: false,
       message: 'Comment not found',
@@ -98,7 +98,7 @@ describe('DELETE /api/groups/:groupId/events/:eventId/comments/:commentId', () =
   });
 
   it('returns 200 when the author deletes their own comment', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('author-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('author-1');
     (commentService.deleteEventCommentWithAuth as jest.Mock).mockResolvedValue({
       success: true,
       message: 'Comment deleted successfully',
@@ -109,7 +109,7 @@ describe('DELETE /api/groups/:groupId/events/:eventId/comments/:commentId', () =
   });
 
   it('returns 200 when a group admin deletes someone else\'s comment', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('admin-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('admin-1');
     (commentService.deleteEventCommentWithAuth as jest.Mock).mockResolvedValue({
       success: true,
       message: 'Comment deleted successfully',
@@ -120,7 +120,7 @@ describe('DELETE /api/groups/:groupId/events/:eventId/comments/:commentId', () =
   });
 
   it('returns 403 for a non-author, non-admin', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('random-member');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('random-member');
     (commentService.deleteEventCommentWithAuth as jest.Mock).mockResolvedValue({
       success: false,
       message: 'You do not have permission to delete this comment',
@@ -132,7 +132,7 @@ describe('DELETE /api/groups/:groupId/events/:eventId/comments/:commentId', () =
   });
 
   it('returns 404 when the comment does not exist', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('author-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('author-1');
     (commentService.deleteEventCommentWithAuth as jest.Mock).mockResolvedValue({
       success: false,
       message: 'Comment not found',
@@ -144,7 +144,7 @@ describe('DELETE /api/groups/:groupId/events/:eventId/comments/:commentId', () =
   });
 
   it('returns 409 when the comment is already deleted', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('author-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('author-1');
     (commentService.deleteEventCommentWithAuth as jest.Mock).mockResolvedValue({
       success: false,
       message: 'Comment has already been deleted',

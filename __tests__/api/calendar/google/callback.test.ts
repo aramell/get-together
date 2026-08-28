@@ -29,7 +29,7 @@ describe('GET /api/calendar/google/callback', () => {
   });
 
   it('redirects to login when the user is not authenticated', async () => {
-    (getUserIdFromRequest as jest.Mock).mockReturnValue(null);
+    (getUserIdFromRequest as jest.Mock).mockResolvedValue(null);
 
     const response = await GET(makeRequest('?code=abc&state=xyz'));
 
@@ -38,7 +38,7 @@ describe('GET /api/calendar/google/callback', () => {
   });
 
   it('redirects with calendar_status=denied when Google reports a consent denial (AC4)', async () => {
-    (getUserIdFromRequest as jest.Mock).mockReturnValue('user-1');
+    (getUserIdFromRequest as jest.Mock).mockResolvedValue('user-1');
 
     const response = await GET(makeRequest('?error=access_denied'));
 
@@ -50,7 +50,7 @@ describe('GET /api/calendar/google/callback', () => {
   });
 
   it('does not create a partial connection record on denial (AC4)', async () => {
-    (getUserIdFromRequest as jest.Mock).mockReturnValue('user-1');
+    (getUserIdFromRequest as jest.Mock).mockResolvedValue('user-1');
 
     await GET(makeRequest('?error=access_denied'));
 
@@ -58,7 +58,7 @@ describe('GET /api/calendar/google/callback', () => {
   });
 
   it('redirects with calendar_status=error when state is missing or mismatched (CSRF protection, AC1)', async () => {
-    (getUserIdFromRequest as jest.Mock).mockReturnValue('user-1');
+    (getUserIdFromRequest as jest.Mock).mockResolvedValue('user-1');
 
     const response = await GET(
       makeRequest('?code=abc&state=wrong-state', { google_oauth_state: 'expected-state' })
@@ -71,7 +71,7 @@ describe('GET /api/calendar/google/callback', () => {
   });
 
   it('redirects with calendar_status=error when the state cookie is absent', async () => {
-    (getUserIdFromRequest as jest.Mock).mockReturnValue('user-1');
+    (getUserIdFromRequest as jest.Mock).mockResolvedValue('user-1');
 
     const response = await GET(makeRequest('?code=abc&state=some-state'));
 
@@ -81,7 +81,7 @@ describe('GET /api/calendar/google/callback', () => {
   });
 
   it('exchanges the code and redirects with calendar_status=connected on success', async () => {
-    (getUserIdFromRequest as jest.Mock).mockReturnValue('user-1');
+    (getUserIdFromRequest as jest.Mock).mockResolvedValue('user-1');
     (handleCallback as jest.Mock).mockResolvedValue({
       success: true,
       data: { connectedEmail: 'user@example.com' },
@@ -97,7 +97,7 @@ describe('GET /api/calendar/google/callback', () => {
   });
 
   it('redirects with calendar_status=error when handleCallback fails', async () => {
-    (getUserIdFromRequest as jest.Mock).mockReturnValue('user-1');
+    (getUserIdFromRequest as jest.Mock).mockResolvedValue('user-1');
     (handleCallback as jest.Mock).mockResolvedValue({
       success: false,
       message: 'Failed to connect Google Calendar',
@@ -112,7 +112,7 @@ describe('GET /api/calendar/google/callback', () => {
   });
 
   it('clears the state cookie after processing the callback', async () => {
-    (getUserIdFromRequest as jest.Mock).mockReturnValue('user-1');
+    (getUserIdFromRequest as jest.Mock).mockResolvedValue('user-1');
     (handleCallback as jest.Mock).mockResolvedValue({
       success: true,
       data: { connectedEmail: 'user@example.com' },

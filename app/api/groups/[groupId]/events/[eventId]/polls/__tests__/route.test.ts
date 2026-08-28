@@ -28,7 +28,7 @@ describe('GET /api/groups/:groupId/events/:eventId/polls', () => {
   });
 
   it('returns 200 with polls on success', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     (pollService.getPolls as jest.Mock).mockResolvedValue({
       success: true,
       data: [{ id: 'poll-1', question: 'Q?', options: [], total_votes: 0, user_vote: null }],
@@ -41,7 +41,7 @@ describe('GET /api/groups/:groupId/events/:eventId/polls', () => {
   });
 
   it('returns 403 for a non-member', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     (pollService.getPolls as jest.Mock).mockResolvedValue({
       success: false,
       error: 'Not a member',
@@ -53,7 +53,7 @@ describe('GET /api/groups/:groupId/events/:eventId/polls', () => {
   });
 
   it('returns 404 when the event does not exist', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     (pollService.getPolls as jest.Mock).mockResolvedValue({
       success: false,
       error: 'Event not found',
@@ -74,7 +74,7 @@ describe('POST /api/groups/:groupId/events/:eventId/polls', () => {
   });
 
   it('returns 400 when question is missing', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     const res = await POST(
       makeRequest({ authHeader: 'Bearer good-token', body: { options: ['A', 'B'] } }),
       { params }
@@ -83,7 +83,7 @@ describe('POST /api/groups/:groupId/events/:eventId/polls', () => {
   });
 
   it('returns 400 when fewer than 2 options are provided', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     const res = await POST(
       makeRequest({ authHeader: 'Bearer good-token', body: { question: 'Q?', options: ['A'] } }),
       { params }
@@ -92,7 +92,7 @@ describe('POST /api/groups/:groupId/events/:eventId/polls', () => {
   });
 
   it('returns 201 on successful creation', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     (pollService.createPoll as jest.Mock).mockResolvedValue({
       success: true,
       data: { id: 'poll-1', question: 'Q?', options: [] },
@@ -108,7 +108,7 @@ describe('POST /api/groups/:groupId/events/:eventId/polls', () => {
   });
 
   it('returns 400 when the service reports VALIDATION_ERROR', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     (pollService.createPoll as jest.Mock).mockResolvedValue({
       success: false,
       error: 'A poll requires at least 2 non-empty options',

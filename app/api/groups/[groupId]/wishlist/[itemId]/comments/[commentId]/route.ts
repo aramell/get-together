@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSubFromJWT } from '@/lib/auth/jwt';
+import { getVerifiedSubFromJWT } from '@/lib/auth/jwt';
 import { editWishlistComment, deleteWishlistCommentService } from '@/lib/services/commentService';
 
 function statusForErrorCode(errorCode?: string): number {
@@ -37,7 +37,7 @@ export async function PATCH(
     const token = authHeader.substring(7);
     const { groupId, commentId } = await params;
 
-    const userId = getSubFromJWT(token);
+    const userId = await getVerifiedSubFromJWT(token);
     if (!userId) {
       return NextResponse.json(
         { success: false, message: 'Unauthorized', errorCode: 'UNAUTHORIZED' },
@@ -86,7 +86,7 @@ export async function DELETE(
     const token = authHeader.substring(7);
     const { groupId, commentId } = await params;
 
-    const userId = getSubFromJWT(token);
+    const userId = await getVerifiedSubFromJWT(token);
     if (!userId) {
       return NextResponse.json(
         { success: false, message: 'Unauthorized', errorCode: 'UNAUTHORIZED' },

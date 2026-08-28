@@ -28,13 +28,13 @@ describe('POST /api/groups/:groupId/events/:eventId/polls/:pollId/vote', () => {
   });
 
   it('returns 400 when option_id is missing', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     const res = await POST(makeRequest({ authHeader: 'Bearer good-token', body: {} }), { params });
     expect(res.status).toBe(400);
   });
 
   it('returns 200 on a successful vote', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     (pollService.castVote as jest.Mock).mockResolvedValue({
       success: true,
       data: { option_id: 'opt-1', voted_at: 'now' },
@@ -49,7 +49,7 @@ describe('POST /api/groups/:groupId/events/:eventId/polls/:pollId/vote', () => {
   });
 
   it('returns 400 when the option belongs to a different poll', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     (pollService.castVote as jest.Mock).mockResolvedValue({
       success: false,
       message: 'That option does not belong to this poll',
@@ -64,7 +64,7 @@ describe('POST /api/groups/:groupId/events/:eventId/polls/:pollId/vote', () => {
   });
 
   it('returns 404 when the poll does not exist', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     (pollService.castVote as jest.Mock).mockResolvedValue({
       success: false,
       message: 'Poll not found',
@@ -79,7 +79,7 @@ describe('POST /api/groups/:groupId/events/:eventId/polls/:pollId/vote', () => {
   });
 
   it('returns 403 for a non-member', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     (pollService.castVote as jest.Mock).mockResolvedValue({
       success: false,
       message: 'You must be a group member to vote',
@@ -103,7 +103,7 @@ describe('DELETE /api/groups/:groupId/events/:eventId/polls/:pollId/vote', () =>
   });
 
   it('returns 200 on a successful unvote', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     (pollService.removeVote as jest.Mock).mockResolvedValue({
       success: true,
       message: 'Vote removed',
@@ -114,7 +114,7 @@ describe('DELETE /api/groups/:groupId/events/:eventId/polls/:pollId/vote', () =>
   });
 
   it('returns 404 when the caller has no vote to remove', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     (pollService.removeVote as jest.Mock).mockResolvedValue({
       success: false,
       message: "You haven't voted on this poll",

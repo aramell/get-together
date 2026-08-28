@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { deletePoll } from '@/lib/services/eventPollService';
-import { getSubFromJWT } from '@/lib/auth/jwt';
+import { getVerifiedSubFromJWT } from '@/lib/auth/jwt';
 
 /**
  * DELETE /api/groups/:groupId/events/:eventId/polls/:pollId
@@ -29,7 +29,7 @@ export async function DELETE(
     }
 
     const token = authHeader.substring(7);
-    const userId = getSubFromJWT(token);
+    const userId = await getVerifiedSubFromJWT(token);
 
     if (!userId) {
       return NextResponse.json(

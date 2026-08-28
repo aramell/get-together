@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getEventComments, addEventComment } from '@/lib/services/eventService';
 import { commentSchema } from '@/lib/validation/commentSchema';
-import { getSubFromJWT } from '@/lib/auth/jwt';
+import { getVerifiedSubFromJWT } from '@/lib/auth/jwt';
 
 /**
  * GET /api/groups/:groupId/events/:eventId/comments
@@ -100,7 +100,7 @@ export async function POST(
     }
 
     const token = authHeader.substring(7);
-    const userId = getSubFromJWT(token);
+    const userId = await getVerifiedSubFromJWT(token);
 
     if (!userId) {
       return NextResponse.json(

@@ -27,7 +27,7 @@ describe('POST /api/groups/:groupId/events/:eventId/logistics/:itemId/claims', (
   });
 
   it('returns 201 on a successful claim', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('rider-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('rider-1');
     (logisticsService.claimLogisticsSeat as jest.Mock).mockResolvedValue({
       success: true,
       data: { user_id: 'rider-1', claimed_at: 'now' },
@@ -39,7 +39,7 @@ describe('POST /api/groups/:groupId/events/:eventId/logistics/:itemId/claims', (
   });
 
   it('returns 409 when capacity is already reached', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('rider-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('rider-1');
     (logisticsService.claimLogisticsSeat as jest.Mock).mockResolvedValue({
       success: false,
       message: 'All seats have already been claimed',
@@ -51,7 +51,7 @@ describe('POST /api/groups/:groupId/events/:eventId/logistics/:itemId/claims', (
   });
 
   it('returns 409 for a duplicate claim', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('rider-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('rider-1');
     (logisticsService.claimLogisticsSeat as jest.Mock).mockResolvedValue({
       success: false,
       message: 'You have already claimed a seat on this item',
@@ -63,7 +63,7 @@ describe('POST /api/groups/:groupId/events/:eventId/logistics/:itemId/claims', (
   });
 
   it('returns 400 when claiming a non-carpool item', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('rider-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('rider-1');
     (logisticsService.claimLogisticsSeat as jest.Mock).mockResolvedValue({
       success: false,
       message: 'Only carpool items can be claimed',
@@ -75,7 +75,7 @@ describe('POST /api/groups/:groupId/events/:eventId/logistics/:itemId/claims', (
   });
 
   it('returns 404 when the item does not exist', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('rider-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('rider-1');
     (logisticsService.claimLogisticsSeat as jest.Mock).mockResolvedValue({
       success: false,
       message: 'Logistics item not found',
@@ -96,7 +96,7 @@ describe('DELETE /api/groups/:groupId/events/:eventId/logistics/:itemId/claims',
   });
 
   it('returns 200 on a successful unclaim', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('rider-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('rider-1');
     (logisticsService.unclaimLogisticsSeat as jest.Mock).mockResolvedValue({
       success: true,
       message: 'Seat unclaimed',
@@ -107,7 +107,7 @@ describe('DELETE /api/groups/:groupId/events/:eventId/logistics/:itemId/claims',
   });
 
   it('returns 404 when the caller has no claim to remove', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('rider-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('rider-1');
     (logisticsService.unclaimLogisticsSeat as jest.Mock).mockResolvedValue({
       success: false,
       message: "You haven't claimed a seat on this item",

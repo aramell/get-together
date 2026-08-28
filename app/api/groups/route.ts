@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Extract user ID (Cognito sub) from JWT token in cookies
-    const userId = getUserIdFromRequest(request);
+    const userId = await getUserIdFromRequest(request);
 
     if (!userId) {
       return NextResponse.json(
@@ -116,7 +116,7 @@ export async function GET(request: NextRequest) {
     console.log('[Groups GET] Starting, userId extraction...');
 
     // Extract user ID (Cognito sub) from JWT token in cookies
-    const userId = getUserIdFromRequest(request);
+    const userId = await getUserIdFromRequest(request);
     console.log('[Groups GET] userId:', userId);
 
     if (!userId) {

@@ -17,7 +17,7 @@ import { NextRequest, NextResponse } from 'next/server';
  * Sets deleted_at timestamp and NULLs sensitive fields
  */
 export async function DELETE(req: NextRequest) {
-  const userId = getUserIdFromRequest(req);
+  const userId = await getUserIdFromRequest(req);
 
   if (!userId) {
     return NextResponse.json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } }, { status: 401 });

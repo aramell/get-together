@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { editEventComment, deleteEventCommentWithAuth } from '@/lib/services/commentService';
-import { getSubFromJWT } from '@/lib/auth/jwt';
+import { getVerifiedSubFromJWT } from '@/lib/auth/jwt';
 
-function getUserIdFromRequest(request: NextRequest): string | null {
+async function getUserIdFromRequest(request: NextRequest): Promise<string | null> {
   const authHeader = request.headers.get('authorization');
   if (!authHeader?.startsWith('Bearer ')) {
     return null;
   }
 
   const token = authHeader.substring(7);
-  return getSubFromJWT(token);
+  return getVerifiedSubFromJWT(token);
 }
 
 function statusForErrorCode(errorCode?: string): number {
@@ -38,7 +38,7 @@ export async function PATCH(
   try {
     const { groupId, commentId } = await params;
 
-    const userId = getUserIdFromRequest(request);
+    const userId = await getUserIdFromRequest(request);
     if (!userId) {
       return NextResponse.json(
         { success: false, error: 'Invalid or expired token', errorCode: 'UNAUTHORIZED' },
@@ -82,7 +82,7 @@ export async function DELETE(
   try {
     const { groupId, commentId } = await params;
 
-    const userId = getUserIdFromRequest(request);
+    const userId = await getUserIdFromRequest(request);
     if (!userId) {
       return NextResponse.json(
         { success: false, error: 'Invalid or expired token', errorCode: 'UNAUTHORIZED' },

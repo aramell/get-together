@@ -19,7 +19,7 @@ describe('GET /api/calendar/google/connect', () => {
   });
 
   it('returns 401 when the user is not authenticated', async () => {
-    (getUserIdFromRequest as jest.Mock).mockReturnValue(null);
+    (getUserIdFromRequest as jest.Mock).mockResolvedValue(null);
 
     const request = new NextRequest(new URL('http://localhost:3000/api/calendar/google/connect'));
     const response = await GET(request);
@@ -31,7 +31,7 @@ describe('GET /api/calendar/google/connect', () => {
   });
 
   it('redirects to the Google consent URL and sets a state cookie (AC1)', async () => {
-    (getUserIdFromRequest as jest.Mock).mockReturnValue('user-1');
+    (getUserIdFromRequest as jest.Mock).mockResolvedValue('user-1');
     (initiateConnect as jest.Mock).mockReturnValue({
       url: 'https://accounts.google.com/o/oauth2/v2/auth?client_id=abc&state=xyz',
       state: 'xyz',
@@ -51,7 +51,7 @@ describe('GET /api/calendar/google/connect', () => {
   });
 
   it('returns 500 when Google OAuth is not configured', async () => {
-    (getUserIdFromRequest as jest.Mock).mockReturnValue('user-1');
+    (getUserIdFromRequest as jest.Mock).mockResolvedValue('user-1');
     (initiateConnect as jest.Mock).mockImplementation(() => {
       throw new Error('Google OAuth is not configured');
     });

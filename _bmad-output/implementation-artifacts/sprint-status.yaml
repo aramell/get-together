@@ -124,7 +124,7 @@ development_status:
   # 8-5 added 2026-08-27 — cross-cutting JWT signature verification gap
   # surfaced independently by 4 of 6 Epic 12 code reviews; filed here rather
   # than fixed piecemeal since it's one shared utility (lib/auth/jwt.ts)
-  8-5-jwt-signature-verification: ready-for-dev
+  8-5-jwt-signature-verification: review
   epic-8-retrospective: optional
 
   # EPIC 11: Production Database & Local Dev Environment (added ad hoc — not in epics.md, fast-tracked 2026-07-28)
@@ -155,8 +155,8 @@ summary:
   epics_backlog: 0
   stories_done: 45
   stories_in_progress: 2
-  stories_review: 5
+  stories_review: 6
   stories_backlog: 0
-  stories_ready_for_dev: 1
+  stories_ready_for_dev: 0
   retrospectives_optional: 10
   retrospectives_done: 0

@@ -19,7 +19,7 @@ describe('DELETE /api/calendar/google/disconnect', () => {
   });
 
   it('returns 401 when not authenticated', async () => {
-    (getUserIdFromRequest as jest.Mock).mockReturnValue(null);
+    (getUserIdFromRequest as jest.Mock).mockResolvedValue(null);
 
     const response = await DELETE(
       new NextRequest(new URL('http://localhost:3000/api/calendar/google/disconnect'), { method: 'DELETE' })
@@ -30,7 +30,7 @@ describe('DELETE /api/calendar/google/disconnect', () => {
   });
 
   it('disconnects the authenticated user (AC1)', async () => {
-    (getUserIdFromRequest as jest.Mock).mockReturnValue('user-1');
+    (getUserIdFromRequest as jest.Mock).mockResolvedValue('user-1');
     (disconnect as jest.Mock).mockResolvedValue({ success: true, message: 'Google Calendar disconnected' });
 
     const response = await DELETE(
@@ -44,7 +44,7 @@ describe('DELETE /api/calendar/google/disconnect', () => {
   });
 
   it('returns 500 when the service call fails', async () => {
-    (getUserIdFromRequest as jest.Mock).mockReturnValue('user-1');
+    (getUserIdFromRequest as jest.Mock).mockResolvedValue('user-1');
     (disconnect as jest.Mock).mockResolvedValue({
       success: false,
       message: 'Failed to disconnect Google Calendar',

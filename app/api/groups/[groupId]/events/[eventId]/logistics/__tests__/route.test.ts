@@ -28,7 +28,7 @@ describe('GET /api/groups/:groupId/events/:eventId/logistics', () => {
   });
 
   it('returns 200 with items on success', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     (logisticsService.getLogisticsItems as jest.Mock).mockResolvedValue({
       success: true,
       data: [{ id: 'item-1', category: 'bring', title: 'Speaker', claims: [], claim_count: 0 }],
@@ -41,7 +41,7 @@ describe('GET /api/groups/:groupId/events/:eventId/logistics', () => {
   });
 
   it('returns 403 for a non-member', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     (logisticsService.getLogisticsItems as jest.Mock).mockResolvedValue({
       success: false,
       error: 'Not a member',
@@ -53,7 +53,7 @@ describe('GET /api/groups/:groupId/events/:eventId/logistics', () => {
   });
 
   it('returns 404 when the event does not exist', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     (logisticsService.getLogisticsItems as jest.Mock).mockResolvedValue({
       success: false,
       error: 'Event not found',
@@ -74,7 +74,7 @@ describe('POST /api/groups/:groupId/events/:eventId/logistics', () => {
   });
 
   it('returns 400 for an invalid category', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     const res = await POST(
       makeRequest({ authHeader: 'Bearer good-token', body: { category: 'invalid', title: 'Speaker' } }),
       { params }
@@ -83,7 +83,7 @@ describe('POST /api/groups/:groupId/events/:eventId/logistics', () => {
   });
 
   it('returns 400 when title is missing', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     const res = await POST(
       makeRequest({ authHeader: 'Bearer good-token', body: { category: 'bring' } }),
       { params }
@@ -92,7 +92,7 @@ describe('POST /api/groups/:groupId/events/:eventId/logistics', () => {
   });
 
   it('returns 201 on successful bring-item creation', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     (logisticsService.addLogisticsItem as jest.Mock).mockResolvedValue({
       success: true,
       data: { id: 'item-1', category: 'bring', title: 'Speaker' },
@@ -107,7 +107,7 @@ describe('POST /api/groups/:groupId/events/:eventId/logistics', () => {
   });
 
   it('returns 201 on successful carpool-item creation with capacity', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     (logisticsService.addLogisticsItem as jest.Mock).mockResolvedValue({
       success: true,
       data: { id: 'item-1', category: 'carpool', title: 'Ride', capacity: 4 },
@@ -128,7 +128,7 @@ describe('POST /api/groups/:groupId/events/:eventId/logistics', () => {
   });
 
   it('returns 400 when the service reports VALIDATION_ERROR (e.g. carpool without capacity)', async () => {
-    (jwt.getSubFromJWT as jest.Mock).mockReturnValue('user-1');
+    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
     (logisticsService.addLogisticsItem as jest.Mock).mockResolvedValue({
       success: false,
       error: 'Carpool items require a positive integer capacity',

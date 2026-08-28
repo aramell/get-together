@@ -8,7 +8,7 @@ import { getUserIdFromRequest } from '@/lib/api/auth';
  */
 export async function GET(request: NextRequest) {
   try {
-    const userId = getUserIdFromRequest(request);
+    const userId = await getUserIdFromRequest(request);
 
     if (!userId) {
       return NextResponse.json(
