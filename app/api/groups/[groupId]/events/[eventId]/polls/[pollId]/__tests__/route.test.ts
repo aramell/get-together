@@ -3,10 +3,10 @@
  */
 import { DELETE } from '../route';
 import * as pollService from '@/lib/services/eventPollService';
-import * as jwt from '@/lib/auth/jwt';
+import * as authLib from '@/lib/api/auth';
 
 jest.mock('@/lib/services/eventPollService');
-jest.mock('@/lib/auth/jwt');
+jest.mock('@/lib/api/auth');
 
 function makeRequest(options: { authHeader?: string } = {}) {
   return {
@@ -27,7 +27,7 @@ describe('DELETE /api/groups/:groupId/events/:eventId/polls/:pollId', () => {
   });
 
   it('returns 200 on successful delete', async () => {
-    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('creator-1');
+    (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('creator-1');
     (pollService.deletePoll as jest.Mock).mockResolvedValue({
       success: true,
       message: 'Poll deleted',
@@ -38,7 +38,7 @@ describe('DELETE /api/groups/:groupId/events/:eventId/polls/:pollId', () => {
   });
 
   it('returns 403 for a non-creator, non-admin', async () => {
-    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('random-member');
+    (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('random-member');
     (pollService.deletePoll as jest.Mock).mockResolvedValue({
       success: false,
       error: 'Only the creator or a group admin can delete this poll',
@@ -50,7 +50,7 @@ describe('DELETE /api/groups/:groupId/events/:eventId/polls/:pollId', () => {
   });
 
   it('returns 404 when the poll does not exist', async () => {
-    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
+    (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('user-1');
     (pollService.deletePoll as jest.Mock).mockResolvedValue({
       success: false,
       error: 'Poll not found',

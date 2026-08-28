@@ -22,8 +22,24 @@ const TEST_ISSUER = `https://cognito-idp.us-east-1.amazonaws.com/${TEST_USER_POO
 const KID = 'test-signing-key-1';
 const TEST_SUB = 'user-sub-abc-123';
 
+const ORIGINAL_USER_POOL_ID = process.env.NEXT_PUBLIC_USER_POOL_ID;
+const ORIGINAL_CLIENT_ID = process.env.NEXT_PUBLIC_USER_POOL_WEB_CLIENT_ID;
+
 process.env.NEXT_PUBLIC_USER_POOL_ID = TEST_USER_POOL_ID;
 process.env.NEXT_PUBLIC_USER_POOL_WEB_CLIENT_ID = TEST_CLIENT_ID;
+
+function restoreEnv(key: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[key];
+  } else {
+    process.env[key] = value;
+  }
+}
+
+afterAll(() => {
+  restoreEnv('NEXT_PUBLIC_USER_POOL_ID', ORIGINAL_USER_POOL_ID);
+  restoreEnv('NEXT_PUBLIC_USER_POOL_WEB_CLIENT_ID', ORIGINAL_CLIENT_ID);
+});
 
 function base64url(input: string | Buffer): string {
   const buffer = Buffer.isBuffer(input) ? input : Buffer.from(input);
@@ -171,6 +187,40 @@ describe('lib/auth/jwt - verified JWT decode', () => {
       await expect(getVerifiedSubFromJWT(tokenA)).resolves.toBe('user-a');
       await expect(getVerifiedSubFromJWT(tokenB)).resolves.toBe('user-b');
     });
+  });
+});
+
+describe('Task 4: rollout safety - fails closed on missing Cognito configuration', () => {
+  afterEach(() => {
+    restoreEnv('NEXT_PUBLIC_USER_POOL_ID', TEST_USER_POOL_ID);
+    restoreEnv('NEXT_PUBLIC_USER_POOL_WEB_CLIENT_ID', TEST_CLIENT_ID);
+  });
+
+  it('getCognitoJwtVerifier throws when the user pool config is missing', () => {
+    delete process.env.NEXT_PUBLIC_USER_POOL_ID;
+
+    let freshJwt!: typeof import('@/lib/auth/jwt');
+    jest.isolateModules(() => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports -- jest.isolateModules requires a synchronous require()
+      freshJwt = require('@/lib/auth/jwt');
+    });
+
+    expect(() => freshJwt.getCognitoJwtVerifier()).toThrow(/Missing Cognito configuration/);
+  });
+
+  it('getVerifiedSubFromJWT fails closed (returns null, never throws) when config is missing', async () => {
+    delete process.env.NEXT_PUBLIC_USER_POOL_ID;
+    delete process.env.NEXT_PUBLIC_USER_POOL_WEB_CLIENT_ID;
+
+    let freshJwt!: typeof import('@/lib/auth/jwt');
+    jest.isolateModules(() => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports -- jest.isolateModules requires a synchronous require()
+      freshJwt = require('@/lib/auth/jwt');
+    });
+
+    // A misconfigured JWKS/pool must reject every token (locking out real
+    // users is loud and safe), never silently authenticate or crash unhandled.
+    await expect(freshJwt.getVerifiedSubFromJWT('any-token')).resolves.toBeNull();
   });
 });
 

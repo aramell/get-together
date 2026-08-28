@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { deleteEventPhoto } from '@/lib/services/eventPhotoService';
-import { getVerifiedSubFromJWT } from '@/lib/auth/jwt';
+import { getUserIdFromBearerToken } from '@/lib/api/auth';
 
 /**
  * DELETE /api/groups/:groupId/events/:eventId/photos/:photoId
@@ -20,20 +20,11 @@ export async function DELETE(
       );
     }
 
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { success: false, error: 'Missing or invalid authorization header', errorCode: 'UNAUTHORIZED' },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.substring(7);
-    const userId = await getVerifiedSubFromJWT(token);
+    const userId = await getUserIdFromBearerToken(request);
 
     if (!userId) {
       return NextResponse.json(
-        { success: false, error: 'Invalid or expired token', errorCode: 'UNAUTHORIZED' },
+        { success: false, error: 'Missing or invalid authorization header', errorCode: 'UNAUTHORIZED' },
         { status: 401 }
       );
     }

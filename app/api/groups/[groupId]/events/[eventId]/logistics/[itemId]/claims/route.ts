@@ -1,15 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { claimLogisticsSeat, unclaimLogisticsSeat } from '@/lib/services/eventLogisticsService';
-import { getVerifiedSubFromJWT } from '@/lib/auth/jwt';
-
-async function getUserIdFromRequest(request: NextRequest): Promise<string | null> {
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader?.startsWith('Bearer ')) {
-    return null;
-  }
-  const token = authHeader.substring(7);
-  return getVerifiedSubFromJWT(token);
-}
+import { getUserIdFromBearerToken } from '@/lib/api/auth';
 
 function statusForErrorCode(errorCode?: string): number {
   switch (errorCode) {
@@ -46,7 +37,7 @@ export async function POST(
       );
     }
 
-    const userId = await getUserIdFromRequest(request);
+    const userId = await getUserIdFromBearerToken(request);
     if (!userId) {
       return NextResponse.json(
         { success: false, error: 'Invalid or expired token', errorCode: 'UNAUTHORIZED' },
@@ -95,7 +86,7 @@ export async function DELETE(
       );
     }
 
-    const userId = await getUserIdFromRequest(request);
+    const userId = await getUserIdFromBearerToken(request);
     if (!userId) {
       return NextResponse.json(
         { success: false, error: 'Invalid or expired token', errorCode: 'UNAUTHORIZED' },

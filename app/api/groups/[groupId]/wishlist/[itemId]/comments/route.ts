@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getVerifiedSubFromJWT } from '@/lib/auth/jwt';
+import { getUserIdFromBearerToken } from '@/lib/api/auth';
 import {
   createWishlistCommentService,
   getWishlistCommentsService,
@@ -39,22 +39,8 @@ export async function POST(
 ) {
   try {
     // Extract user from JWT token
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Unauthorized',
-          errorCode: 'UNAUTHORIZED',
-        },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.substring(7);
     const { groupId, itemId } = await params;
-
-    const userId = await getVerifiedSubFromJWT(token);
+    const userId = await getUserIdFromBearerToken(request);
     if (!userId) {
       return NextResponse.json(
         {
@@ -161,22 +147,8 @@ export async function GET(
 ) {
   try {
     // Extract user from JWT token
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Unauthorized',
-          errorCode: 'UNAUTHORIZED',
-        },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.substring(7);
     const { groupId, itemId } = await params;
-
-    const userId = await getVerifiedSubFromJWT(token);
+    const userId = await getUserIdFromBearerToken(request);
     if (!userId) {
       return NextResponse.json(
         {

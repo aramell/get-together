@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getVerifiedSubFromJWT } from '@/lib/auth/jwt';
 
 const protectedRoutes = ['/dashboard', '/groups', '/events', '/profile'];
 const authRoutes = ['/auth/login', '/auth/signup', '/auth/forgot-password'];
 
+/**
+ * `idToken` gates nothing beyond this check - no route ever authorizes against
+ * it (every API route verifies `accessToken` instead, via getVerifiedSubFromJWT
+ * below), so a full signature verification here wouldn't change what an
+ * attacker could reach. This only needs to reflect "does a session look
+ * present," not stand alone as a security boundary.
+ */
 function isTokenExpired(token: string): boolean {
   try {
     const parts = token.split('.');
@@ -15,17 +23,20 @@ function isTokenExpired(token: string): boolean {
   }
 }
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   const accessToken = request.cookies.get('accessToken')?.value;
   const idToken = request.cookies.get('idToken')?.value;
 
+  // Route-gating is a security decision, so accessToken - the credential every
+  // API route actually authorizes against - is cryptographically verified
+  // rather than trusting its decoded `exp` claim (see Story 8.5).
   const isAuthenticated = !!(
     accessToken &&
     idToken &&
-    !isTokenExpired(accessToken) &&
-    !isTokenExpired(idToken)
+    !isTokenExpired(idToken) &&
+    (await getVerifiedSubFromJWT(accessToken)) !== null
   );
 
   const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route));
@@ -61,6 +72,7 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
+  runtime: 'nodejs',
   matcher: [
     // Protected routes
     '/dashboard/:path*',

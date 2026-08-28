@@ -3,10 +3,10 @@
  */
 import { PATCH, DELETE } from '../route';
 import * as commentService from '@/lib/services/commentService';
-import * as jwt from '@/lib/auth/jwt';
+import * as authLib from '@/lib/api/auth';
 
 jest.mock('@/lib/services/commentService');
-jest.mock('@/lib/auth/jwt');
+jest.mock('@/lib/api/auth');
 
 function makeRequest(options: { authHeader?: string; body?: any } = {}) {
   return {
@@ -20,7 +20,7 @@ function makeRequest(options: { authHeader?: string; body?: any } = {}) {
 const params = Promise.resolve({ groupId: 'group-1', eventId: 'event-1', commentId: 'comment-1' });
 
 describe('PATCH /api/groups/:groupId/events/:eventId/comments/:commentId', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => jest.resetAllMocks());
 
   it('returns 401 without an authorization header', async () => {
     const res = await PATCH(makeRequest({ body: { content: 'hi' } }), { params });
@@ -28,7 +28,7 @@ describe('PATCH /api/groups/:groupId/events/:eventId/comments/:commentId', () =>
   });
 
   it('returns 200 when the author edits their own comment', async () => {
-    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('author-1');
+    (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('author-1');
     (commentService.editEventComment as jest.Mock).mockResolvedValue({
       success: true,
       data: { id: 'comment-1', content: 'updated', edited_at: '2026-03-20T10:00:00Z', updated_count: 1 },
@@ -45,7 +45,7 @@ describe('PATCH /api/groups/:groupId/events/:eventId/comments/:commentId', () =>
   });
 
   it('returns 200 when a group admin edits someone else\'s comment', async () => {
-    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('admin-1');
+    (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('admin-1');
     (commentService.editEventComment as jest.Mock).mockResolvedValue({
       success: true,
       data: { id: 'comment-1', content: 'moderated', edited_at: '2026-03-20T10:00:00Z', updated_count: 1 },
@@ -59,7 +59,7 @@ describe('PATCH /api/groups/:groupId/events/:eventId/comments/:commentId', () =>
   });
 
   it('returns 403 for a non-author, non-admin', async () => {
-    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('random-member');
+    (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('random-member');
     (commentService.editEventComment as jest.Mock).mockResolvedValue({
       success: false,
       message: 'You do not have permission to edit this comment',
@@ -74,7 +74,7 @@ describe('PATCH /api/groups/:groupId/events/:eventId/comments/:commentId', () =>
   });
 
   it('returns 404 when the comment does not exist', async () => {
-    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('author-1');
+    (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('author-1');
     (commentService.editEventComment as jest.Mock).mockResolvedValue({
       success: false,
       message: 'Comment not found',
@@ -90,7 +90,7 @@ describe('PATCH /api/groups/:groupId/events/:eventId/comments/:commentId', () =>
 });
 
 describe('DELETE /api/groups/:groupId/events/:eventId/comments/:commentId', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => jest.resetAllMocks());
 
   it('returns 401 without an authorization header', async () => {
     const res = await DELETE(makeRequest(), { params });
@@ -98,7 +98,7 @@ describe('DELETE /api/groups/:groupId/events/:eventId/comments/:commentId', () =
   });
 
   it('returns 200 when the author deletes their own comment', async () => {
-    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('author-1');
+    (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('author-1');
     (commentService.deleteEventCommentWithAuth as jest.Mock).mockResolvedValue({
       success: true,
       message: 'Comment deleted successfully',
@@ -109,7 +109,7 @@ describe('DELETE /api/groups/:groupId/events/:eventId/comments/:commentId', () =
   });
 
   it('returns 200 when a group admin deletes someone else\'s comment', async () => {
-    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('admin-1');
+    (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('admin-1');
     (commentService.deleteEventCommentWithAuth as jest.Mock).mockResolvedValue({
       success: true,
       message: 'Comment deleted successfully',
@@ -120,7 +120,7 @@ describe('DELETE /api/groups/:groupId/events/:eventId/comments/:commentId', () =
   });
 
   it('returns 403 for a non-author, non-admin', async () => {
-    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('random-member');
+    (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('random-member');
     (commentService.deleteEventCommentWithAuth as jest.Mock).mockResolvedValue({
       success: false,
       message: 'You do not have permission to delete this comment',
@@ -132,7 +132,7 @@ describe('DELETE /api/groups/:groupId/events/:eventId/comments/:commentId', () =
   });
 
   it('returns 404 when the comment does not exist', async () => {
-    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('author-1');
+    (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('author-1');
     (commentService.deleteEventCommentWithAuth as jest.Mock).mockResolvedValue({
       success: false,
       message: 'Comment not found',
@@ -144,7 +144,7 @@ describe('DELETE /api/groups/:groupId/events/:eventId/comments/:commentId', () =
   });
 
   it('returns 409 when the comment is already deleted', async () => {
-    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('author-1');
+    (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('author-1');
     (commentService.deleteEventCommentWithAuth as jest.Mock).mockResolvedValue({
       success: false,
       message: 'Comment has already been deleted',

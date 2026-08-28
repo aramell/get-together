@@ -3,10 +3,10 @@
  */
 import { PATCH, DELETE } from '../route';
 import * as checklistService from '@/lib/services/eventChecklistService';
-import * as jwt from '@/lib/auth/jwt';
+import * as authLib from '@/lib/api/auth';
 
 jest.mock('@/lib/services/eventChecklistService');
-jest.mock('@/lib/auth/jwt');
+jest.mock('@/lib/api/auth');
 
 function makeRequest(options: { authHeader?: string; body?: any } = {}) {
   return {
@@ -20,7 +20,7 @@ function makeRequest(options: { authHeader?: string; body?: any } = {}) {
 const params = Promise.resolve({ groupId: 'group-1', eventId: 'event-1', itemId: 'item-1' });
 
 describe('PATCH /api/groups/:groupId/events/:eventId/checklist/:itemId', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => jest.resetAllMocks());
 
   it('returns 401 without an authorization header', async () => {
     const res = await PATCH(makeRequest({ body: { is_checked: true } }), { params });
@@ -28,13 +28,13 @@ describe('PATCH /api/groups/:groupId/events/:eventId/checklist/:itemId', () => {
   });
 
   it('returns 400 when no valid fields are provided', async () => {
-    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
+    (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('user-1');
     const res = await PATCH(makeRequest({ authHeader: 'Bearer good-token', body: {} }), { params });
     expect(res.status).toBe(400);
   });
 
   it('returns 200 on a successful check toggle', async () => {
-    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
+    (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('user-1');
     (checklistService.updateChecklistItem as jest.Mock).mockResolvedValue({
       success: true,
       data: { id: 'item-1', is_checked: true },
@@ -48,7 +48,7 @@ describe('PATCH /api/groups/:groupId/events/:eventId/checklist/:itemId', () => {
   });
 
   it('returns 403 when the service reports FORBIDDEN', async () => {
-    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
+    (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('user-1');
     (checklistService.updateChecklistItem as jest.Mock).mockResolvedValue({
       success: false,
       error: 'Only the assignee or a group admin can check off this item',
@@ -63,7 +63,7 @@ describe('PATCH /api/groups/:groupId/events/:eventId/checklist/:itemId', () => {
   });
 
   it('returns 404 when the item does not exist', async () => {
-    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
+    (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('user-1');
     (checklistService.updateChecklistItem as jest.Mock).mockResolvedValue({
       success: false,
       error: 'Checklist item not found',
@@ -79,7 +79,7 @@ describe('PATCH /api/groups/:groupId/events/:eventId/checklist/:itemId', () => {
 });
 
 describe('DELETE /api/groups/:groupId/events/:eventId/checklist/:itemId', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => jest.resetAllMocks());
 
   it('returns 401 without an authorization header', async () => {
     const res = await DELETE(makeRequest(), { params });
@@ -87,7 +87,7 @@ describe('DELETE /api/groups/:groupId/events/:eventId/checklist/:itemId', () => 
   });
 
   it('returns 200 on successful delete', async () => {
-    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('creator-1');
+    (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('creator-1');
     (checklistService.deleteChecklistItem as jest.Mock).mockResolvedValue({
       success: true,
       message: 'Checklist item deleted',
@@ -98,7 +98,7 @@ describe('DELETE /api/groups/:groupId/events/:eventId/checklist/:itemId', () => 
   });
 
   it('returns 403 for a non-creator, non-admin', async () => {
-    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('random-member');
+    (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('random-member');
     (checklistService.deleteChecklistItem as jest.Mock).mockResolvedValue({
       success: false,
       error: 'Only the creator or a group admin can delete this item',

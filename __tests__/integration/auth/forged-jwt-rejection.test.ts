@@ -22,8 +22,24 @@ const TEST_CLIENT_ID = 'test-client-id-123';
 const TEST_ISSUER = `https://cognito-idp.us-east-1.amazonaws.com/${TEST_USER_POOL_ID}`;
 const KID = 'test-signing-key-1';
 
+const ORIGINAL_USER_POOL_ID = process.env.NEXT_PUBLIC_USER_POOL_ID;
+const ORIGINAL_CLIENT_ID = process.env.NEXT_PUBLIC_USER_POOL_WEB_CLIENT_ID;
+
 process.env.NEXT_PUBLIC_USER_POOL_ID = TEST_USER_POOL_ID;
 process.env.NEXT_PUBLIC_USER_POOL_WEB_CLIENT_ID = TEST_CLIENT_ID;
+
+afterAll(() => {
+  if (ORIGINAL_USER_POOL_ID === undefined) {
+    delete process.env.NEXT_PUBLIC_USER_POOL_ID;
+  } else {
+    process.env.NEXT_PUBLIC_USER_POOL_ID = ORIGINAL_USER_POOL_ID;
+  }
+  if (ORIGINAL_CLIENT_ID === undefined) {
+    delete process.env.NEXT_PUBLIC_USER_POOL_WEB_CLIENT_ID;
+  } else {
+    process.env.NEXT_PUBLIC_USER_POOL_WEB_CLIENT_ID = ORIGINAL_CLIENT_ID;
+  }
+});
 
 jest.mock('@/lib/services/eventService');
 

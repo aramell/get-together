@@ -3,10 +3,10 @@
  */
 import { DELETE } from '../route';
 import * as photoService from '@/lib/services/eventPhotoService';
-import * as jwt from '@/lib/auth/jwt';
+import * as authLib from '@/lib/api/auth';
 
 jest.mock('@/lib/services/eventPhotoService');
-jest.mock('@/lib/auth/jwt');
+jest.mock('@/lib/api/auth');
 
 function makeRequest(authHeader?: string) {
   return {
@@ -25,7 +25,7 @@ describe('DELETE /api/groups/:groupId/events/:eventId/photos/:photoId', () => {
   });
 
   it('returns 200 on successful delete', async () => {
-    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('uploader-1');
+    (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('uploader-1');
     (photoService.deleteEventPhoto as jest.Mock).mockResolvedValue({
       success: true,
       message: 'Photo deleted',
@@ -36,7 +36,7 @@ describe('DELETE /api/groups/:groupId/events/:eventId/photos/:photoId', () => {
   });
 
   it('returns 403 for a non-uploader, non-admin', async () => {
-    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('random-member');
+    (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('random-member');
     (photoService.deleteEventPhoto as jest.Mock).mockResolvedValue({
       success: false,
       error: 'Only the uploader or a group admin can delete this photo',
@@ -48,7 +48,7 @@ describe('DELETE /api/groups/:groupId/events/:eventId/photos/:photoId', () => {
   });
 
   it('returns 404 for a nonexistent photo', async () => {
-    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('user-1');
+    (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('user-1');
     (photoService.deleteEventPhoto as jest.Mock).mockResolvedValue({
       success: false,
       error: 'Photo not found',

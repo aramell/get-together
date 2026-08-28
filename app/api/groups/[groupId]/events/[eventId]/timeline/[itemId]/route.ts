@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateTimelineItem, deleteTimelineItem } from '@/lib/services/eventTimelineService';
-import { getVerifiedSubFromJWT } from '@/lib/auth/jwt';
+import { getUserIdFromBearerToken } from '@/lib/api/auth';
 
 /**
  * PATCH /api/groups/:groupId/events/:eventId/timeline/:itemId
@@ -20,20 +20,11 @@ export async function PATCH(
       );
     }
 
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { success: false, error: 'Missing or invalid authorization header', errorCode: 'UNAUTHORIZED' },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.substring(7);
-    const userId = await getVerifiedSubFromJWT(token);
+    const userId = await getUserIdFromBearerToken(request);
 
     if (!userId) {
       return NextResponse.json(
-        { success: false, error: 'Invalid or expired token', errorCode: 'UNAUTHORIZED' },
+        { success: false, error: 'Missing or invalid authorization header', errorCode: 'UNAUTHORIZED' },
         { status: 401 }
       );
     }
@@ -113,20 +104,11 @@ export async function DELETE(
       );
     }
 
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { success: false, error: 'Missing or invalid authorization header', errorCode: 'UNAUTHORIZED' },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.substring(7);
-    const userId = await getVerifiedSubFromJWT(token);
+    const userId = await getUserIdFromBearerToken(request);
 
     if (!userId) {
       return NextResponse.json(
-        { success: false, error: 'Invalid or expired token', errorCode: 'UNAUTHORIZED' },
+        { success: false, error: 'Missing or invalid authorization header', errorCode: 'UNAUTHORIZED' },
         { status: 401 }
       );
     }

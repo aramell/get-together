@@ -3,7 +3,7 @@ story_key: "8-5-jwt-signature-verification"
 epic: "8"
 story: "5"
 title: "Verify JWT Signatures Instead of Trusting Decoded Claims"
-status: "review"
+status: "done"
 created_date: "2026-08-27"
 priority: "critical"
 ---
@@ -13,7 +13,7 @@ priority: "critical"
 **Epic:** 8 - Responsive Web App & Accessibility (Security/Privacy: NFR9-16)
 **Story Key:** 8-5-jwt-signature-verification
 **Created:** 2026-08-27
-**Status:** review
+**Status:** done
 **Priority:** Critical — cross-cutting authentication gap affecting every authorization check in the app
 
 ---
@@ -151,6 +151,17 @@ So that authorization checks (membership, ownership, admin role) can't be bypass
 
 **Rollout safety (Task 4):** `getCognitoJwtVerifier()` reads `NEXT_PUBLIC_USER_POOL_ID` / `NEXT_PUBLIC_USER_POOL_WEB_CLIENT_ID` from the existing `.env.local` (same values already used by `authService.ts`), so it verifies against the real deployed user pool — no new config needed. `getVerifiedSubFromJWT` fails closed (returns `null` → 401) on any verification error, including a misconfigured JWKS/pool, with the underlying reason logged via `console.error` for operability. The integration test's "accepts a validly-signed token" case is the automated proxy for "real tokens still work"; a manual login smoke test against the real Cognito pool is still recommended before considering this fully rolled out (noted as a suggested next step, not blocking).
 
+### Code Review Follow-ups (2026-08-28)
+
+Adversarial review via `/bmad-bmm-code-review` found 0 High, 3 Medium, 1 Low — all fixed automatically:
+
+1. **[Fixed] `middleware.ts` trusted an unverified JWT claim.** Its own inline `isTokenExpired()` (manual `atob` decode) gated `/dashboard`, `/groups`, `/events`, `/profile` on `accessToken`'s unverified `exp` — the exact anti-pattern AC1 exists to eliminate, missed by Task 2's audit because it's outside `app/api/` and doesn't call `getSubFromJWT`. Now verifies `accessToken` via `getVerifiedSubFromJWT`; `idToken` keeps its lightweight expiry check since no route ever authorizes against it. `export const config` gained `runtime: 'nodejs'` for clarity. Added `__tests__/middleware/route-protection.test.ts` (5 tests) proving a forged `accessToken` redirects to login.
+2. **[Fixed] Bearer-token extraction duplicated across 16 route files.** Extracted `getUserIdFromBearerToken(request)` into `lib/api/auth.ts`, mirroring the existing cookie-based `getUserIdFromRequest`. Migrated all 16 call sites (13 inline, 3 via a now-deleted local per-file wrapper) and their test mocks.
+3. **[Fixed] Task 4's own safety mechanism had zero test coverage.** Added two tests to `lib/auth/__tests__/jwt.test.ts` (via `jest.isolateModules`, since the module-level verifier is memoized) proving `getCognitoJwtVerifier()` throws and `getVerifiedSubFromJWT` fails closed (`null`, not an unhandled throw) when pool config is missing.
+4. **[Fixed] Test env var hygiene.** `NEXT_PUBLIC_USER_POOL_ID`/`_CLIENT_ID` mutations in the three new test files now save/restore original values via `afterAll`.
+
+**Regression while fixing #2:** consolidating the 16 routes' inline auth checks into `getUserIdFromBearerToken` initially broke 12 route test files. Root cause: the old inline code short-circuited to 401 on a missing header *before* ever calling the mocked verify function; that short-circuit moved inside the now-mocked helper, so tests expecting a "free" 401 (no explicit mock setup) started inheriting whatever `mockResolvedValue` an *earlier* test in the same file had left configured — `jest.clearAllMocks()` clears call history but not implementations. Switched those files' `beforeEach` from `clearAllMocks()` to `resetAllMocks()`, which was the correct isolation practice regardless (the fragility pre-dated this refactor, just wasn't exposed until the short-circuit moved). Full suite re-verified identical to the pre-fix baseline (71 pre-existing failures, zero new ones) after the correction.
+
 ### File List
 
 **Dependencies**
@@ -158,9 +169,10 @@ So that authorization checks (membership, ownership, admin role) can't be bypass
 
 **Core auth**
 - `lib/auth/jwt.ts` — added `getVerifiedSubFromJWT`, `getCognitoJwtVerifier`; re-documented legacy `decodeJWT`/`getSubFromJWT`/`getEmailFromJWT` as unverified/client-only
-- `lib/api/auth.ts` — `getUserIdFromRequest` now async, uses the verified path
+- `lib/api/auth.ts` — `getUserIdFromRequest` now async, uses the verified path; added `getUserIdFromBearerToken` (review follow-up #2, shared Bearer-header verification)
+- `middleware.ts` — review follow-up #1: `accessToken` now verified via `getVerifiedSubFromJWT` instead of an unverified `exp` decode; added `runtime: 'nodejs'`
 
-**Routes migrated to the verified path (await added and/or `getSubFromJWT` → `getVerifiedSubFromJWT`)**
+**Routes migrated to the verified path (await added and/or `getSubFromJWT`/local wrapper → shared `getUserIdFromBearerToken`)**
 - `app/api/auth/me/route.ts`
 - `app/api/calendar/google/callback/route.ts`
 - `app/api/calendar/google/connect/route.ts`
@@ -170,15 +182,15 @@ So that authorization checks (membership, ownership, admin role) can't be bypass
 - `app/api/groups/[groupId]/events/[eventId]/checklist/route.ts`
 - `app/api/groups/[groupId]/events/[eventId]/checklist/[itemId]/route.ts`
 - `app/api/groups/[groupId]/events/[eventId]/comments/route.ts`
-- `app/api/groups/[groupId]/events/[eventId]/comments/[commentId]/route.ts`
+- `app/api/groups/[groupId]/events/[eventId]/comments/[commentId]/route.ts` (local wrapper removed)
 - `app/api/groups/[groupId]/events/[eventId]/logistics/route.ts`
 - `app/api/groups/[groupId]/events/[eventId]/logistics/[itemId]/route.ts`
-- `app/api/groups/[groupId]/events/[eventId]/logistics/[itemId]/claims/route.ts`
+- `app/api/groups/[groupId]/events/[eventId]/logistics/[itemId]/claims/route.ts` (local wrapper removed)
 - `app/api/groups/[groupId]/events/[eventId]/photos/route.ts`
 - `app/api/groups/[groupId]/events/[eventId]/photos/[photoId]/route.ts`
 - `app/api/groups/[groupId]/events/[eventId]/polls/route.ts`
 - `app/api/groups/[groupId]/events/[eventId]/polls/[pollId]/route.ts`
-- `app/api/groups/[groupId]/events/[eventId]/polls/[pollId]/vote/route.ts`
+- `app/api/groups/[groupId]/events/[eventId]/polls/[pollId]/vote/route.ts` (local wrapper removed)
 - `app/api/groups/[groupId]/events/[eventId]/timeline/route.ts`
 - `app/api/groups/[groupId]/events/[eventId]/timeline/[itemId]/route.ts`
 - `app/api/groups/[groupId]/wishlist/[itemId]/comments/route.ts`
@@ -187,7 +199,7 @@ So that authorization checks (membership, ownership, admin role) can't be bypass
 - `app/api/user/export/route.ts`
 - `app/api/users/profile/route.ts`
 
-**Test mocks updated (`jwt.getSubFromJWT`/`mockReturnValue` → `jwt.getVerifiedSubFromJWT`/`mockResolvedValue`, or `getUserIdFromRequest` `mockReturnValue` → `mockResolvedValue`)**
+**Test mocks updated** (`jwt.getSubFromJWT`/`mockReturnValue` → `authLib.getUserIdFromBearerToken`/`mockResolvedValue`, or `getUserIdFromRequest` `mockReturnValue` → `mockResolvedValue`; the 14 event/wishlist route test files below also switched `beforeEach` from `jest.clearAllMocks()` to `jest.resetAllMocks()` — see Code Review Follow-ups)
 - `app/api/groups/[groupId]/events/[eventId]/checklist/__tests__/route.test.ts`
 - `app/api/groups/[groupId]/events/[eventId]/checklist/[itemId]/__tests__/route.test.ts`
 - `app/api/groups/[groupId]/events/[eventId]/comments/[commentId]/__tests__/route.test.ts`
@@ -210,11 +222,13 @@ So that authorization checks (membership, ownership, admin role) can't be bypass
 - `__tests__/integration/calendar/disconnect-flow.test.ts`
 
 **New tests**
-- `lib/auth/__tests__/jwt.test.ts` — AC5 unit tests (11 tests)
+- `lib/auth/__tests__/jwt.test.ts` — AC5 unit tests + Task 4 missing-config tests (13 tests)
 - `__tests__/integration/auth/forged-jwt-rejection.test.ts` — Task 3 end-to-end integration test (3 tests)
+- `__tests__/middleware/route-protection.test.ts` — review follow-up #1, proves middleware rejects a forged `accessToken` (5 tests)
 
 ### Change Log
 
 | Date | Change |
 |------|--------|
 | 2026-08-28 | Implemented verified JWT decode (`getVerifiedSubFromJWT`) using `aws-jwt-verify`; migrated `lib/api/auth.ts` and ~14 direct-decode routes to the verified path; fixed several pre-existing missing-`await` bugs on `getUserIdFromRequest` uncovered during migration; added unit + integration test coverage per AC5/Task 3; ran full regression suite (net improvement vs. baseline, no new failures). Status: ready-for-dev → review. |
+| 2026-08-28 | Code review follow-ups: verified `middleware.ts`'s route-gating check, consolidated 16 duplicated Bearer-token extractions into a shared `getUserIdFromBearerToken` helper, added Task 4 missing-config test coverage, fixed test env var hygiene. Fixed a mock-leakage regression surfaced by the consolidation (`clearAllMocks` → `resetAllMocks`) before it reached review. Full suite re-confirmed identical to baseline (71 pre-existing failures, 0 new). |

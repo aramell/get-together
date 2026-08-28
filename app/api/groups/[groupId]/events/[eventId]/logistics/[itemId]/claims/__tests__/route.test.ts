@@ -3,10 +3,10 @@
  */
 import { POST, DELETE } from '../route';
 import * as logisticsService from '@/lib/services/eventLogisticsService';
-import * as jwt from '@/lib/auth/jwt';
+import * as authLib from '@/lib/api/auth';
 
 jest.mock('@/lib/services/eventLogisticsService');
-jest.mock('@/lib/auth/jwt');
+jest.mock('@/lib/api/auth');
 
 function makeRequest(options: { authHeader?: string } = {}) {
   return {
@@ -19,7 +19,7 @@ function makeRequest(options: { authHeader?: string } = {}) {
 const params = Promise.resolve({ groupId: 'group-1', eventId: 'event-1', itemId: 'item-1' });
 
 describe('POST /api/groups/:groupId/events/:eventId/logistics/:itemId/claims', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => jest.resetAllMocks());
 
   it('returns 401 without an authorization header', async () => {
     const res = await POST(makeRequest(), { params });
@@ -27,7 +27,7 @@ describe('POST /api/groups/:groupId/events/:eventId/logistics/:itemId/claims', (
   });
 
   it('returns 201 on a successful claim', async () => {
-    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('rider-1');
+    (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('rider-1');
     (logisticsService.claimLogisticsSeat as jest.Mock).mockResolvedValue({
       success: true,
       data: { user_id: 'rider-1', claimed_at: 'now' },
@@ -39,7 +39,7 @@ describe('POST /api/groups/:groupId/events/:eventId/logistics/:itemId/claims', (
   });
 
   it('returns 409 when capacity is already reached', async () => {
-    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('rider-1');
+    (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('rider-1');
     (logisticsService.claimLogisticsSeat as jest.Mock).mockResolvedValue({
       success: false,
       message: 'All seats have already been claimed',
@@ -51,7 +51,7 @@ describe('POST /api/groups/:groupId/events/:eventId/logistics/:itemId/claims', (
   });
 
   it('returns 409 for a duplicate claim', async () => {
-    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('rider-1');
+    (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('rider-1');
     (logisticsService.claimLogisticsSeat as jest.Mock).mockResolvedValue({
       success: false,
       message: 'You have already claimed a seat on this item',
@@ -63,7 +63,7 @@ describe('POST /api/groups/:groupId/events/:eventId/logistics/:itemId/claims', (
   });
 
   it('returns 400 when claiming a non-carpool item', async () => {
-    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('rider-1');
+    (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('rider-1');
     (logisticsService.claimLogisticsSeat as jest.Mock).mockResolvedValue({
       success: false,
       message: 'Only carpool items can be claimed',
@@ -75,7 +75,7 @@ describe('POST /api/groups/:groupId/events/:eventId/logistics/:itemId/claims', (
   });
 
   it('returns 404 when the item does not exist', async () => {
-    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('rider-1');
+    (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('rider-1');
     (logisticsService.claimLogisticsSeat as jest.Mock).mockResolvedValue({
       success: false,
       message: 'Logistics item not found',
@@ -88,7 +88,7 @@ describe('POST /api/groups/:groupId/events/:eventId/logistics/:itemId/claims', (
 });
 
 describe('DELETE /api/groups/:groupId/events/:eventId/logistics/:itemId/claims', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => jest.resetAllMocks());
 
   it('returns 401 without an authorization header', async () => {
     const res = await DELETE(makeRequest(), { params });
@@ -96,7 +96,7 @@ describe('DELETE /api/groups/:groupId/events/:eventId/logistics/:itemId/claims',
   });
 
   it('returns 200 on a successful unclaim', async () => {
-    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('rider-1');
+    (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('rider-1');
     (logisticsService.unclaimLogisticsSeat as jest.Mock).mockResolvedValue({
       success: true,
       message: 'Seat unclaimed',
@@ -107,7 +107,7 @@ describe('DELETE /api/groups/:groupId/events/:eventId/logistics/:itemId/claims',
   });
 
   it('returns 404 when the caller has no claim to remove', async () => {
-    (jwt.getVerifiedSubFromJWT as jest.Mock).mockResolvedValue('rider-1');
+    (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('rider-1');
     (logisticsService.unclaimLogisticsSeat as jest.Mock).mockResolvedValue({
       success: false,
       message: "You haven't claimed a seat on this item",

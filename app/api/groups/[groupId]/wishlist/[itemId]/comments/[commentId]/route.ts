@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getVerifiedSubFromJWT } from '@/lib/auth/jwt';
+import { getUserIdFromBearerToken } from '@/lib/api/auth';
 import { editWishlistComment, deleteWishlistCommentService } from '@/lib/services/commentService';
 
 function statusForErrorCode(errorCode?: string): number {
@@ -26,18 +26,8 @@ export async function PATCH(
   { params }: { params: Promise<{ groupId: string; itemId: string; commentId: string }> }
 ) {
   try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { success: false, message: 'Unauthorized', errorCode: 'UNAUTHORIZED' },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.substring(7);
     const { groupId, commentId } = await params;
-
-    const userId = await getVerifiedSubFromJWT(token);
+    const userId = await getUserIdFromBearerToken(request);
     if (!userId) {
       return NextResponse.json(
         { success: false, message: 'Unauthorized', errorCode: 'UNAUTHORIZED' },
@@ -75,18 +65,8 @@ export async function DELETE(
   { params }: { params: Promise<{ groupId: string; itemId: string; commentId: string }> }
 ) {
   try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { success: false, message: 'Unauthorized', errorCode: 'UNAUTHORIZED' },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.substring(7);
     const { groupId, commentId } = await params;
-
-    const userId = await getVerifiedSubFromJWT(token);
+    const userId = await getUserIdFromBearerToken(request);
     if (!userId) {
       return NextResponse.json(
         { success: false, message: 'Unauthorized', errorCode: 'UNAUTHORIZED' },

@@ -116,7 +116,7 @@ development_status:
   epic-7-retrospective: optional
 
   # EPIC 8: Responsive Web App & Accessibility
-  epic-8: in-progress
+  epic-8: done
   8-1-data-encryption: done
   8-2-gdpr-compliance: done
   8-3-monitoring-logging: done
@@ -124,7 +124,7 @@ development_status:
   # 8-5 added 2026-08-27 — cross-cutting JWT signature verification gap
   # surfaced independently by 4 of 6 Epic 12 code reviews; filed here rather
   # than fixed piecemeal since it's one shared utility (lib/auth/jwt.ts)
-  8-5-jwt-signature-verification: review
+  8-5-jwt-signature-verification: done
   epic-8-retrospective: optional
 
   # EPIC 11: Production Database & Local Dev Environment (added ad hoc — not in epics.md, fast-tracked 2026-07-28)
@@ -150,12 +150,12 @@ development_status:
 summary:
   total_epics: 10
   total_stories: 53
-  epics_done: 5
-  epics_in_progress: 5
+  epics_done: 6
+  epics_in_progress: 4
   epics_backlog: 0
-  stories_done: 45
+  stories_done: 46
   stories_in_progress: 2
-  stories_review: 6
+  stories_review: 5
   stories_backlog: 0
   stories_ready_for_dev: 0
   retrospectives_optional: 10

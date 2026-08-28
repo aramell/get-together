@@ -28,3 +28,19 @@ export async function getUserIdFromRequest(request: NextRequest): Promise<string
     return null;
   }
 }
+
+/**
+ * Extract Cognito sub (user ID) from a request's `Authorization: Bearer <token>`
+ * header, only after verifying the token's signature, expiration, issuer, and
+ * client ID. Use this for routes that authenticate via a Bearer header instead
+ * of the `accessToken` cookie (see `getUserIdFromRequest`).
+ */
+export async function getUserIdFromBearerToken(request: NextRequest): Promise<string | null> {
+  const authHeader = request.headers.get('authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return null;
+  }
+
+  const token = authHeader.substring(7);
+  return getVerifiedSubFromJWT(token);
+}
