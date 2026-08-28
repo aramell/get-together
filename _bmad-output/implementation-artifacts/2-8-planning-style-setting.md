@@ -3,7 +3,7 @@ story_key: "2-8-planning-style-setting"
 epic: "2"
 story: "8"
 title: "Per-Group Planning Style Setting"
-status: "in-progress"
+status: "review"
 created_date: "2026-08-27"
 ---
 
@@ -12,7 +12,7 @@ created_date: "2026-08-27"
 **Epic:** 2 - Group Creation & Management
 **Story Key:** 2-8-planning-style-setting
 **Created:** 2026-08-27
-**Status:** in-progress
+**Status:** review
 
 ---
 
@@ -77,8 +77,8 @@ So that the group's landing view matches how that specific group actually likes 
 - [x] Brief inline explanation of what each mode means (reuse language from PRD's Executive Summary / UX spec Section 2.1 framing)
 
 **Task 4: Routing Integration**
-- [ ] Wire the real `planning_style` value into Story 3.7's routing logic, replacing the interim hardcoded default noted in that story's Task 2
-  - **BLOCKED:** Story 3.7 (Availability-First Home Screen) is itself still `ready-for-dev` — not yet implemented — so there is no interim hardcoded default in it to replace. This task has no actionable target until 3.7 lands. Confirmed with user (Andrewramell) 2026-08-27: proceed with Tasks 1/2/3/5 now and leave Task 4 unchecked rather than fabricate routing work against a story that doesn't exist yet. Revisit once 3.7 ships (3.7's own Task 2 already calls for this handoff).
+- [x] Wire the real `planning_style` value into Story 3.7's routing logic, replacing the interim hardcoded default noted in that story's Task 2
+  - **RESOLVED 2026-08-28:** Story 3.7 has since shipped (status `review`). Its own Dev Agent Record notes that, at implementation time, 3.7 found this story's `planning_style` column/queries/`groupService`/`PlanningStyleSetting` UI already present in the working tree and wired the real value directly into `app/groups/[groupId]/page.tsx` rather than building the interim hardcode Task 2 had anticipated — so this task's objective was satisfied as a side effect of 3.7's implementation, not a separate change here. Verified by inspection: `app/groups/[groupId]/page.tsx` reads `group.planning_style` at every routing branch point (landing section render, slot-tap prefill, `EventDetail`/momentum display wiring) with no hardcoded fallback anywhere in `app/`, `lib/`, or `components/`. No source changes were needed in this story; this task is marked complete to close out the cross-story handoff and unblock Status → review.
 
 **Task 5: Testing**
 - [x] API tests: admin can update, non-admin gets 403, invalid value gets 400
@@ -114,6 +114,7 @@ So that the group's landing view matches how that specific group actually likes 
 ### Workflow Execution
 - Created via Scrum Master story-preparation pass following FR71 and the sprint-change-proposal-2026-08-19's Epic 2 candidate story
 - Implemented 2026-08-27 by Dev Agent. Tasks 1, 2, 3, 5 complete; Task 4 blocked (see Task 4 note above and Completion Notes below). Story left in `in-progress` rather than `review` per the dev-story workflow's completion gate (any incomplete task halts the move to review) — the blocker is external (Story 3.7 not yet built), not a quality gap.
+- Resumed 2026-08-28 by Dev Agent. Sprint status showed Story 3.7 had since moved to `review`, so re-checked Task 4's blocker: 3.7's own Dev Agent Record confirms it found this story's `planning_style` plumbing already in the tree and wired the real value directly (no interim hardcode was ever built for 3.7 to later replace). Verified by grep across `app/`, `lib/`, `components/` that every routing/consumption site reads `group.planning_style` with no hardcoded fallback. No source changes were required; Task 4 marked complete and Status moved to `review`.
 
 ### Implementation Plan
 - **Migration (023):** Added `planning_style VARCHAR(20) NOT NULL DEFAULT 'availability-first' CHECK (...)` to `groups`. The `NOT NULL DEFAULT` clause backfills existing rows as part of the `ALTER TABLE` itself (AC1, AC5) — no separate UPDATE statement needed.
@@ -137,6 +138,7 @@ So that the group's landing view matches how that specific group actually likes 
 - AC1 (default for new groups), AC2 (admin can change), AC3 (non-admin read-only), AC5 (existing groups backfilled) are implemented and covered by tests. AC4 (setting drives default landing view) cannot be satisfied yet — it requires Story 3.7's routing logic, which doesn't exist.
 - All new/changed code passes `tsc --noEmit` and `eslint` with no new errors (verified against pre-existing baseline via `git stash` comparison).
 - New tests pass except the API route test, which is blocked by a pre-existing, repo-wide Node v25 test-harness incompatibility (not a defect in this story's code — see Implementation Plan note).
+- **2026-08-28:** Task 4 completed with no source changes — Story 3.7 shipped in the interim and wired the real `planning_style` value directly (see Task 4 note and Workflow Execution above), satisfying AC4. Re-ran this story's own test suite (`planning-style.test.ts`, `PlanningStyleSetting.test.tsx`, `updateGroupSettings.planningStyle.test.ts`, `023_add_planning_style_to_groups.test.ts`) plus 3.7's related suites (`AvailabilityGrid.test.tsx`, `availability-overview.test.ts`) — 6 suites, 20 tests, all passing. All 5 tasks and all 5 ACs are now satisfied; story moved to `review`.
 
 ### File List
 - `lib/db/migrations/023_add_planning_style_to_groups.sql` (new)
@@ -150,15 +152,16 @@ So that the group's landing view matches how that specific group actually likes 
 - `__tests__/components/groups/PlanningStyleSetting.test.tsx` (new)
 - `__tests__/integration/groups/planning-style.test.ts` (new)
 - `__tests__/services/updateGroupSettings.planningStyle.test.ts` (new)
+- No files changed for Task 4 — routing already reads real `planning_style` via `app/groups/[groupId]/page.tsx` as shipped by Story 3.7; see Task 4 note.
 
 ### Change Log
 - 2026-08-27: Implemented Tasks 1, 2, 3, 5 (DB migration, PATCH API, Settings UI, tests) for the Planning Style setting. Task 4 (routing integration into Story 3.7) deferred — Story 3.7 doesn't exist yet. Story left `in-progress`, not `review`, pending Task 4.
+- 2026-08-28: Closed out Task 4 — Story 3.7 shipped and already wires the real `planning_style` value into routing (no interim hardcode was built for it to replace). Verified by code inspection and re-running affected test suites (20/20 passing). All tasks and ACs now complete; Status moved to `review`.
 
 ---
 
 ## Next Steps
 
 1. ~~**Dev Agent:** Invoke `/bmad-bmm-dev-story` with this story file~~ — done 2026-08-27 (Tasks 1/2/3/5)
-2. **Task 4:** Once Story 3.7 is implemented (with its interim hardcoded default per its own Task 2), come back to this story to wire the real `planning_style` value into its routing logic, check Task 4's box, and move Status to `review`
-3. **Code Review:** Run `/bmad-bmm-code-review` after Task 4 is complete
-4. **Follow-up:** Story 3.7's own Task 2 already calls for removing its temporary hardcoded default once this handoff happens
+2. ~~**Task 4:** Wire the real `planning_style` value into Story 3.7's routing logic~~ — done 2026-08-28 (satisfied by Story 3.7's implementation; see Task 4 note)
+3. **Code Review:** Run `/bmad-bmm-code-review`
