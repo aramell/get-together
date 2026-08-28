@@ -1,4 +1,5 @@
 import { query, queryOne, getClient } from './client';
+import { mergeAvailability, MergedAvailabilitySegment } from '@/lib/availability/mergeAvailability';
 
 /**
  * Create a new group and add creator as admin
@@ -622,9 +623,34 @@ export async function getGroupAvailabilitiesWithRecurring(
 }
 
 /**
+ * Get synced Google Calendar busy blocks for every member of a group within a date range
+ * (Story 3.6, AC1/AC2). Only start/end times are ever stored on this table (AC6).
+ */
+export async function getGroupGoogleBusyBlocks(
+  groupId: string,
+  startDate: string,
+  endDate: string
+): Promise<Array<{ user_id: string; start_time: string; end_time: string }>> {
+  return query(
+    `SELECT b.user_id, b.start_time, b.end_time
+     FROM google_calendar_busy_blocks b
+     JOIN group_memberships gm ON gm.user_id = b.user_id AND gm.group_id = $1
+     WHERE b.start_time < $3 AND b.end_time > $2
+     ORDER BY b.start_time ASC`,
+    [groupId, startDate, endDate]
+  );
+}
+
+/**
  * Get group availabilities organized by member for calendar view
  * Returns all group members with their availability entries
  * Useful for displaying a multi-member calendar grid
+ *
+ * Also returns each member's raw synced Google busy blocks (`google_busy_blocks`) and a
+ * read-time merged view (`merged_availability`, Story 3.6 AC2) reflecting Google-busy ->
+ * manual-busy -> manual-free -> unknown precedence. `availabilities` itself is left
+ * unchanged (still the raw, individually-editable manual entries) so existing consumers
+ * (e.g. the calendar edit flow) are unaffected.
  */
 export async function getGroupAvailabilitiesForCalendar(
   groupId: string,
@@ -644,6 +670,8 @@ export async function getGroupAvailabilitiesForCalendar(
     created_at: string;
     updated_at: string;
   }>;
+  google_busy_blocks: Array<{ start_time: string; end_time: string }>;
+  merged_availability: MergedAvailabilitySegment[];
 }>> {
   try {
     // Get all group members (excludes deleted users)
@@ -665,8 +693,9 @@ export async function getGroupAvailabilitiesForCalendar(
 
     // Get all availabilities with recurring expanded
     const availabilities = await getGroupAvailabilitiesWithRecurring(groupId, startDate, endDate);
+    const googleBusyBlocks = await getGroupGoogleBusyBlocks(groupId, startDate, endDate);
 
-    // Group availabilities by user_id
+    // Group availabilities and busy blocks by user_id
     const availabilityByUser = new Map<string, typeof availabilities>();
     for (const avail of availabilities) {
       if (!availabilityByUser.has(avail.user_id)) {
@@ -675,11 +704,17 @@ export async function getGroupAvailabilitiesForCalendar(
       availabilityByUser.get(avail.user_id)!.push(avail);
     }
 
+    const busyBlocksByUser = new Map<string, typeof googleBusyBlocks>();
+    for (const block of googleBusyBlocks) {
+      if (!busyBlocksByUser.has(block.user_id)) {
+        busyBlocksByUser.set(block.user_id, []);
+      }
+      busyBlocksByUser.get(block.user_id)!.push(block);
+    }
+
     // Build result: each member with their availabilities (or empty if no entries)
-    const result = membersResult.map((member) => ({
-      user_id: member.user_id,
-      user_name: member.name,
-      availabilities: (availabilityByUser.get(member.user_id) || []).map((avail) => ({
+    const result = membersResult.map((member) => {
+      const memberAvailabilities = (availabilityByUser.get(member.user_id) || []).map((avail) => ({
         id: avail.id,
         user_id: avail.user_id,
         group_id: avail.group_id,
@@ -689,8 +724,21 @@ export async function getGroupAvailabilitiesForCalendar(
         version: avail.version,
         created_at: avail.created_at,
         updated_at: avail.updated_at,
-      })),
-    }));
+      }));
+
+      const memberBusyBlocks = (busyBlocksByUser.get(member.user_id) || []).map((block) => ({
+        start_time: block.start_time,
+        end_time: block.end_time,
+      }));
+
+      return {
+        user_id: member.user_id,
+        user_name: member.name,
+        availabilities: memberAvailabilities,
+        google_busy_blocks: memberBusyBlocks,
+        merged_availability: mergeAvailability(memberAvailabilities, memberBusyBlocks),
+      };
+    });
 
     return result;
   } catch (error) {

@@ -39,10 +39,21 @@ interface AvailabilityData {
   updated_at: string;
 }
 
+interface MergedAvailabilitySegment {
+  start_time: string;
+  end_time: string;
+  status: 'free' | 'busy';
+  source: 'google' | 'manual';
+}
+
 interface MemberAvailabilities {
   user_id: string;
   user_name: string;
   availabilities: AvailabilityData[];
+  // Story 3.6: present when the API has Google-synced data to merge in; absent/empty
+  // for members with no Google connection, in which case display falls back to
+  // `availabilities` alone (unchanged from pre-3.6 behavior).
+  merged_availability?: MergedAvailabilitySegment[];
 }
 
 export default function SoftCalendar({
@@ -194,6 +205,37 @@ export default function SoftCalendar({
     return member.availabilities.filter((avail) =>
       avail.start_time.startsWith(dateStr)
     );
+  };
+
+  // Displayed status for a day, applying Story 3.6's Google-busy > manual-busy >
+  // manual-free > unknown precedence when merged data is available. Falls back to the
+  // raw manual entry's status when the API hasn't provided merged_availability (e.g. no
+  // Google connection for that member), preserving pre-3.6 behavior exactly.
+  const getMemberDateDisplayStatus = (
+    member: MemberAvailabilities,
+    date: Date,
+    dayAvailabilities: AvailabilityData[]
+  ): 'free' | 'busy' | 'unspecified' => {
+    const dateStr = date.toISOString().split('T')[0];
+    const mergedForDay = member.merged_availability?.filter((seg) => seg.start_time.startsWith(dateStr));
+
+    if (mergedForDay && mergedForDay.length > 0) {
+      // A day can contain multiple sub-day segments (e.g. free 9-12, Google-busy 12-13,
+      // free 13-17). Collapse to one day-level status using the same precedence order as
+      // the merge itself: any Google-busy segment wins the whole day, then any manual-busy,
+      // then manual-free.
+      if (mergedForDay.some((seg) => seg.source === 'google')) {
+        return 'busy';
+      }
+      if (mergedForDay.some((seg) => seg.status === 'busy')) {
+        return 'busy';
+      }
+      if (mergedForDay.some((seg) => seg.status === 'free')) {
+        return 'free';
+      }
+    }
+
+    return dayAvailabilities[0]?.status || 'unspecified';
   };
 
   // Generate days of current month for display
@@ -373,7 +415,7 @@ export default function SoftCalendar({
               {daysOfMonth.map((day) => {
                 const dayAvailabilities = getMemberDateAvailabilities(member, day);
                 const hasAvailability = dayAvailabilities.length > 0;
-                const status = dayAvailabilities[0]?.status || 'unspecified';
+                const status = getMemberDateDisplayStatus(member, day, dayAvailabilities);
                 const statusLabel =
                   status === 'free'
                     ? 'available'
