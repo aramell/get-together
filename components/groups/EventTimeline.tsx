@@ -96,7 +96,7 @@ export function EventTimeline({ eventId, groupId }: EventTimelineProps) {
         method: 'POST',
         headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
-          item_time: newItemTime,
+          item_time: new Date(newItemTime).toISOString(),
           title: newTitle.trim(),
           description: newDescription.trim() || undefined,
         }),
@@ -131,7 +131,7 @@ export function EventTimeline({ eventId, groupId }: EventTimelineProps) {
         method: 'PATCH',
         headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
-          item_time: editingItemTime,
+          item_time: new Date(editingItemTime).toISOString(),
           title: editingTitle.trim(),
           description: editingDescription.trim() || null,
         }),

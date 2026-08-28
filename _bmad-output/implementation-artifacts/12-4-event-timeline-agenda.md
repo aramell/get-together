@@ -1,6 +1,6 @@
 # Story 12.4: Event Timeline/Agenda
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -115,3 +115,13 @@ Claude Sonnet 5 (claude-sonnet-5)
 ## Change Log
 
 - 2026-08-04: Implemented Story 12.4 (Event Timeline/Agenda) — migration, service, API routes, UI component, tests. Status set to "review".
+- 2026-08-27: Code review found and fixed a timezone bug (see below). Status set to "done".
+
+## Code Review & Fixes (2026-08-27)
+
+- **Review:** Adversarial code review found `item_time` was sent to the API as the raw `datetime-local` input value with no UTC conversion, unlike `CreateEventModal.tsx` and `EditAvailabilityModal.tsx`, which both wrap the identical input type in `new Date(x).toISOString()`. Postgres interpreted the offset-less string in the database session's timezone, so every timeline entry silently displayed hours off for any user not in that timezone — exactly the failure mode this story's own Dev Notes flagged as a risk.
+- **Fixed:** Both `handleAddItem` and `handleSaveEdit` in `components/groups/EventTimeline.tsx` now wrap `item_time` in `new Date(x).toISOString()` before sending, matching the established pattern.
+- **Review Follow-ups (AI):**
+  - [ ] [AI-Review][MEDIUM] Admins have no UI path to edit/delete another member's timeline item, even though the service layer correctly grants them that permission (same pattern as Story 12.3's checklist gap). `components/groups/EventTimeline.tsx`
+  - [ ] [AI-Review][LOW] `description` isn't type-validated before being persisted on PATCH/POST — a non-string value throws a `TypeError` that surfaces as a generic `500` instead of a `400`. `app/api/groups/[groupId]/events/[eventId]/timeline/[itemId]/route.ts`
+  - [ ] [AI-Review][LOW] A test named "renders timeline items ordered as returned" only checks both items' text is present, never their relative DOM order — wouldn't catch a future ordering regression. `__tests__/components/EventTimeline.test.tsx`
