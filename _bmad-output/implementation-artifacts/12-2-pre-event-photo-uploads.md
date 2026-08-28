@@ -1,6 +1,6 @@
 # Story 12.2: Pre-Event Photo Uploads
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -145,3 +145,13 @@ claude-sonnet-5
 - `.env.local.example` (modified — added `AWS_S3_EVENT_PHOTOS_BUCKET`)
 - `README.md` (modified — env var note)
 - `package.json` / `package-lock.json` (modified — added `@aws-sdk/client-s3`)
+
+### Code Review & Fixes (2026-08-27)
+
+- **Review:** Adversarial code review found `addEventPhoto` never validated caption length before uploading to S3; a caption over 255 chars would upload successfully, then fail the DB insert (`varchar(255)`), permanently orphaning the S3 object with no cleanup path.
+- **Fixed:** Added a caption-length check (`caption.length > 255`) in `lib/services/eventPhotoService.ts`, before the S3 upload call, returning a `400 VALIDATION_ERROR` instead of orphaning a file.
+- **Filed separately:** The review also found this story is the first to attach the app's pre-existing unverified-JWT auth gap (`lib/auth/jwt.ts`) to mutable, cost-bearing cloud storage (upload/delete against a real S3 bucket). This is a cross-cutting, app-wide issue, not unique to this story — tracked as its own story: `8-5-jwt-signature-verification.md`.
+- **Review Follow-ups (AI):**
+  - [ ] [AI-Review][MEDIUM] Only client-declared `Content-Type` is validated — no magic-byte/content check, so a forged MIME type on a non-image payload would pass validation and be served back with a spoofed content type. `lib/services/eventPhotoService.ts`
+  - [ ] [AI-Review][MEDIUM] No `Content-Length` pre-check before buffering the full upload into memory — oversized requests are fully parsed before the 5MB check runs. `app/api/groups/[groupId]/events/[eventId]/photos/route.ts`
+  - [ ] [AI-Review][LOW] Delete button only shown to the uploader in the UI; the service layer correctly allows uploader-or-admin, so an admin has no UI path to delete another member's photo. `components/groups/EventPhotoGrid.tsx`

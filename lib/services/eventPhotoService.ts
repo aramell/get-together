@@ -66,6 +66,15 @@ export async function addEventPhoto(
       };
     }
 
+    if (caption != null && caption.length > 255) {
+      return {
+        success: false,
+        message: 'Caption must be 255 characters or less',
+        error: 'CAPTION_TOO_LONG',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
     if (!(await verifyEventInGroup(client, eventId, groupId))) {
       return {
         success: false,
