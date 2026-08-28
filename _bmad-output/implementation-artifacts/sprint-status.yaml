@@ -116,11 +116,15 @@ development_status:
   epic-7-retrospective: optional
 
   # EPIC 8: Responsive Web App & Accessibility
-  epic-8: done
+  epic-8: in-progress
   8-1-data-encryption: done
   8-2-gdpr-compliance: done
   8-3-monitoring-logging: done
   8-4-backups-disaster-recovery: done
+  # 8-5 added 2026-08-27 — cross-cutting JWT signature verification gap
+  # surfaced independently by 4 of 6 Epic 12 code reviews; filed here rather
+  # than fixed piecemeal since it's one shared utility (lib/auth/jwt.ts)
+  8-5-jwt-signature-verification: ready-for-dev
   epic-8-retrospective: optional
 
   # EPIC 11: Production Database & Local Dev Environment (added ad hoc — not in epics.md, fast-tracked 2026-07-28)
