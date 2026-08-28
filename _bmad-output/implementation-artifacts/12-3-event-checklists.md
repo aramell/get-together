@@ -1,6 +1,6 @@
 # Story 12.3: Event Checklists
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -129,3 +129,13 @@ claude-sonnet-5
 - `__tests__/components/EventPlanningTab.test.tsx` (rewritten — old version asserted the now-gone placeholder)
 - `__tests__/components/EventDetail.test.tsx` (modified — fixed the Story-12.1 test whose "zero additional fetches" premise this story broke)
 - `__tests__/scripts/migrate.test.ts` (modified — bumped hardcoded migration count 16→17, directly caused by this story's new migration)
+
+### Code Review & Fixes (2026-08-27)
+
+- **Review:** Adversarial code review found the assignee dropdown/name display was silently broken in production — `EventChecklist.tsx`'s `fetchMembers` sent an `Authorization: Bearer` header to `/api/groups/:groupId`, but that route only reads `x-user-id`. Every request 401'd, `members` stayed empty forever, and any assigned item rendered "Unknown." The component's own tests didn't catch it because the fetch mock ignored headers entirely.
+- **Fixed:** `fetchMembers` in `components/groups/EventChecklist.tsx` now also sends `x-user-id`, matching the convention every other component uses for this endpoint (`RSVPButtons.tsx`, `SoftCalendar.tsx`, `MarkAvailabilityModal.tsx`, etc.).
+- **Filed separately:** The review also flagged the app-wide unverified-JWT gap (`lib/auth/jwt.ts`), which this story's authorization checks rest on same as everywhere else. Tracked as its own story: `8-5-jwt-signature-verification.md`.
+- **Review Follow-ups (AI):**
+  - [ ] [AI-Review][MEDIUM] AC #1 literally requires the migration filename `015_...sql`, but the shipped file is `014_create_event_checklist_items_table.sql` (doesn't collide with anything today, but the AC text and shipped artifact now contradict each other). `lib/db/migrations/`
+  - [ ] [AI-Review][MEDIUM] Admins have no UI path to edit/delete another member's checklist item, even though the service layer correctly grants them that permission — edit/delete icons are only shown for `item.created_by === userId`. `components/groups/EventChecklist.tsx`
+  - [ ] [AI-Review][LOW] Non-members get `404` for a nonexistent event but `403` for a real one in a group they're not in — leaks event existence via error-code ordering. Low impact (UUIDs aren't guessable). `lib/services/eventChecklistService.ts`

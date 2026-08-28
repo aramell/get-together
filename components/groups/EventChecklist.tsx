@@ -84,7 +84,12 @@ export function EventChecklist({ eventId, groupId }: EventChecklistProps) {
 
   const fetchMembers = useCallback(async () => {
     try {
-      const response = await fetch(`/api/groups/${groupId}`, { headers: authHeaders() });
+      // /api/groups/:groupId authenticates via x-user-id, not the Bearer
+      // token the checklist endpoints use — send both so this call actually
+      // succeeds (an Authorization-only header made this a silent 401).
+      const response = await fetch(`/api/groups/${groupId}`, {
+        headers: authHeaders(userId ? { 'x-user-id': userId } : undefined),
+      });
       if (!response.ok) return;
       const data = await response.json();
       if (data.success && Array.isArray(data.data?.members)) {
