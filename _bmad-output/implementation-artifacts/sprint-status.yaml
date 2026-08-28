@@ -149,14 +149,14 @@ development_status:
 
 summary:
   total_epics: 10
-  total_stories: 50
+  total_stories: 51
   epics_done: 5
   epics_in_progress: 5
   epics_backlog: 0
-  stories_done: 38
-  stories_in_progress: 0
-  stories_review: 6
+  stories_done: 44
+  stories_in_progress: 1
+  stories_review: 1
   stories_backlog: 0
-  stories_ready_for_dev: 6
+  stories_ready_for_dev: 5
   retrospectives_optional: 10
   retrospectives_done: 0
