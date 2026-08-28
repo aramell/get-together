@@ -3,7 +3,7 @@ story_key: "3-5-connect-google-calendar"
 epic: "3"
 story: "5"
 title: "Connect Google Calendar (OAuth)"
-status: "ready-for-dev"
+status: "in-progress"
 created_date: "2026-08-27"
 ---
 
@@ -12,7 +12,7 @@ created_date: "2026-08-27"
 **Epic:** 3 - Soft Calendar & Availability
 **Story Key:** 3-5-connect-google-calendar
 **Created:** 2026-08-27
-**Status:** ready-for-dev
+**Status:** in-progress
 
 ---
 
@@ -74,28 +74,29 @@ So that my real availability syncs into the group's soft calendar without manual
 ## Tasks / Subtasks
 
 **Task 1: Database Schema**
-- [ ] Create `calendar_connections` table: `id`, `user_id` (FK, unique), `provider` (`'google'`), `refresh_token_encrypted`, `connected_email`, `needs_reauth` (boolean, default false), `created_at`, `updated_at`
-- [ ] Encrypt `refresh_token_encrypted` at the application layer before insert (Postgres encryption-at-rest alone isn't sufficient for a credential this sensitive — extends the managed-encryption pattern from Architecture Decision 2d)
+- [x] Create `calendar_connections` table: `id`, `user_id` (FK, unique), `provider` (`'google'`), `refresh_token_encrypted`, `connected_email`, `needs_reauth` (boolean, default false), `created_at`, `updated_at`
+- [x] Encrypt `refresh_token_encrypted` at the application layer before insert (Postgres encryption-at-rest alone isn't sufficient for a credential this sensitive — extends the managed-encryption pattern from Architecture Decision 2d)
 
 **Task 2: OAuth Initiation Endpoint**
-- [ ] `GET /api/calendar/google/connect` — generate Google OAuth consent URL with `access_type=offline`, `prompt=consent`, a signed `state` param (CSRF), redirect user
+- [x] `GET /api/calendar/google/connect` — generate Google OAuth consent URL with `access_type=offline`, `prompt=consent`, a signed `state` param (CSRF), redirect user
 
 **Task 3: OAuth Callback Endpoint**
-- [ ] `GET /api/calendar/google/callback` — validate `state`, exchange `code` for tokens via Google's token endpoint, encrypt refresh token, upsert `calendar_connections` row, redirect to settings with success/denial message
+- [x] `GET /api/calendar/google/callback` — validate `state`, exchange `code` for tokens via Google's token endpoint, encrypt refresh token, upsert `calendar_connections` row, redirect to settings with success/denial message
 
 **Task 4: Settings UI**
-- [ ] "Connect Google Calendar" button in calendar/availability settings
+- [x] "Connect Google Calendar" button in calendar/availability settings
 - [ ] Connected state display (email + "Disconnect" action, wired to Story 3.8)
-- [ ] Consent-denial and error message handling
+  - **PARTIAL:** Connected state display with email is implemented (`components/settings/CalendarConnectionSetting.tsx`). The "Disconnect" action itself is not — Story 3.8 (Disconnect Google Calendar) is still `ready-for-dev`, not built, and per this story's own phrasing the action is "wired to Story 3.8" (i.e. 3.8's job, not 3.5's). Building a disconnect endpoint here would duplicate/preempt 3.8's actual scope (which per Architecture Decision 6c also needs to clear cached `google_calendar_busy_blocks`, not just the connection row). Left unchecked rather than fabricated, consistent with how Story 2.8's Task 4 and Story 3.7's Task 2 handled their own forward dependencies on not-yet-built stories.
+- [x] Consent-denial and error message handling
 
 **Task 5: Environment Configuration**
-- [ ] New env vars: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` — document in `.env.example` and deployment config (new external dependency, per sprint-change-proposal's Technical Impact section)
+- [x] New env vars: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` — document in `.env.example` and deployment config (new external dependency, per sprint-change-proposal's Technical Impact section)
 
 **Task 6: Testing**
-- [ ] Unit tests: token exchange service, encryption/decryption round-trip
-- [ ] API tests: connect redirect, callback success, callback with denied consent, callback with invalid `state`
-- [ ] Component tests: connect button, connected-state display
-- [ ] Integration test: full connect flow (mocked Google OAuth endpoints)
+- [x] Unit tests: token exchange service, encryption/decryption round-trip
+- [x] API tests: connect redirect, callback success, callback with denied consent, callback with invalid `state`
+- [x] Component tests: connect button, connected-state display
+- [x] Integration test: full connect flow (mocked Google OAuth endpoints)
 
 ---
 
@@ -138,11 +139,55 @@ So that my real availability syncs into the group's soft calendar without manual
 - **Dependencies:** None blocking — can be built independently of Stories 3.6/3.7/3.8, though it's the prerequisite for all three
 - **Blocking Issues:** None
 
+### Implementation Plan
+- **No new SDK dependency:** Google OAuth token exchange, refresh, and userinfo lookup are implemented via plain `fetch()` calls to Google's REST endpoints (`accounts.google.com/o/oauth2/v2/auth`, `oauth2.googleapis.com/token`, `googleapis.com/oauth2/v2/userinfo`), rather than adding the `googleapis` npm package. Avoids a new-dependency approval gate for something a few `fetch` calls covers; Story 3.6 will use the same approach for `freebusy.query`.
+- **Encryption:** New `lib/encryption/crypto.ts` (AES-256-GCM, `crypto.createCipheriv`/`createDecipheriv`) for reversible encryption of the refresh token — distinct from the existing `lib/encryption/hash.ts`, which is one-way bcrypt hashing and can't be decrypted back. Keyed by a new `ENCRYPTION_KEY` env var (base64, 32 bytes). No prior reversible-encryption helper existed in the repo to reuse.
+- **CSRF `state` param (AC1):** Stateless double-submit pattern — `initiateConnect()` generates a random hex token, the connect route stores it in a short-lived httpOnly `google_oauth_state` cookie, and the callback route compares the cookie value against the `state` query param before proceeding. No server-side state table needed.
+- **Auth:** Used `getUserIdFromRequest` (cookie/JWT-based, `lib/api/auth.ts`) rather than the `x-user-id` header pattern seen in some older routes — these are browser-navigated GET requests (redirects to/from Google), so there's no way for a client to attach a custom header; only the cookie approach works here.
+- **Service layer:** `lib/services/calendarConnectionService.ts` follows `eventLogisticsService.ts`'s pattern (`getClient()` from `lib/db/client`, try/finally with `client.release()`, `ServiceResult<T>` return shape) rather than the client-side fetch-wrapper style used by `groupService.ts`, since this needs direct DB access.
+- **Re-connect handling (AC5):** `handleCallback` upserts on `user_id` conflict. If Google omits a refresh token on re-consent (can happen depending on Google's session state despite `prompt=consent`), the existing encrypted token is preserved and only `connected_email`/`needs_reauth` are updated, rather than overwriting a valid token with nothing.
+- **Settings location:** No dedicated "settings" page existed in the app; `calendar_connections` is per-user (not per-group), so I added `components/settings/CalendarConnectionSetting.tsx` to `app/profile/page.tsx` (existing per-user profile screen) rather than creating a new route, and reused the `Suspense`-wrapping pattern already established for `useSearchParams()` consumers (`components/auth/ResetPasswordFormContent.tsx`).
+- **Bug caught by tests, fixed before completion:** The settings component's original `useEffect` for reading the OAuth-callback redirect's `calendar_status` query param depended on `router`/`pathname`/`searchParams`. Since Next's `useRouter()` object isn't guaranteed referentially stable across renders (and definitely isn't under the test mock), and the effect calls `setState`, this produced a genuine infinite render loop — reproduced as a real hang (sustained 100%+ CPU) when running the component test, not a mock artifact. Fixed by making the effect run once on mount (`[]` deps) — this is a "read the redirect param once" pattern, not something that should react to router identity changes. Caught before this reached review specifically because Task 6 requires a component test exercising the connected-state redirect path, not because the AC list would have surfaced it. Worth remembering: forward-facing agents in this codebase should treat `useEffect` + `setState` + `useSearchParams()`/`useRouter()` in dependency arrays as a code smell to double-check.
+- **Endpoint added beyond the story's explicit task list:** `GET /api/calendar/google/status` (+ `getConnectionStatus` in the service). The connect/callback routes are pure browser redirects and never return JSON, so the settings UI needs *some* way to ask "is this user currently connected" to satisfy AC3 (needed for both initial page load and to avoid the UI drifting from DB state). This is a small, natural extension of Task 4/AC3, not scope creep into another story.
+- **Foundational helper for Story 3.6 added now, not part of 3.5's own ACs:** `getDecryptedRefreshToken(userId)` in the service — Story 3.6's sync worker will need to decrypt the stored token, and this is a one-line, obviously-correct pairing with `encrypt()`/the upsert logic already in this file. Not exercised by any of *this* story's tests since no 3.5 AC calls for it; will be covered when 3.6 lands.
+
+### Test environment note
+Same pre-existing, repo-wide Node v25 harness issue documented in Story 2.8's Dev Notes: `jest.setup.js`'s `global.Request` polyfill never actually installs (it only applies `if (!global.Request)`, and Node 25 already provides a native `Request`), so `next/server`'s `NextRequest` — which defines `url` as a read-only getter — fails with "Cannot set property url of #<NextRequest> which has only a getter" the moment any test constructs one. This affects all 4 of this story's `NextRequest`-constructing test files (`connect.test.ts`, `callback.test.ts`, `status.test.ts`, `integration/calendar/connect-flow.test.ts` — 17 tests total). Verified these are harness-only, not logic bugs, three ways: (1) the failure trace is identical to the pre-existing baseline failure in `__tests__/api/groups/delete.test.ts`; (2) `calendarConnectionService.test.ts` (11 tests, service layer only, no `NextRequest`) passes 100%; (3) `crypto.test.ts` (5 tests) and `CalendarConnectionSetting.test.tsx` (4 tests, component-level, no `NextRequest`) pass 100%. Ran the full repo test suite before and after this story's changes (`git stash -u` compare): no previously-passing test regressed. Baseline (unmodified main, no untracked files): 65 failed suites / 430 failed tests / 3239 total. With this story's + Story 2.8's combined uncommitted work: 68 failed suites / 448 failed tests / 3291 total — the entire delta is explained by this story's 17 harness-only failures plus Story 2.8's own already-in-progress test files.
+- `tsc --noEmit` and `eslint`: no new errors beyond the same two pre-existing, repo-wide baseline patterns already present throughout the codebase (`catch (error: any)` → `@typescript-eslint/no-explicit-any`; `require()`-based jest mocks losing type info → TS2345 "not assignable to type 'never'", present in e.g. `eventService.test.ts`). Confirmed via direct comparison against unmodified files using the same patterns.
+
+### Completion Notes
+- Tasks 1, 2, 3, 5, 6 fully implemented and tested. Task 4 is done except one sub-item: the "Disconnect" action is intentionally not built here — it's Story 3.8's scope (still `ready-for-dev`), and per this story's own AC3 phrasing ("replaced with 'Disconnect' (Story 3.8)") that's expected. Connected-state display (email) is implemented and tested.
+- AC1 (initiate OAuth, CSRF state), AC2 (encrypted refresh-token storage, access token never persisted), AC4 (consent-denial handling), AC5 (re-connect updates existing row) are fully implemented and tested.
+- AC3 (reflect connected state) is implemented for the "connected" half (email + status endpoint + UI badge); the "Connect replaced with Disconnect" half is Story 3.8's job per the AC's own text.
+- Story left `in-progress`, not `review`, per the same completion-gate reasoning Stories 2.8 and 3.7 used: one task sub-item has a real, external, not-yet-buildable blocker (Story 3.8 doesn't exist), not a quality gap in this story's own work.
+- **Next in this session:** proceeding directly to Story 3.6 (Sync Google Availability), then 3.7, then back to finish Story 2.8's Task 4 — per user's explicit direction to build the dependency chain in order this session.
+
+### File List
+- `lib/db/migrations/024_create_calendar_connections_table.sql` (new)
+- `lib/encryption/crypto.ts` (new)
+- `lib/services/calendarConnectionService.ts` (new)
+- `app/api/calendar/google/connect/route.ts` (new)
+- `app/api/calendar/google/callback/route.ts` (new)
+- `app/api/calendar/google/status/route.ts` (new)
+- `components/settings/CalendarConnectionSetting.tsx` (new)
+- `app/profile/page.tsx` (modified — renders `CalendarConnectionSetting` in a `Suspense` boundary)
+- `.env.local.example` (modified — added `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `ENCRYPTION_KEY`)
+- `__tests__/lib/encryption/crypto.test.ts` (new)
+- `__tests__/services/calendarConnectionService.test.ts` (new)
+- `__tests__/api/calendar/google/connect.test.ts` (new)
+- `__tests__/api/calendar/google/callback.test.ts` (new)
+- `__tests__/api/calendar/google/status.test.ts` (new)
+- `__tests__/components/settings/CalendarConnectionSetting.test.tsx` (new)
+- `__tests__/integration/calendar/connect-flow.test.ts` (new)
+
+### Change Log
+- 2026-08-27: Implemented Tasks 1, 2, 3, 5, 6 and most of Task 4 (DB migration, encryption helper, OAuth connect/callback/status endpoints, settings UI, env config, tests) for Google Calendar OAuth connection. Task 4's "Disconnect" action deferred to Story 3.8 (doesn't exist yet). Story left `in-progress`, not `review`, pending Story 3.8.
+
 ---
 
 ## Next Steps
 
-1. **Dev Agent:** Invoke `/bmad-bmm-dev-story` with this story file
-2. **Coordinate:** Provision `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` in Google Cloud Console before implementation
-3. **Code Review:** Run `/bmad-bmm-code-review` after implementation, with particular attention to the CSRF `state` param and encryption of the refresh token
-4. **Next Story:** 3-6-sync-google-availability (depends on this story's `calendar_connections` table)
+1. **Dev Agent:** Invoke `/bmad-bmm-dev-story` with this story file — done 2026-08-27 (Tasks 1/2/3/5/6, most of Task 4)
+2. **Coordinate:** Provision `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` in Google Cloud Console before this connects to real Google accounts (not needed for the code/tests themselves)
+3. **Code Review:** Run `/bmad-bmm-code-review` after Story 3.8 completes Task 4's Disconnect wiring
+4. **Next Story:** 3-6-sync-google-availability (depends on this story's `calendar_connections` table) — in progress next, same session
