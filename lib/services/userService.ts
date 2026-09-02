@@ -14,6 +14,14 @@ export interface UserProfile {
   updated_at: string;
 }
 
+export interface PhoneUserProfile {
+  id: string; // Cognito sub
+  phone_hash: string;
+  display_name: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 /**
  * Create a user profile in the database
  * Called after user signs up in Cognito
@@ -38,6 +46,54 @@ export async function createUserProfile(
     return null;
   } catch (error) {
     console.error('Error creating user profile:', error);
+    return null;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Find a phone-auth user by their hashed phone number (Story 9.1/9.2).
+ * Returns null if no account exists yet for this phone number.
+ */
+export async function findUserByPhoneHash(phoneHash: string): Promise<PhoneUserProfile | null> {
+  const client = await getClient();
+  try {
+    const result = await client.query(
+      'SELECT id, phone_hash, display_name, created_at, updated_at FROM users WHERE phone_hash = $1 AND deleted_at IS NULL',
+      [phoneHash]
+    );
+
+    return result.rows.length > 0 ? result.rows[0] : null;
+  } catch (error) {
+    console.error('Error finding user by phone hash:', error);
+    return null;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Create a phone-auth user profile in the database (Story 9.2, AC2).
+ * Called after the matching Cognito user has been created. No email --
+ * display_name defaults to "New Member" until the user edits their profile.
+ */
+export async function createUserProfileByPhoneHash(
+  cognitoSub: string,
+  phoneHash: string
+): Promise<PhoneUserProfile | null> {
+  const client = await getClient();
+  try {
+    const result = await client.query(
+      `INSERT INTO users (id, phone_hash, display_name) VALUES ($1, $2, 'New Member')
+       ON CONFLICT (id) DO UPDATE SET updated_at = NOW()
+       RETURNING id, phone_hash, display_name, created_at, updated_at`,
+      [cognitoSub, phoneHash]
+    );
+
+    return result.rows.length > 0 ? result.rows[0] : null;
+  } catch (error) {
+    console.error('Error creating phone user profile:', error);
     return null;
   } finally {
     client.release();
