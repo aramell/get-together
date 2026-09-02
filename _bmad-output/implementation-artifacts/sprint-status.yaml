@@ -1,5 +1,5 @@
 # Sprint Status Generated
-# generated: 2026-04-16
+# generated: 2026-08-31 (reconciled Epics 9 & 10 into tracking; originally generated 2026-04-16)
 # project: get-together
 # project_key: NOKEY
 # tracking_system: file-system
@@ -34,7 +34,7 @@
 # - SM typically creates next story after previous one is 'done' to incorporate learnings
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
-generated: "2026-04-16"
+generated: "2026-08-31"
 project: get-together
 project_key: NOKEY
 tracking_system: file-system
@@ -127,6 +127,22 @@ development_status:
   8-5-jwt-signature-verification: done
   epic-8-retrospective: optional
 
+  # EPIC 9: SMS Magic Link Authentication (from epics.md; story files existed on disk but epic was never registered here until this reconciliation)
+  epic-9: in-progress
+  9-1-sms-magic-link-request: ready-for-dev
+  9-2-auto-account-creation-magic-link: ready-for-dev
+  9-3-expired-used-link-rerequest: ready-for-dev
+  epic-9-retrospective: optional
+
+  # EPIC 10: Social Circles (from epics.md; story files existed on disk but epic was never registered here until this reconciliation)
+  epic-10: in-progress
+  10-1-create-social-circle: ready-for-dev
+  10-2-add-remove-circle-contacts: ready-for-dev
+  10-3-view-manage-social-circles: ready-for-dev
+  10-4-bulk-invite-circle-to-group: ready-for-dev
+  10-5-bulk-invite-circle-to-event: ready-for-dev
+  epic-10-retrospective: optional
+
   # EPIC 11: Production Database & Local Dev Environment (added ad hoc — not in epics.md, fast-tracked 2026-07-28)
   epic-11: done
   11-1-supabase-production-db-local-dev-setup: done
@@ -143,20 +159,16 @@ development_status:
   12-6-quick-polls: done
   epic-12-retrospective: optional
 
-  # NOTE: Epics 9 (SMS Magic Link) and 10 (Social Circles) exist in epics.md and have
-  # story files on disk (9-1..9-3, 10-1..10-5) but were never registered here — this
-  # file was stale before this edit. Recommend running sprint-planning to reconcile.
-
 summary:
-  total_epics: 10
-  total_stories: 53
+  total_epics: 12
+  total_stories: 61
   epics_done: 6
-  epics_in_progress: 4
+  epics_in_progress: 6
   epics_backlog: 0
   stories_done: 46
   stories_in_progress: 0
   stories_review: 7
   stories_backlog: 0
-  stories_ready_for_dev: 0
-  retrospectives_optional: 10
+  stories_ready_for_dev: 8
+  retrospectives_optional: 12
   retrospectives_done: 0
