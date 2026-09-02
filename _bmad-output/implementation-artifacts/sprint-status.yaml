@@ -129,7 +129,7 @@ development_status:
 
   # EPIC 9: SMS Magic Link Authentication (from epics.md; story files existed on disk but epic was never registered here until this reconciliation)
   epic-9: in-progress
-  9-1-sms-magic-link-request: ready-for-dev
+  9-1-sms-magic-link-request: review
   9-2-auto-account-creation-magic-link: ready-for-dev
   9-3-expired-used-link-rerequest: ready-for-dev
   epic-9-retrospective: optional
@@ -167,8 +167,8 @@ summary:
   epics_backlog: 0
   stories_done: 46
   stories_in_progress: 0
-  stories_review: 7
+  stories_review: 8
   stories_backlog: 0
-  stories_ready_for_dev: 8
+  stories_ready_for_dev: 7
   retrospectives_optional: 12
   retrospectives_done: 0

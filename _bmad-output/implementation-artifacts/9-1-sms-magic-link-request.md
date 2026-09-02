@@ -3,7 +3,7 @@ story_key: "9-1-sms-magic-link-request"
 epic: "9"
 story: "1"
 title: "Request SMS Magic Link"
-status: "ready-for-dev"
+status: "review"
 created_date: "2026-06-30"
 ---
 
@@ -12,7 +12,7 @@ created_date: "2026-06-30"
 **Epic:** 9 - SMS Magic Link Authentication
 **Story Key:** 9-1-sms-magic-link-request
 **Created:** 2026-06-30
-**Status:** ready-for-dev
+**Status:** review
 
 ---
 
@@ -137,55 +137,82 @@ POST /api/auth/sms/request
 
 ## Tasks/Subtasks
 
-- [ ] **Task 1:** Create Zod validation schema for phone number input (`lib/validation/smsAuthSchema.ts`)
-  - [ ] 1a: E.164 regex validation
-  - [ ] 1b: Target type + target ID optional fields
-- [ ] **Task 2:** Create SMS service (`lib/services/smsService.ts`)
-  - [ ] 2a: `generateMagicToken()` — crypto.randomBytes, SHA-256 hash
-  - [ ] 2b: `sendMagicLinkSms(phoneNumber, token)` — Twilio/SNS dispatch
-  - [ ] 2c: Rate limit check by phone hash
-- [ ] **Task 3:** Create token storage function in DB (`lib/db/smsTokens.ts`)
-  - [ ] 3a: `createToken(phoneHash, tokenHash, expiresAt, targetType?, targetId?)`
-  - [ ] 3b: Database migration for `sms_magic_link_tokens` table
-- [ ] **Task 4:** Implement API endpoint (`app/api/auth/sms/request/route.ts`)
-  - [ ] 4a: Validate input with Zod schema
-  - [ ] 4b: Hash phone number, check rate limit
-  - [ ] 4c: Generate token, store in DB, dispatch SMS
-  - [ ] 4d: Return generic success response (no info leakage)
-- [ ] **Task 5:** Build PhoneMagicLinkForm component (`components/auth/PhoneMagicLinkForm.tsx`)
-  - [ ] 5a: Phone number input with country code selector
-  - [ ] 5b: Real-time E.164 validation feedback
-  - [ ] 5c: Loading state during submission
-  - [ ] 5d: Success state: "Check your texts" message
-  - [ ] 5e: Accessibility: labels, aria-live, keyboard navigation
-- [ ] **Task 6:** Create /auth/phone page (`app/auth/phone/page.tsx`)
-  - [ ] 6a: Integrate PhoneMagicLinkForm
-  - [ ] 6b: Add "Back to login" link
-- [ ] **Task 7:** Write tests
-  - [ ] 7a: Unit tests for E.164 validation schema
-  - [ ] 7b: Unit tests for token generation and hashing
-  - [ ] 7c: API endpoint tests (success, rate limit, invalid number)
-  - [ ] 7d: Component tests for PhoneMagicLinkForm
+- [x] **Task 1:** Create Zod validation schema for phone number input (`lib/validation/smsAuthSchema.ts`)
+  - [x] 1a: E.164 regex validation
+  - [x] 1b: Target type + target ID optional fields
+- [x] **Task 2:** Create SMS service (`lib/services/smsService.ts`)
+  - [x] 2a: `generateMagicToken()` — crypto.randomBytes, SHA-256 hash
+  - [x] 2b: `sendMagicLinkSms(phoneNumber, token)` — AWS SNS dispatch
+  - [x] 2c: Rate limit check by phone hash
+- [x] **Task 3:** Create token storage function in DB (`lib/db/queries/smsTokens.ts`)
+  - [x] 3a: `createToken(phoneHash, tokenHash, expiresAt, targetType?, targetId?)`
+  - [x] 3b: Database migration for `sms_magic_link_tokens` table
+- [x] **Task 4:** Implement API endpoint (`app/api/auth/sms/request/route.ts`)
+  - [x] 4a: Validate input with Zod schema
+  - [x] 4b: Hash phone number, check rate limit
+  - [x] 4c: Generate token, store in DB, dispatch SMS
+  - [x] 4d: Return generic success response (no info leakage)
+- [x] **Task 5:** Build PhoneMagicLinkForm component (`components/auth/PhoneMagicLinkForm.tsx`)
+  - [x] 5a: Phone number input with country code selector
+  - [x] 5b: Real-time E.164 validation feedback
+  - [x] 5c: Loading state during submission
+  - [x] 5d: Success state: "Check your texts" message
+  - [x] 5e: Accessibility: labels, aria-live, keyboard navigation
+- [x] **Task 6:** Create /auth/phone page (`app/auth/phone/page.tsx`)
+  - [x] 6a: Integrate PhoneMagicLinkForm
+  - [x] 6b: Add "Back to login" link
+- [x] **Task 7:** Write tests
+  - [x] 7a: Unit tests for E.164 validation schema
+  - [x] 7b: Unit tests for token generation and hashing
+  - [x] 7c: API endpoint tests (success, rate limit, invalid number)
+  - [x] 7d: Component tests for PhoneMagicLinkForm
 
 ---
 
 ## File List
 
-**Files to Create:**
+**Files Created:**
 - `lib/validation/smsAuthSchema.ts`
 - `lib/services/smsService.ts`
-- `lib/db/smsTokens.ts`
+- `lib/db/queries/smsTokens.ts` (Dev Notes said `lib/db/smsTokens.ts`; moved into the existing `lib/db/queries/` convention used by `invitations.ts` etc.)
+- `lib/db/migrations/026_create_sms_magic_link_tokens_table.sql` (Dev Notes said `migrations/0010_sms_magic_link_tokens.sql`; actual migrations live in `lib/db/migrations/`, numbered sequentially — next free number was 026)
 - `app/api/auth/sms/request/route.ts`
 - `components/auth/PhoneMagicLinkForm.tsx`
 - `app/auth/phone/page.tsx`
-- `migrations/0010_sms_magic_link_tokens.sql`
-- `__tests__/auth/smsAuth.test.ts`
-- `__tests__/api/smsRequest.test.ts`
+- `__tests__/validation/smsAuthSchema.test.ts` (Dev Notes said `__tests__/auth/smsAuth.test.ts`; placed alongside the existing `__tests__/validation/` schema tests)
+- `__tests__/services/smsService.test.ts` (token generation/hashing/rate-limit/SMS-dispatch unit tests, alongside `__tests__/services/`)
+- `__tests__/api/sms-request.test.ts` (Dev Notes said `__tests__/api/smsRequest.test.ts`; hyphenated to match sibling files like `groups-join.test.ts`)
 - `__tests__/components/PhoneMagicLinkForm.test.tsx`
+
+---
+
+## Dev Agent Record
+
+### Implementation Plan
+
+- **SMS provider:** Used AWS SNS (`@aws-sdk/client-sns`, already a project dependency) instead of Twilio — Twilio isn't installed, and adding it would be a new dependency requiring approval outside this story's scope. SNS is already used elsewhere in the codebase (`lib/logging/alarms.ts`).
+- **Phone hashing (AC4):** Dev Notes suggested bcrypt for `phone_hash`, matching `lib/encryption/hash.ts`'s `hashEmail`. Deviated to keyed HMAC-SHA256 (key = `ENCRYPTION_KEY`, already required by the app) instead: bcrypt salts each call differently, so it can't support the equality lookups the `idx_sms_tokens_phone_hash` index exists for — rate limiting by phone and (in Story 9.2) matching a clicked link back to its phone number both need `WHERE phone_hash = X`, which a randomly-salted hash breaks entirely.
+- **Rate limiting (AC5):** In-memory, keyed by phone hash, 3 requests / 10 minutes — same MVP approach as the existing `lib/api/rateLimiter.ts`, implemented as its own map in `smsService.ts` rather than extending that module, since its window is hardcoded to 60s and shared across unrelated GDPR-endpoint rate limits.
+- **File placement:** Followed the codebase's actual established conventions over the story's suggested paths where they diverged — `lib/db/queries/*.ts` for the DB layer (matches `invitations.ts`), `lib/db/migrations/NNN_*.sql` numbered sequentially (matches 000–025; the top-level `migrations/` dir is legacy and unused since early stories), and hyphenated API test filenames (matches `groups-join.test.ts`, `rsvp-status.test.ts`).
+- **Country code selector (AC1):** Implemented as a small fixed `<Select>` of common country codes (no phone-formatting library is installed; adding one is out of scope) combined with a digits-only national number field into a single E.164 string before validation/submit.
+- Did not touch the login page's "Join via phone" entry point or `middleware.ts` — neither is in this story's task list.
+
+### Completion Notes
+
+- All 7 tasks implemented and tested; 41 new tests across validation, service, API route, and component layers, all passing.
+- `__tests__/api/sms-request.test.ts` uses a `/** @jest-environment node */` override: the project's default jsdom test environment has a `Response` global without a static `.json()`, which `NextResponse.json()` needs. This is a pre-existing gap in the test environment (confirmed at baseline via `rsvp.test.ts`, `login.test.ts`, `convert-wishlist-to-event.test.ts`, all already failing the same way before this story), not something introduced here — the per-file `node` environment override sidesteps it without touching the shared `jest.setup.js`.
+- Ran the full suite (`npx jest`) before and reflected in this story: pre-existing failures (~470-490 tests, ~40-80 suites, varying run to run — mostly timeouts against jsdom/DB and the same AWS-SDK-ESM/jsdom-Response gaps above) are unrelated to this story; none of the failing suites are files this story touches or created.
+- Story 9.2 (account creation) and 9.3 (expired/re-request) will consume `sms_magic_link_tokens` (lookup by `token_hash`, mark `used_at`) — no consuming code was added here since it isn't part of this story's task list.
+
+---
+
+## Change Log
+
+- 2026-08-31: Implemented Story 9.1 (Tasks 1–7): phone validation schema, SMS service (AWS SNS, keyed-hash rate limiting), token storage + migration, API endpoint, PhoneMagicLinkForm component, /auth/phone page, and full test coverage.
 
 ---
 
 ## Status
 
-**Current Status:** ready-for-dev
-**Last Updated:** 2026-06-30
+**Current Status:** review
+**Last Updated:** 2026-08-31
