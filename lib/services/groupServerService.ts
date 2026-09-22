@@ -7,6 +7,7 @@
  */
 
 import { getGroupDetailsWithMembers } from '@/lib/db/queries';
+import { bulkInviteCircleToGroup as bulkInviteCircleToGroupShared } from '@/lib/services/circleInviteService';
 
 /**
  * Fetch group details from database (server-only)
@@ -66,4 +67,19 @@ export async function getGroupDetailsFromDb(
       errorCode: 'INTERNAL_ERROR',
     };
   }
+}
+
+/**
+ * Bulk-invite a social circle's contacts to a newly created group (Story
+ * 10.4). Thin re-export of the shared implementation in
+ * circleInviteService.ts (Story 10.5 extracted the group/event-agnostic
+ * core so it can be reused for event invites too).
+ */
+export async function bulkInviteCircleToGroup(
+  groupId: string,
+  circleId: string,
+  requestingUserId: string,
+  excludedContactIds: string[] = []
+) {
+  return bulkInviteCircleToGroupShared(groupId, circleId, requestingUserId, excludedContactIds);
 }
