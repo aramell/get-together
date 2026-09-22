@@ -4,73 +4,69 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is **get-together**, a BMAD (Behavioral Methods for AI Design) v6.0.4 installation. BMAD is a prompt-engineering + workflow orchestration framework — there is no traditional source code, build system, or test runner. Everything is defined in Markdown, YAML, and XML files executed by AI models.
+This is **get-together**, a BMAD (Behavioral Methods for AI Design) v6.12.0 installation. BMAD is a prompt-engineering + workflow orchestration framework — there is no traditional source code, build system, or test runner for the framework itself. It is defined in Markdown, YAML, TOML, and CSV files executed by AI models.
 
-## No Build/Test/Lint Commands
+The product code (Next.js app, `app/`, `components/`, `lib/`, `__tests__/`) lives alongside the framework and is described by BMAD artifacts in `_bmad-output/`.
 
-This project has no `package.json`, `Makefile`, or compiler. Validation is done through BMAD's own workflow commands:
-- **PRD validation**: `/bmad-validate-prd`
-- **Agent/workflow/module validation**: `/bmad-bmb-validate-agent`, `/bmad-bmb-validate-workflow`, `/bmad-bmb-validate-module`
-- **Code review**: `/bmad-code-review`
+## Upgrading BMAD
+
+Re-run the installer from the project root. In a non-interactive shell, pass `--directory` and `--action update` explicitly (the installer otherwise stops at an interactive prompt):
+
+```
+npx bmad-method@latest install --directory "$PWD" --action update --yes --tools claude-code \
+  --user-name Andrewramell --output-folder _bmad-output --no-shims --pin bmb=v2.2.2 \
+  --set "tea.test_artifacts={project-root}/_bmad-output/test-artifacts" \
+  --set "tea.test_design_output=_bmad-output/test-artifacts/test-design" \
+  --set "tea.test_review_output=_bmad-output/test-artifacts/test-reviews" \
+  --set "tea.trace_output=_bmad-output/test-artifacts/traceability" \
+  --set "bmb.bmad_builder_output_folder={project-root}/_bmad-output/bmb-creations" \
+  --set "bmb.bmad_builder_reports={project-root}/_bmad-output/bmb-creations/reports"
+```
+
+Installed modules: `core`, `bmm` (built-in, v6.12.0), `bmb` (external, pinned v2.2.2), `tea` (external, v1.27.x). The installer only manages `.claude/skills/` for Claude Code — stale `.claude/commands/`, `.cursor/commands/`, `.github/agents/`, `.github/prompts/` files from the pre-6.1 install are legacy and not managed.
 
 ## Architecture
 
-The framework lives entirely under `_bmad/` and uses slash commands (`.claude/commands/`, `.github/prompts/`) as entrypoints.
+BMAD v6.12 uses **native skills**: each capability is a directory under `.claude/skills/<name>/SKILL.md`, invoked as `/<name>` or auto-triggered from its description. The `_bmad/` directory holds config and manifests, not workflow definitions.
 
-### Three Modules
+### Modules
 
-| Module | Path | Purpose |
-|--------|------|---------|
-| **Core** | `_bmad/core/` | Foundation: `workflow.xml` engine, brainstorming, party-mode, editorial tasks |
-| **BMM** | `_bmad/bmm/` | Business Methodology Module: 11 agents + phase-organized workflows for full product lifecycle |
-| **BMB** | `_bmad/bmb/` | BMAD Builder: agents and workflows for creating/editing other agents, modules, and workflows |
+| Module | Purpose |
+|--------|---------|
+| **Core** | Foundation skills: brainstorming, party-mode, help, review, advanced elicitation |
+| **BMM** | Product lifecycle: agents (analyst, architect, dev, pm, ux-designer) + planning/build skills |
+| **BMB** | BMAD Builder: `bmad-agent-builder`, `bmad-workflow-builder`, `bmad-module-builder` |
+| **TEA** | Test Architect (Murat): `bmad-tea` + `bmad-testarch-*` skills |
 
 ### Key Paths
 
-- `_bmad/_config/` — Manifests and registries (agent, workflow, file, help, task, tool)
-- `_bmad/bmm/config.yaml` — Primary runtime config (always load before any agent/workflow)
-- `_bmad/core/tasks/workflow.xml` — YAML workflow engine (required for all YAML-based workflows)
-- `_bmad/_memory/` — Agent persistent memory and tech-writer standards
-- `_bmad-output/` — All generated artifacts (planning, implementation, bmb-creations)
+- `_bmad/config.toml` — Installer-managed config (**read-only**, regenerated on install)
+- `_bmad/custom/config.toml` (team, committed) and `_bmad/custom/config.user.toml` (personal) — durable overrides; never touched by the installer. Use `/bmad-customize` to author them
+- `_bmad/bmm/config.yaml` — Legacy-format module config (still generated)
+- `_bmad/_config/` — Manifests (`skill-manifest.csv`, `bmad-help.csv`, `files-manifest.csv`, …)
+- `_bmad/_memory/` — Agent persistent memory (tech-writer sidecar)
+- `_bmad-output/` — All generated artifacts (planning, implementation)
 - `docs/` — Project knowledge base (currently empty)
-- `.claude/commands/` — 58 Claude Code slash command definitions
-- `.github/agents/` — 13 agent definition files (for GitHub Copilot)
-- `.github/prompts/` — 65+ prompt definitions
+- `.claude/skills/` — BMAD skills plus non-BMAD skills (`supabase`, `supabase-postgres-best-practices`)
 
-### Workflow Execution Patterns
+**Output locations:** BMB creations go to `_bmad-output/bmb-creations/` (reports in `.../reports`) and TEA output to `_bmad-output/test-artifacts/` (`test-design`, `test-reviews`, `traceability`). These differ from the module defaults (`skills/…`), so they must be re-passed as `--set` flags on upgrade or they revert. TEA skills read `_bmad/tea/config.yaml` directly, so a TOML override in `_bmad/custom/` would not affect them.
 
-Two execution modes:
-1. **Markdown-based**: Load and follow the `.md` file directly
-2. **YAML-based**: Load `_bmad/core/tasks/workflow.xml` first, then pass the `.yaml` config; steps execute JIT (one at a time), save after every `template-output` tag
+### Agents
 
-### BMM Agents (11 Specialized Personas)
+| Skill | Persona | Specialization |
+|-------|---------|----------------|
+| `bmad-agent-analyst` | Mary | Market research, requirements elicitation |
+| `bmad-agent-architect` | Winston | System architecture, technical design |
+| `bmad-agent-dev` | Amelia | Story execution, implementation |
+| `bmad-agent-pm` | John | PRD creation, requirements discovery |
+| `bmad-agent-ux-designer` | Sally | UX design, interaction design |
+| `bmad-tea` | Murat | Test architecture, quality gates |
 
-| Slug | Persona | Specialization |
-|------|---------|---------------|
-| `analyst` | Mary | Market research, requirements elicitation |
-| `architect` | Winston | Distributed systems, cloud, API design |
-| `dev` | Amelia | Story execution, TDD, implementation |
-| `pm` | John | PRD creation, requirements discovery |
-| `qa` | Quinn | Test automation, E2E testing |
-| `quick-flow-solo-dev` | Barry | Rapid spec + lean implementation |
-| `sm` | Bob | Sprint planning, backlog management |
-| `tech-writer` | Paige | Documentation, Mermaid diagrams |
-| `ux-designer` | Sally | User research, interaction design |
-
-### BMM Workflow Phases
-
-Workflows under `_bmad/bmm/workflows/` are organized by phase:
-- `1-analysis/` — Product brief, domain/market/technical research
-- `2-plan-workflows/` — PRD creation/editing/validation, UX design
-- `3-solutioning/` — Architecture, implementation readiness, epics & stories
-- `4-implementation/` — Code review, story creation, dev, sprint planning, retrospectives
-- `quick-flow/` — Fast spec + implementation for small features
-- `qa/` — E2E test generation
-- `document-project/` — Brownfield project documentation
+The v6.0 agents `sm` (Bob), `qa` (Quinn), `tech-writer` (Paige), and `quick-flow-solo-dev` (Barry) no longer exist as agents; their work moved into skills (`bmad-sprint-planning`, `bmad-qa-generate-e2e-tests`, `bmad-build`).
 
 ## Session Variable Convention
 
-When activating any agent or running any workflow, load `_bmad/bmm/config.yaml` first and store these as session variables:
+Skills read their config from `_bmad/config.toml` (with `_bmad/custom/` overrides). Values for this project:
 - `{user_name}` = Andrewramell
 - `{communication_language}` = English
 - `{output_folder}` = `{project-root}/_bmad-output`
@@ -78,13 +74,24 @@ When activating any agent or running any workflow, load `_bmad/bmm/config.yaml` 
 - `{implementation_artifacts}` = `{project-root}/_bmad-output/implementation-artifacts`
 - `{project_knowledge}` = `{project-root}/docs`
 
-## Slash Commands
+## Skills / Slash Commands
 
-All BMAD functionality is accessible via `/bmad-` prefixed commands. Type `/bmad-` to see the full list. Key commands:
-- `/bmad-help` — Get guidance on what to do next
-- `/bmad-create-prd`, `/bmad-edit-prd`, `/bmad-validate-prd`
-- `/bmad-create-architecture`, `/bmad-create-epics-and-stories`
-- `/bmad-create-story`, `/bmad-dev-story`
-- `/bmad-sprint-planning`, `/bmad-sprint-status`
-- `/bmad-quick-spec`, `/bmad-quick-dev`
-- `/bmad-document-project`
+Type `/bmad-` to see the full list, or run `/bmad-help` for guidance on what to do next. Mapping from the old v6.0 commands:
+
+| Task | Skill (v6.12) | Replaces |
+|------|---------------|----------|
+| Next-step guidance | `/bmad-help` | `/bmad-help` |
+| Product brief / research | `/bmad-product-brief`, `/bmad-deep-recon` | `create-product-brief`, `*-research` |
+| Create / edit / validate PRD | `/bmad-prd` | `create-prd`, `edit-prd`, `validate-prd` |
+| Spec / stories from a spec | `/bmad-spec`, `/bmad-create-epics-and-stories` | `quick-spec`, epics workflow |
+| Architecture | `/bmad-architecture` | `create-architecture` |
+| UX design | `/bmad-ux` | `create-ux-design` |
+| Sprint planning, status, readiness | `/bmad-sprint-planning` | `sprint-planning`, `sprint-status`, `check-implementation-readiness` |
+| Implement a story / change | `/bmad-build` (or `/bmad-build-auto` for an unattended loop) | `create-story`, `dev-story`, `quick-dev` |
+| Code review | `/bmad-code-review`, `/bmad-review` | `code-review` |
+| Course correction / retro | `/bmad-correct-course`, `/bmad-retrospective` | same names |
+| E2E tests | `/bmad-qa-generate-e2e-tests`, `/bmad-testarch-*` | `qa-generate-e2e-tests` |
+| Repo agent instructions | `/bmad-project-context` | `generate-project-context` |
+| Build agents / workflows / modules | `/bmad-agent-builder`, `/bmad-workflow-builder`, `/bmad-module-builder` | `bmad-bmb-*` |
+
+There is no direct `document-project` equivalent; use `/bmad-project-context` for AI-facing repo docs.
