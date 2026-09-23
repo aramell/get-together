@@ -97,7 +97,6 @@ export function UpdateThresholdModal({
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
-            'x-user-id': userId,
           },
           body: JSON.stringify({
             threshold: hasThreshold ? parseInt(threshold, 10) : null,

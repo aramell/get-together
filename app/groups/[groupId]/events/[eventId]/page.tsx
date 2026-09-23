@@ -68,9 +68,7 @@ export default function EventDetailsPage() {
           return;
         }
 
-        const response = await fetch(`/api/groups/${groupId}/events/${eventId}`, {
-          headers: userId ? { 'x-user-id': userId } : undefined,
-        });
+        const response = await fetch(`/api/groups/${groupId}/events/${eventId}`);
 
         if (!response.ok) {
           setError('Failed to load event details');

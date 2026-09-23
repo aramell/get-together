@@ -111,9 +111,7 @@ export default function GroupDetailsPage() {
   const loadAvailabilityOverview = async (gid: string) => {
     setLoadingAvailability(true);
     try {
-      const response = await fetch(`/api/groups/${gid}/availability-overview`, {
-        headers: userId ? { 'x-user-id': userId } : undefined,
-      });
+      const response = await fetch(`/api/groups/${gid}/availability-overview`);
       if (response.ok) {
         const result = await response.json();
         if (result.success && result.data) {
