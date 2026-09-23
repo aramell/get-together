@@ -12,7 +12,7 @@ export const eventCreateSchema = z.object({
     .string()
     .datetime('Invalid date format')
     .refine(
-      (dateStr) => new Date(dateStr) > new Date(),
+      (dateStr) => new Date(dateStr).getTime() > Date.now(),
       'Event date must be in the future'
     ),
 

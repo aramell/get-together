@@ -126,7 +126,11 @@ export async function POST(
     const result = await createEvent(groupId, userId, eventData);
 
     if (!result.success) {
-      const statusCode = result.errorCode === 'FORBIDDEN' ? 403 : 500;
+      let statusCode = 500;
+      if (result.errorCode === 'FORBIDDEN') statusCode = 403;
+      else if (result.errorCode === 'VALIDATION_ERROR') statusCode = 422;
+      else if (result.errorCode === 'CONFLICT') statusCode = 409;
+      else if (result.errorCode === 'NOT_FOUND') statusCode = 404;
       return NextResponse.json(result, { status: statusCode });
     }
 

@@ -1,6 +1,6 @@
 'use server';
 
-import { z } from 'zod';
+import { z, ZodError } from 'zod';
 import { getClient } from '@/lib/db/client';
 import { getUserGroupRole } from '@/lib/db/queries';
 import { eventCreateSchema, EventProposal, RsvpStatus } from '@/lib/validation/eventSchema';
@@ -138,7 +138,7 @@ export async function createEvent(
     console.error('Error creating event:', error);
 
     // Handle Zod validation errors
-    if (error instanceof z.ZodError) {
+    if (error instanceof ZodError) {
       const firstIssue = error.issues?.[0];
       return {
         success: false,
