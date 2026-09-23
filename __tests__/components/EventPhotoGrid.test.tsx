@@ -48,6 +48,19 @@ describe('EventPhotoGrid Component', () => {
     });
   });
 
+  it('renders the "Photos" section title as a semantic h2 heading', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, data: mockPhotos }),
+    }) as unknown as typeof fetch;
+
+    renderWithProviders(<EventPhotoGrid eventId="event-1" groupId="group-1" />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 2, name: /photos/i })).toBeInTheDocument();
+    });
+  });
+
   it('shows the delete button only on the current user\'s own photos', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,

@@ -67,6 +67,15 @@ describe('EventChecklist Component', () => {
     expect(screen.getAllByText('Alice').length).toBeGreaterThan(0);
   });
 
+  it('renders the "Checklist" section title as a semantic h2 heading', async () => {
+    mockFetchSequence();
+    renderWithProviders(<EventChecklist eventId="event-1" groupId="group-1" />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 2, name: /checklist/i })).toBeInTheDocument();
+    });
+  });
+
   it('populates the assignee dropdown from group members', async () => {
     mockFetchSequence();
     renderWithProviders(<EventChecklist eventId="event-1" groupId="group-1" />);

@@ -5,6 +5,7 @@ import {
   Box,
   VStack,
   HStack,
+  Heading,
   Text,
   Checkbox,
   Input,
@@ -230,9 +231,9 @@ export function EventChecklist({ eventId, groupId }: EventChecklistProps) {
 
   return (
     <Box>
-      <Text fontWeight="bold" fontSize="lg" mb={4}>
+      <Heading as="h2" fontWeight="bold" fontSize="lg" mb={4}>
         Checklist
-      </Text>
+      </Heading>
 
       <VStack spacing={2} align="stretch" mb={6}>
         {items.length === 0 && (

@@ -41,7 +41,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: "2026-08-31"
-last_updated: "09-23-2026 13:51"
+last_updated: "09-23-2026 14:10"
 project: get-together
 project_key: NOKEY
 tracking_system: file-system
@@ -169,8 +169,8 @@ development_status:
   # EPIC 13: Event Dashboard Refinement (added ad hoc post-UX-review 2026-09-23, see epics.md
   # — not derived from an FR; extends Epic 6 and Epic 12, both done. Architecture decisions
   # for the two open technical calls recorded in architecture.md's Epic 13 Addendum.)
-  epic-13: backlog
-  13-1-unify-event-landing-dashboard: backlog
+  epic-13: in-progress
+  13-1-unify-event-landing-dashboard: review
   13-2-consistent-live-refresh-widgets: backlog
   13-3-date-day-context-checklist-logistics: backlog
   13-4-customizable-widget-layout: backlog

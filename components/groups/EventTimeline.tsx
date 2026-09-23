@@ -5,6 +5,7 @@ import {
   Box,
   VStack,
   HStack,
+  Heading,
   Text,
   Input,
   Textarea,
@@ -182,9 +183,9 @@ export function EventTimeline({ eventId, groupId }: EventTimelineProps) {
 
   return (
     <Box>
-      <Text fontWeight="bold" fontSize="lg" mb={4}>
+      <Heading as="h2" fontWeight="bold" fontSize="lg" mb={4}>
         Timeline
-      </Text>
+      </Heading>
 
       <VStack spacing={2} align="stretch" mb={6}>
         {items.length === 0 && (

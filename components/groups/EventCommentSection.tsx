@@ -6,6 +6,7 @@ import {
   Button,
   FormControl,
   FormLabel,
+  Heading,
   Input,
   Text,
   VStack,
@@ -226,9 +227,9 @@ export const EventCommentSection: React.FC<EventCommentSectionProps> = ({
   return (
     <Box borderTop="1px solid" borderColor="gray.200" pt={6} mt={6}>
       {/* Comment Header */}
-      <Text fontWeight="bold" fontSize="lg" mb={4}>
+      <Heading as="h2" fontSize="lg" fontWeight="bold" mb={4}>
         {comments.length} {comments.length === 1 ? 'Comment' : 'Comments'}
-      </Text>
+      </Heading>
 
       {/* Comments List */}
       {comments.length > 0 ? (

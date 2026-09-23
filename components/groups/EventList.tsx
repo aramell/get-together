@@ -19,6 +19,7 @@ export interface EventWithMomentum {
   created_by: string;
   title: string;
   description?: string | null;
+  location?: string | null;
   date: string;
   threshold?: number | null;
   status: 'proposal' | 'confirmed' | 'cancelled';

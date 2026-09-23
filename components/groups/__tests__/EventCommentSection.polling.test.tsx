@@ -9,6 +9,7 @@ jest.mock('@chakra-ui/react', () => ({
   Button: ({ children, onClick, ...props }: any) => <button onClick={onClick} {...props}>{children}</button>,
   FormControl: ({ children }: any) => <div data-testid="form-control">{children}</div>,
   FormLabel: ({ children }: any) => <label>{children}</label>,
+  Heading: ({ children, as: Tag = 'h2', ...props }: any) => <Tag {...props}>{children}</Tag>,
   Input: (props: any) => <input {...props} />,
   Text: ({ children, ...props }: any) => <p {...props}>{children}</p>,
   VStack: ({ children }: any) => <div data-testid="vstack">{children}</div>,

@@ -73,6 +73,17 @@ describe('EventLogistics Component', () => {
     });
   });
 
+  it('renders the "Logistics" title and its subsection titles as semantic headings', async () => {
+    mockFetchSequence();
+    renderWithProviders(<EventLogistics eventId="event-1" groupId="group-1" />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 2, name: /logistics/i })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 3, name: /bring list/i })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 3, name: /carpool/i })).toBeInTheDocument();
+    });
+  });
+
   it('shows an unclaimed bring item with a claim button', async () => {
     mockFetchSequence();
     renderWithProviders(<EventLogistics eventId="event-1" groupId="group-1" />);

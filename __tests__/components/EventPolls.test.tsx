@@ -72,6 +72,15 @@ describe('EventPolls Component', () => {
     });
   });
 
+  it('renders the "Polls" section title as a semantic h2 heading', async () => {
+    mockFetchSequence();
+    renderWithProviders(<EventPolls eventId="event-1" groupId="group-1" />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 2, name: /polls/i })).toBeInTheDocument();
+    });
+  });
+
   it('visually distinguishes the option the current user voted for', async () => {
     mockFetchSequence();
     renderWithProviders(<EventPolls eventId="event-1" groupId="group-1" />);

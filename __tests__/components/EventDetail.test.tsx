@@ -45,6 +45,7 @@ const mockEvent = {
   created_by: 'user-1',
   title: 'Team Lunch',
   description: 'Let\'s grab lunch together',
+  location: 'The Rooftop Cafe',
   date: '2026-03-20T12:00:00Z',
   threshold: 5,
   status: 'proposal' as const,
@@ -55,6 +56,38 @@ const mockEvent = {
   },
   created_at: '2026-03-16T10:00:00Z',
   updated_at: '2026-03-16T10:00:00Z',
+};
+
+/**
+ * The merged view (Story 13.1) mounts the event header AND all 5 dashboard
+ * widgets simultaneously (no more lazy Planning tab), so a single
+ * `mockResolvedValueOnce` for the event fetch is no longer enough — every
+ * widget (Photos/Checklist/Timeline/Logistics/Polls), the comments section,
+ * and the group-role lookup all fire their own independent fetches on
+ * mount. This helper resolves the event-detail GET with the given payload
+ * and any other request with an empty-list success response, with an
+ * optional per-test override (e.g. for the DELETE/cancel call or a fetch
+ * failure) matched by URL/method.
+ */
+const mockFetchWith = (
+  event: unknown,
+  override?: (url: string, init?: RequestInit) => { ok: boolean; json: () => Promise<any> } | undefined
+) => {
+  (global.fetch as jest.Mock).mockImplementation(async (input: unknown, init?: RequestInit) => {
+    const url = typeof input === 'string' ? input : String(input);
+    const method = init?.method || 'GET';
+
+    if (override) {
+      const overridden = override(url, init);
+      if (overridden) return overridden;
+    }
+
+    if (method === 'GET' && /\/events\/event-1(\?.*)?$/.test(url.split('?')[0])) {
+      return { ok: true, json: async () => ({ success: true, data: event }) };
+    }
+
+    return { ok: true, json: async () => ({ success: true, data: [] }) };
+  });
 };
 
 const renderWithChakra = (component: React.ReactElement) => {
@@ -75,10 +108,7 @@ describe('EventDetail Component', () => {
 
   describe('Event Display', () => {
     test('renders event title, date, and description', async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, data: mockEvent }),
-      });
+      mockFetchWith(mockEvent);
 
       renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
 
@@ -89,10 +119,7 @@ describe('EventDetail Component', () => {
     });
 
     test('displays formatted date and time', async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, data: mockEvent }),
-      });
+      mockFetchWith(mockEvent);
 
       renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
 
@@ -102,10 +129,7 @@ describe('EventDetail Component', () => {
     });
 
     test('displays RSVP momentum counts', async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, data: mockEvent }),
-      });
+      mockFetchWith(mockEvent);
 
       renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
 
@@ -115,14 +139,21 @@ describe('EventDetail Component', () => {
         expect(screen.getByText(/0 out/)).toBeInTheDocument();
       });
     });
+
+    test('displays the event location', async () => {
+      mockFetchWith(mockEvent);
+
+      renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
+
+      await waitFor(() => {
+        expect(screen.getByText('The Rooftop Cafe')).toBeInTheDocument();
+      });
+    });
   });
 
   describe('Cancel Event Button - Visibility', () => {
     test('shows Cancel Event button for event creator', async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, data: mockEvent }),
-      });
+      mockFetchWith(mockEvent);
 
       renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
 
@@ -146,10 +177,7 @@ describe('EventDetail Component', () => {
         isTokenExpired: jest.fn(),
       });
 
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, data: mockEvent }),
-      });
+      mockFetchWith(mockEvent);
 
       renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
 
@@ -162,10 +190,7 @@ describe('EventDetail Component', () => {
 
   describe('Confirmation Modal', () => {
     test('opens confirmation modal when Cancel button clicked', async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, data: mockEvent }),
-      });
+      mockFetchWith(mockEvent);
 
       renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
 
@@ -180,10 +205,7 @@ describe('EventDetail Component', () => {
     });
 
     test('shows confirmation text in modal', async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, data: mockEvent }),
-      });
+      mockFetchWith(mockEvent);
 
       renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
 
@@ -197,15 +219,12 @@ describe('EventDetail Component', () => {
     });
 
     test('confirms cancellation and calls delete API', async () => {
-      (global.fetch as jest.Mock)
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({ success: true, data: mockEvent }),
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({ success: true }),
-        });
+      mockFetchWith(mockEvent, (url, init) => {
+        if ((init?.method || 'GET') === 'DELETE' && /\/events\/event-1$/.test(url.split('?')[0])) {
+          return { ok: true, json: async () => ({ success: true }) };
+        }
+        return undefined;
+      });
 
       renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
 
@@ -237,9 +256,11 @@ describe('EventDetail Component', () => {
     });
 
     test('shows error message on fetch failure', async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
-        ok: false,
-        json: async () => ({ success: false, message: 'Event not found' }),
+      mockFetchWith(mockEvent, (url, init) => {
+        if ((init?.method || 'GET') === 'GET' && /\/events\/event-1$/.test(url.split('?')[0])) {
+          return { ok: false, json: async () => ({ success: false, message: 'Event not found' }) };
+        }
+        return undefined;
       });
 
       renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
@@ -250,139 +271,42 @@ describe('EventDetail Component', () => {
     });
   });
 
-  describe('Tab Navigation', () => {
-    test('renders Details and Planning tabs, with Details selected by default', async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, data: mockEvent }),
-      });
+  describe('Merged, tab-less structure (Story 13.1)', () => {
+    test('renders event details and all 5 dashboard widgets in one continuous view, with no tab control present', async () => {
+      mockFetchWith(mockEvent);
 
-      renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
+      const { container } = renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
 
       await waitFor(() => {
-        const detailsTab = screen.getByRole('tab', { name: /details/i });
-        const planningTab = screen.getByRole('tab', { name: /planning/i });
-        expect(detailsTab).toBeInTheDocument();
-        expect(planningTab).toBeInTheDocument();
-        expect(detailsTab).toHaveAttribute('aria-selected', 'true');
-        expect(planningTab).toHaveAttribute('aria-selected', 'false');
+        expect(screen.getByText('Team Lunch')).toBeInTheDocument();
       });
 
-      // Existing Details content still renders unscoped, by default
-      expect(screen.getByText('Team Lunch')).toBeInTheDocument();
-    });
-
-    test('switching to Planning tab shows its sections and fires their fetches (Stories 12.2-12.6)', async () => {
-      // Previously asserted an exact "+3" fetch count, hardcoded when only
-      // Checklist+Photos existed. Every later Planning-tab section (Timeline,
-      // Logistics, Polls) added its own mount-time fetch and broke that
-      // constant — asserts the structural property this test actually cares
-      // about instead (fetches happened) rather than a number that goes
-      // stale every time a section is added. (A stronger "no refetch on
-      // switching back and forth" assertion was tried here but several
-      // Planning sections poll on independent 5s real-timer intervals,
-      // which made that assertion flaky depending on wall-clock timing
-      // during the test's awaits — not something this test can reliably
-      // control without fake timers across every polling child.)
-      (global.fetch as jest.Mock)
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({ success: true, data: mockEvent }),
-        })
-        .mockResolvedValue({
-          ok: true,
-          json: async () => ({ success: true, data: [] }),
-        });
-
-      renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
-
       await waitFor(() => {
-        expect(screen.getByRole('tab', { name: /planning/i })).toBeInTheDocument();
-      });
-
-      const fetchCallsBeforeSwitch = (global.fetch as jest.Mock).mock.calls.length;
-
-      fireEvent.click(screen.getByRole('tab', { name: /planning/i }));
-
-      await waitFor(() => {
-        expect(screen.getByText('Checklist')).toBeInTheDocument();
         expect(screen.getByText('Photos')).toBeInTheDocument();
+        expect(screen.getByText('Checklist')).toBeInTheDocument();
+        expect(screen.getByText('Timeline')).toBeInTheDocument();
+        expect(screen.getByText('Logistics')).toBeInTheDocument();
+        expect(screen.getByText('Polls')).toBeInTheDocument();
       });
 
-      expect(screen.getByRole('tab', { name: /planning/i })).toHaveAttribute('aria-selected', 'true');
-      expect(screen.getByRole('tab', { name: /details/i })).toHaveAttribute('aria-selected', 'false');
+      expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+      expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
 
-      expect((global.fetch as jest.Mock).mock.calls.length).toBeGreaterThan(fetchCallsBeforeSwitch);
+      // Widget order matches EventPlanningTab's existing order — Photos,
+      // Checklist, Timeline, Logistics, Polls — unchanged by the merge.
+      const text = container.textContent || '';
+      const order = ['Photos', 'Checklist', 'Timeline', 'Logistics', 'Polls'].map((label) => text.indexOf(label));
+      expect(order.every((index) => index >= 0)).toBe(true);
+      expect(order).toEqual([...order].sort((a, b) => a - b));
     });
 
-    test('switching from Planning back to Details does not remount or refetch Details content', async () => {
-      (global.fetch as jest.Mock)
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({ success: true, data: mockEvent }),
-        })
-        .mockResolvedValue({
-          ok: true,
-          json: async () => ({ success: true, data: [] }),
-        });
-
-      renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
-
-      await waitFor(() => {
-        expect(screen.getByRole('tab', { name: /planning/i })).toBeInTheDocument();
-      });
-
-      const isDetailsFetchCall = (call: any[]) =>
-        typeof call[0] === 'string' && /\/events\/event-1\/?$/.test(call[0].split('?')[0]);
-      const detailsFetchCallsBeforeSwitch = (global.fetch as jest.Mock).mock.calls.filter(isDetailsFetchCall).length;
-
-      fireEvent.click(screen.getByRole('tab', { name: /planning/i }));
-      await waitFor(() => {
-        expect(screen.getByRole('tab', { name: /planning/i })).toHaveAttribute('aria-selected', 'true');
-      });
-
-      fireEvent.click(screen.getByRole('tab', { name: /details/i }));
-      await waitFor(() => {
-        expect(screen.getByRole('tab', { name: /details/i })).toHaveAttribute('aria-selected', 'true');
-      });
-
-      // Details content (event title/date/momentum) is still present without
-      // a fresh fetch of the event itself — the panel stayed mounted.
-      expect(screen.getByText(mockEvent.title)).toBeInTheDocument();
-      const detailsFetchCallsAfterSwitchBack = (global.fetch as jest.Mock).mock.calls.filter(isDetailsFetchCall).length;
-      expect(detailsFetchCallsAfterSwitchBack).toBe(detailsFetchCallsBeforeSwitch);
-    });
-
-    test('keyboard: arrow key moves selection between tabs', async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, data: mockEvent }),
-      });
-
-      renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
-
-      let detailsTab: HTMLElement;
-      await waitFor(() => {
-        detailsTab = screen.getByRole('tab', { name: /details/i });
-      });
-
-      detailsTab!.focus();
-      expect(detailsTab!).toHaveFocus();
-
-      fireEvent.keyDown(detailsTab!, { key: 'ArrowRight' });
-
-      await waitFor(() => {
-        expect(screen.getByRole('tab', { name: /planning/i })).toHaveAttribute('aria-selected', 'true');
-      });
-    });
-
-    test('does not render tab chrome during loading or error states', () => {
+    test('does not render a tab control during loading or error states', () => {
       (global.fetch as jest.Mock).mockImplementation(() => new Promise(() => {}));
 
       renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
 
-      expect(screen.queryByRole('tab', { name: /details/i })).not.toBeInTheDocument();
-      expect(screen.queryByRole('tab', { name: /planning/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+      expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
     });
   });
 
@@ -392,10 +316,7 @@ describe('EventDetail Component', () => {
         success: true,
         data: { group: { planning_style: 'proposals-first' }, members: [], currentUserRole: 'member' },
       });
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, data: mockEvent }),
-      });
+      mockFetchWith(mockEvent);
 
       renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
 
@@ -410,10 +331,7 @@ describe('EventDetail Component', () => {
         success: true,
         data: { group: { planning_style: 'availability-first' }, members: [], currentUserRole: 'member' },
       });
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, data: mockEvent }),
-      });
+      mockFetchWith(mockEvent);
 
       renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
 
@@ -429,10 +347,7 @@ describe('EventDetail Component', () => {
         success: true,
         data: { group: { planning_style: 'availability-first' }, members: [], currentUserRole: 'member' },
       });
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, data: mockEvent }),
-      });
+      mockFetchWith(mockEvent);
 
       renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
 
@@ -444,10 +359,7 @@ describe('EventDetail Component', () => {
 
   describe('Accessibility', () => {
     test('has proper button roles and labels', async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, data: mockEvent }),
-      });
+      mockFetchWith(mockEvent);
 
       renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
 
@@ -458,10 +370,7 @@ describe('EventDetail Component', () => {
     });
 
     test('confirmation modal has proper focus management', async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, data: mockEvent }),
-      });
+      mockFetchWith(mockEvent);
 
       renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
 
@@ -473,6 +382,17 @@ describe('EventDetail Component', () => {
         const confirmButton = screen.getByRole('button', { name: /confirm/i });
         expect(confirmButton).toBeVisible();
       });
+    });
+
+    test('renders a single h1 heading for the event title', async () => {
+      mockFetchWith(mockEvent);
+
+      renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { level: 1, name: 'Team Lunch' })).toBeInTheDocument();
+      });
+      expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     });
   });
 });

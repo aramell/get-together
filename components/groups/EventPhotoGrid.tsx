@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
+  Heading,
   Text,
   SimpleGrid,
   Image,
@@ -140,9 +141,9 @@ export function EventPhotoGrid({ eventId, groupId }: EventPhotoGridProps) {
 
   return (
     <Box>
-      <Text fontWeight="bold" fontSize="lg" mb={4}>
+      <Heading as="h2" fontWeight="bold" fontSize="lg" mb={4}>
         Photos
-      </Text>
+      </Heading>
 
       {photos.length === 0 && (
         <Text color="ink.500" fontSize="sm" mb={4}>

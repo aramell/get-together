@@ -71,6 +71,15 @@ describe('EventTimeline Component', () => {
     expect(screen.getByText('At the big table')).toBeInTheDocument();
   });
 
+  it('renders the "Timeline" section title as a semantic h2 heading', async () => {
+    mockFetchSequence();
+    renderWithProviders(<EventTimeline eventId="event-1" groupId="group-1" />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 2, name: /timeline/i })).toBeInTheDocument();
+    });
+  });
+
   it('adds a new item and refetches the list', async () => {
     mockFetchSequence();
     renderWithProviders(<EventTimeline eventId="event-1" groupId="group-1" />);

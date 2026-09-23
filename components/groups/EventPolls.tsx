@@ -5,6 +5,7 @@ import {
   Box,
   VStack,
   HStack,
+  Heading,
   Text,
   Input,
   Button,
@@ -257,9 +258,9 @@ export function EventPolls({ eventId, groupId }: EventPollsProps) {
 
   return (
     <Box>
-      <Text fontWeight="bold" fontSize="lg" mb={4}>
+      <Heading as="h2" fontWeight="bold" fontSize="lg" mb={4}>
         Polls
-      </Text>
+      </Heading>
 
       <VStack spacing={4} align="stretch" mb={6}>
         {polls.length === 0 && (

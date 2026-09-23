@@ -625,7 +625,7 @@ describe('Keyboard Navigation & Focus Management (AC2, AC8)', () => {
     });
   });
 
-  describe('2.9: Event Detail tab navigation (Story 12.1)', () => {
+  describe('2.9: Event Detail merged view focus order (Story 13.1)', () => {
     const mockEvent = {
       id: 'event-1',
       group_id: 'group-1',
@@ -641,9 +641,15 @@ describe('Keyboard Navigation & Focus Management (AC2, AC8)', () => {
     };
 
     const renderEventDetail = () => {
+      // The merged view mounts the header and all 5 dashboard widgets at
+      // once (no more lazy Planning tab), so every request beyond the
+      // initial event fetch needs a fallback response too.
       global.fetch = jest.fn().mockResolvedValueOnce({
         ok: true,
         json: async () => ({ success: true, data: mockEvent }),
+      }).mockResolvedValue({
+        ok: true,
+        json: async () => ({ success: true, data: [] }),
       }) as unknown as typeof fetch;
 
       return render(
@@ -655,36 +661,32 @@ describe('Keyboard Navigation & Focus Management (AC2, AC8)', () => {
       );
     };
 
-    it('reaches the Details/Planning tabs via Tab key and shows a visible focus indicator', async () => {
+    it('renders no tab control in the merged, tab-less view', async () => {
       renderEventDetail();
 
-      const detailsTab = await screen.findByRole('tab', { name: /details/i });
-      detailsTab.focus();
-      expect(detailsTab).toHaveFocus();
+      await screen.findByRole('heading', { level: 1, name: /team lunch/i });
+      expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+      expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
     });
 
-    it('moves selection between tabs with Arrow keys', async () => {
+    it('reaches the Cancel Event button via Tab key and shows a visible focus indicator', async () => {
       renderEventDetail();
 
-      const detailsTab = await screen.findByRole('tab', { name: /details/i });
-      detailsTab.focus();
-
-      fireEvent.keyDown(detailsTab, { key: 'ArrowRight' });
-
-      await waitFor(() => {
-        expect(screen.getByRole('tab', { name: /planning/i })).toHaveAttribute('aria-selected', 'true');
-      });
+      const cancelButton = await screen.findByRole('button', { name: /cancel event/i });
+      cancelButton.focus();
+      expect(cancelButton).toHaveFocus();
     });
 
-    it('has no keyboard trap — focus can move from the tab list to content below', async () => {
+    it('has no keyboard trap — focus can move from header controls to page content below', async () => {
       renderEventDetail();
 
-      const detailsTab = await screen.findByRole('tab', { name: /details/i });
-      detailsTab.focus();
-      expect(detailsTab).toHaveFocus();
+      const cancelButton = await screen.findByRole('button', { name: /cancel event/i });
+      cancelButton.focus();
+      expect(cancelButton).toHaveFocus();
 
-      // Tab away from the tab list is not blocked (no trap set up around Tabs)
-      fireEvent.keyDown(detailsTab, { key: 'Tab' });
+      // Tab away from the header controls is not blocked (no trap set up
+      // around the merged header now that the Tabs wrapper is gone).
+      fireEvent.keyDown(cancelButton, { key: 'Tab' });
       expect(document.activeElement).not.toBeNull();
     });
   });

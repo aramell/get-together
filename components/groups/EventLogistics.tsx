@@ -5,6 +5,7 @@ import {
   Box,
   VStack,
   HStack,
+  Heading,
   Text,
   Input,
   Select,
@@ -324,15 +325,15 @@ export function EventLogistics({ eventId, groupId }: EventLogisticsProps) {
 
   return (
     <Box>
-      <Text fontWeight="bold" fontSize="lg" mb={4}>
+      <Heading as="h2" fontWeight="bold" fontSize="lg" mb={4}>
         Logistics
-      </Text>
+      </Heading>
 
       {/* Bring List */}
       <Box mb={6}>
-        <Text fontWeight="semibold" fontSize="md" mb={2}>
+        <Heading as="h3" fontWeight="semibold" fontSize="md" mb={2}>
           Bring List
-        </Text>
+        </Heading>
         <VStack spacing={2} align="stretch">
           {bringItems.length === 0 && (
             <Text color="ink.500" fontSize="sm">
@@ -371,9 +372,9 @@ export function EventLogistics({ eventId, groupId }: EventLogisticsProps) {
 
       {/* Carpool */}
       <Box mb={6}>
-        <Text fontWeight="semibold" fontSize="md" mb={2}>
+        <Heading as="h3" fontWeight="semibold" fontSize="md" mb={2}>
           Carpool
-        </Text>
+        </Heading>
         <VStack spacing={2} align="stretch">
           {carpoolItems.length === 0 && (
             <Text color="ink.500" fontSize="sm">
