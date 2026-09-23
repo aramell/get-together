@@ -140,9 +140,27 @@ describe('EventTimeline Component', () => {
     });
   });
 
-  it('does not poll — fetches once on mount and issues no further requests over time', async () => {
+  it('polls every 5 seconds and does not stack overlapping requests when a response is slow', async () => {
     jest.useFakeTimers();
-    mockFetchSequence();
+
+    let resolveSlowFetch: (value: any) => void = () => {};
+    let timelineCallCount = 0;
+
+    global.fetch = jest.fn((url: string) => {
+      if (typeof url === 'string' && url.includes('/timeline')) {
+        timelineCallCount += 1;
+        if (timelineCallCount === 1) {
+          // Initial fetch resolves immediately
+          return Promise.resolve({ ok: true, json: async () => ({ success: true, data: mockItems }) });
+        }
+        // The first poll is slow — deliberately never resolves until we say so,
+        // so we can prove the in-flight guard blocks a second overlapping poll.
+        return new Promise((resolve) => {
+          resolveSlowFetch = resolve;
+        });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ success: true, data: {} }) });
+    }) as unknown as typeof fetch;
 
     renderWithProviders(<EventTimeline eventId="event-1" groupId="group-1" />);
 
@@ -150,14 +168,33 @@ describe('EventTimeline Component', () => {
       await Promise.resolve();
     });
 
-    const callCountAfterMount = (global.fetch as jest.Mock).mock.calls.length;
-    expect(callCountAfterMount).toBeGreaterThan(0);
+    expect(timelineCallCount).toBe(1); // initial fetch
 
+    // First poll tick — starts a slow request
     await act(async () => {
-      jest.advanceTimersByTime(30000);
+      jest.advanceTimersByTime(5000);
+      await Promise.resolve();
+    });
+    expect(timelineCallCount).toBe(2);
+
+    // Second poll tick fires while the first poll is still in flight — the
+    // in-flight guard (isFetchingRef) must block a third call from starting.
+    await act(async () => {
+      jest.advanceTimersByTime(5000);
+      await Promise.resolve();
+    });
+    expect(timelineCallCount).toBe(2); // still 2, not 3 — the guard worked
+
+    // Let the slow request resolve, then confirm the next tick is allowed through.
+    await act(async () => {
+      resolveSlowFetch({ ok: true, json: async () => ({ success: true, data: mockItems }) });
       await Promise.resolve();
     });
 
-    expect((global.fetch as jest.Mock).mock.calls.length).toBe(callCountAfterMount);
+    await act(async () => {
+      jest.advanceTimersByTime(5000);
+      await Promise.resolve();
+    });
+    expect(timelineCallCount).toBe(3);
   });
 });

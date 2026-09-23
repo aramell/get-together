@@ -39,6 +39,8 @@ export function EventPhotoGrid({ eventId, groupId }: EventPhotoGridProps) {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isFetchingRef = useRef(false);
 
   const authHeaders = useCallback(
     (): Record<string, string> => ({ Authorization: `Bearer ${accessToken}` }),
@@ -46,6 +48,8 @@ export function EventPhotoGrid({ eventId, groupId }: EventPhotoGridProps) {
   );
 
   const fetchPhotos = useCallback(async () => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
     try {
       const response = await fetch(`/api/groups/${groupId}/events/${eventId}/photos`, {
         headers: authHeaders(),
@@ -57,6 +61,9 @@ export function EventPhotoGrid({ eventId, groupId }: EventPhotoGridProps) {
       }
     } catch (err) {
       console.error('Error fetching event photos:', err);
+      // Don't show a toast for background polling failures
+    } finally {
+      isFetchingRef.current = false;
     }
   }, [eventId, groupId, authHeaders]);
 
@@ -64,6 +71,16 @@ export function EventPhotoGrid({ eventId, groupId }: EventPhotoGridProps) {
     if (!accessToken) return;
     setLoading(true);
     fetchPhotos().finally(() => setLoading(false));
+
+    pollingIntervalRef.current = setInterval(() => {
+      fetchPhotos();
+    }, 5000);
+
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId, groupId, accessToken]);
 

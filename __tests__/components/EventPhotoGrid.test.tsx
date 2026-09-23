@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import { ChakraProvider } from '@chakra-ui/react';
 import { EventPhotoGrid } from '@/components/groups/EventPhotoGrid';
 import { AuthProvider } from '@/lib/contexts/AuthContext';
@@ -33,7 +33,10 @@ const mockPhotos = [
 ];
 
 describe('EventPhotoGrid Component', () => {
-  afterEach(() => jest.clearAllMocks());
+  afterEach(() => {
+    jest.clearAllMocks();
+    jest.useRealTimers();
+  });
 
   it('renders the photo grid with fetched photos', async () => {
     global.fetch = jest.fn().mockResolvedValue({
@@ -149,5 +152,64 @@ describe('EventPhotoGrid Component', () => {
     await waitFor(() => {
       expect(screen.getAllByRole('img')).toHaveLength(1);
     });
+  });
+
+  it('polls every 5 seconds and does not stack overlapping requests when a response is slow', async () => {
+    jest.useFakeTimers();
+
+    let resolveSlowFetch: (value: any) => void = () => {};
+    let photosCallCount = 0;
+
+    global.fetch = jest.fn((url: string) => {
+      if (typeof url === 'string' && url.includes('/photos')) {
+        photosCallCount += 1;
+        if (photosCallCount === 1) {
+          // Initial fetch resolves immediately
+          return Promise.resolve({ ok: true, json: async () => ({ success: true, data: mockPhotos }) });
+        }
+        // The first poll is slow — deliberately never resolves until we say so,
+        // so we can prove the in-flight guard blocks a second overlapping poll.
+        return new Promise((resolve) => {
+          resolveSlowFetch = resolve;
+        });
+      }
+      // Unrelated calls (e.g. AuthProvider's session check) resolve immediately.
+      return Promise.resolve({ ok: true, json: async () => ({ success: true, data: {} }) });
+    }) as unknown as typeof fetch;
+
+    renderWithProviders(<EventPhotoGrid eventId="event-1" groupId="group-1" />);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(photosCallCount).toBe(1); // initial fetch
+
+    // First poll tick — starts a slow request
+    await act(async () => {
+      jest.advanceTimersByTime(5000);
+      await Promise.resolve();
+    });
+    expect(photosCallCount).toBe(2);
+
+    // Second poll tick fires while the first poll is still in flight — the
+    // in-flight guard (isFetchingRef) must block a third call from starting.
+    await act(async () => {
+      jest.advanceTimersByTime(5000);
+      await Promise.resolve();
+    });
+    expect(photosCallCount).toBe(2); // still 2, not 3 — the guard worked
+
+    // Let the slow request resolve, then confirm the next tick is allowed through.
+    await act(async () => {
+      resolveSlowFetch({ ok: true, json: async () => ({ success: true, data: mockPhotos }) });
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      jest.advanceTimersByTime(5000);
+      await Promise.resolve();
+    });
+    expect(photosCallCount).toBe(3);
   });
 });

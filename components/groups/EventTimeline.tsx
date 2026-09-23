@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box,
   VStack,
@@ -58,6 +58,9 @@ export function EventTimeline({ eventId, groupId }: EventTimelineProps) {
   const [editingTitle, setEditingTitle] = useState('');
   const [editingDescription, setEditingDescription] = useState('');
 
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isFetchingRef = useRef(false);
+
   const authHeaders = useCallback(
     (extra?: Record<string, string>): Record<string, string> => ({
       Authorization: `Bearer ${accessToken}`,
@@ -67,6 +70,8 @@ export function EventTimeline({ eventId, groupId }: EventTimelineProps) {
   );
 
   const fetchItems = useCallback(async () => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
     try {
       const response = await fetch(`/api/groups/${groupId}/events/${eventId}/timeline`, {
         headers: authHeaders(),
@@ -78,6 +83,9 @@ export function EventTimeline({ eventId, groupId }: EventTimelineProps) {
       }
     } catch (err) {
       console.error('Error fetching timeline items:', err);
+      // Don't show a toast for background polling failures
+    } finally {
+      isFetchingRef.current = false;
     }
   }, [eventId, groupId, authHeaders]);
 
@@ -85,7 +93,16 @@ export function EventTimeline({ eventId, groupId }: EventTimelineProps) {
     if (!accessToken) return;
     setLoading(true);
     fetchItems().finally(() => setLoading(false));
-    // Fetch once on mount/tab-open only — no polling for the Timeline section.
+
+    pollingIntervalRef.current = setInterval(() => {
+      fetchItems();
+    }, 5000);
+
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId, groupId, accessToken]);
 
