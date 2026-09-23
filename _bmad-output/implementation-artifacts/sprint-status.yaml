@@ -1,5 +1,11 @@
 # Sprint Status Generated
 # generated: 2026-08-31 (reconciled Epics 9 & 10 into tracking; originally generated 2026-04-16)
+# 2026-09-23: added Epic 13 (Event Dashboard Refinement) manually — sprint_plan.py's
+# generator only recognizes "### Story N.M: Title" headings, but epics.md lists
+# candidate stories as a markdown list under every epic (not just 13), so a `generate`
+# run strips ALL existing per-story entries project-wide and drops Epic 11 (never in
+# epics.md). Confirmed via dry run; reverted the corrupted write and added Epic 13 by
+# hand instead. See bmad-sprint-planning's fix-sprint-status.md if this gets fixed properly.
 # project: get-together
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,6 +41,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: "2026-08-31"
+last_updated: "09-23-2026 13:51"
 project: get-together
 project_key: NOKEY
 tracking_system: file-system
@@ -159,16 +166,32 @@ development_status:
   12-6-quick-polls: done
   epic-12-retrospective: optional
 
+  # EPIC 13: Event Dashboard Refinement (added ad hoc post-UX-review 2026-09-23, see epics.md
+  # — not derived from an FR; extends Epic 6 and Epic 12, both done. Architecture decisions
+  # for the two open technical calls recorded in architecture.md's Epic 13 Addendum.)
+  epic-13: backlog
+  13-1-unify-event-landing-dashboard: backlog
+  13-2-consistent-live-refresh-widgets: backlog
+  13-3-date-day-context-checklist-logistics: backlog
+  13-4-customizable-widget-layout: backlog
+  13-5-no-login-quick-access-dashboard-link: backlog
+  13-6-general-trip-comment-access: backlog
+  13-7-comments-on-checklist-items: backlog
+  13-8-comments-on-logistics-items: backlog
+  13-9-comments-on-timeline-items: backlog
+  13-10-comments-on-polls: backlog
+  epic-13-retrospective: optional
+
 summary:
-  total_epics: 12
-  total_stories: 61
+  total_epics: 13
+  total_stories: 71
   epics_done: 6
   epics_in_progress: 6
-  epics_backlog: 0
+  epics_backlog: 1
   stories_done: 47
   stories_in_progress: 0
   stories_review: 14
-  stories_backlog: 0
+  stories_backlog: 10
   stories_ready_for_dev: 0
-  retrospectives_optional: 12
+  retrospectives_optional: 13
   retrospectives_done: 0

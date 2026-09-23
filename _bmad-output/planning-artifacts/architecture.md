@@ -1661,3 +1661,22 @@ This architecture is complete, coherent, and ready to guide AI agents through co
 6. Deploy to Amplify staging → test → merge to production
 
 **Architecture Documentation Complete:** This document is the authoritative guide for all implementation decisions, patterns, and structure. All AI agents building get-together should reference this document as the source of truth.
+
+## Epic 13 Addendum: Event Dashboard Refinement — Technical Decisions
+
+_Added 2026-09-23, ahead of sprint planning for Epic 13 (`_bmad-output/planning-artifacts/epics.md`). Epic 13's Technical Considerations flagged two decisions "to the architect"; resolved here on the Fast path — both tagged `[ASSUMPTION]`, correct in review. As with Epics 11/12, this is an ad hoc post-MVP addendum, not a revision of the Core Architectural Decisions above._
+
+**Decision 13a: Comments Data Model for Checklist/Logistics/Timeline/Poll Items** `[ASSUMPTION]`
+- **Choice:** Four new dedicated tables — `checklist_comments`, `logistics_comments`, `timeline_comments`, `poll_comments` — not a shared `comments` table extension, and not a polymorphic `commentable_type`/`commentable_id` pair.
+- **Implementation:** Mirror `lib/db/migrations/008_add_event_comments_table.sql` and `009_add_wishlist_comments_table.sql` exactly — same column set (`id`, `{parent}_id` FK `ON DELETE CASCADE`, `group_id` FK, `created_by`, `content`, `created_at`, `updated_at`, `deleted_at`), same `content_not_empty`/`content_length_limit` CHECK constraints, same partial-index shape (`WHERE deleted_at IS NULL`). Feeds the shared comment popover/modal component (Story 13.7).
+- **Rationale:** This is what the codebase actually built for Epic 6 — dedicated per-entity tables, not the single nullable-FK `comments` table this document's Data Architecture section (Decision 1d) and `database-schema.sql` describe (that design was never implemented; see Divergence note below). Matching the real convention preserves DB-level FK referential integrity and per-entity `CASCADE` delete, which a polymorphic column can't get natively in Postgres, and avoids one table serving six unrelated entity types.
+- **Affected Components:** New migrations under `lib/db/migrations/`, comment API routes/services for checklist/logistics/timeline/poll items, Story 13.7's reusable comment component (reused by 13.8–13.10).
+- **Cascading Implications:** None beyond Epic 13. Photos remains non-commentable per `EXPERIENCE.md`'s open item — no fifth table.
+- **Divergence note:** This document's Data Architecture (Decision 1d) and `database-schema.sql` describe one `comments` table with nullable `event_id`/`wishlist_item_id` columns. Production instead has separate `event_comments` and `wishlist_comments` tables (`lib/db/migrations/008`, `009`). Neither planning doc was updated when that diverged — out of scope to reconcile here, flagged for a future doc-cleanup pass.
+
+**Decision 13b: Widget Layout Storage** `[ASSUMPTION]`
+- **Choice:** New dedicated table, e.g. `group_dashboard_widgets(group_id, widget_key, position, visible)`, primary key `(group_id, widget_key)`, `group_id` FK to `groups(id) ON DELETE CASCADE` — not a JSONB column on `groups`.
+- **Implementation:** One row per (group, widget) pair; `widget_key` constrained to the fixed widget set (checklist/timeline/logistics/photos/polls); `position` integer drives `ORDER BY`; `visible` boolean. Backfill existing groups with default order and `visible = true` for all widgets as part of the migration. Story 13.5's no-login view reads the same table read-only.
+- **Rationale:** This schema has no JSONB/JSON-column precedent anywhere (`lib/db/migrations/`, `database-schema.sql`) — every per-group setting to date, e.g. `planning_style` (`023_add_planning_style_to_groups.sql`), is a plain relational column or dedicated table. A JSONB blob on `groups` would be the first departure from that pattern and pushes array-shape/ordering validation into application code instead of the database. A narrow per-widget-row table keeps native `ORDER BY`, a constrainable `widget_key`, and stays consistent with how every other entity in this schema is modeled.
+- **Affected Components:** New migration, Dashboard customize-mode API/components (Story 13.4), no-login read view (Story 13.5).
+- **Cascading Implications:** None beyond Epic 13 stories 13.4/13.5.

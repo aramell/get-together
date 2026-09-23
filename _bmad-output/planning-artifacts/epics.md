@@ -302,9 +302,9 @@ The Planning tab (Epic 12) becomes the actual one-stop, customizable dashboard t
 - Folding "Details" into the Dashboard header retires `EventDetail.tsx`'s tab split; the Dashboard becomes the only landing view for an event
 - Extending live-update to Timeline and Photos means adopting the same ~5s polling pattern already used by Checklist/Logistics/Polls (`EventPlanningTab.tsx` children) — no new sync mechanism, just wider application of the existing one
 - Checklist and Logistics items need a new optional date column (or day-of-trip reference) plus a "Today" grouping query — additive schema change, not a breaking one
-- Widget order/visibility is new per-group state (one row per group, not per user) — new table or a JSON column on `groups`, read by both the authenticated Dashboard and the no-login view
+- Widget order/visibility is new per-group state (one row per group, not per user) — **resolved** in `architecture.md` (Epic 13 Addendum, Decision 13b): a new `group_dashboard_widgets` table (one row per group per widget), not a JSON column on `groups`; read by both the authenticated Dashboard and the no-login view
 - The no-login quick-access link supersedes `PublicEventPlanning.tsx`'s current hardcoded 3-widget view; it now needs to read the same per-group widget config the authenticated view uses, rendered read-only
-- Comments (Epic 6, FR43–48) currently only attach to `events` and `wishlist_items` — Checklist items, Logistics items, Timeline items, and Polls are not commentable entities today; each needs its own FK'd comment association (or a polymorphic `commentable_type`/`commentable_id` pair on the existing `comments` table, if that refactor is preferred over four new join patterns — flag to the architect)
+- Comments (Epic 6, FR43–48) currently only attach to `events` and `wishlist_items` — Checklist items, Logistics items, Timeline items, and Polls are not commentable entities today; **resolved** in `architecture.md` (Epic 13 Addendum, Decision 13a): four new dedicated tables (`checklist_comments`, `logistics_comments`, `timeline_comments`, `poll_comments`) mirroring the existing `event_comments`/`wishlist_comments` pattern, not a polymorphic column
 - Comment popover/modal is one reusable UI component (Story 13.7) reused against four entity types (13.7–13.10), not four separate UI builds
 
 **Candidate stories:**
