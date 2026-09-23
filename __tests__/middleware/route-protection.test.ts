@@ -148,4 +148,12 @@ describe('middleware route protection (real JWT verification)', () => {
 
     expect(response.headers.get('location')).toContain('/groups');
   });
+
+  it('lets an unauthenticated request through to a public event link (Story 7.3)', async () => {
+    const request = makeRequest('/events/public/some-token');
+
+    const response = await middleware(request);
+
+    expect(response.headers.get('location')).toBeNull();
+  });
 });

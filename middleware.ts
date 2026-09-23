@@ -3,6 +3,9 @@ import { getVerifiedSubFromJWT } from '@/lib/auth/jwt';
 
 const protectedRoutes = ['/dashboard', '/groups', '/events', '/profile'];
 const authRoutes = ['/auth/login', '/auth/signup', '/auth/forgot-password'];
+// Public event links (Story 7.3) intentionally work without login, so they
+// must be excluded before the /events prefix check below marks them protected.
+const publicRoutes = ['/events/public'];
 
 /**
  * `idToken` gates nothing beyond this check - no route ever authorizes against
@@ -39,7 +42,8 @@ export async function middleware(request: NextRequest) {
     (await getVerifiedSubFromJWT(accessToken)) !== null
   );
 
-  const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route));
+  const isPublicRoute = publicRoutes.some((route) => pathname.startsWith(route));
+  const isProtectedRoute = !isPublicRoute && protectedRoutes.some((route) => pathname.startsWith(route));
   const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route));
 
   if (isProtectedRoute && !isAuthenticated) {
