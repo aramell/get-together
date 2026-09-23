@@ -169,22 +169,10 @@ export default function GroupDetailsPage() {
     }
   };
 
-  const handleEventCreated = () => {
+  const handleEventCreated = (eventId: string) => {
     onEventModalClose();
     setPrefilledDate(undefined);
-    if (groupId) {
-      loadEvents(groupId);
-      if (data?.group.planning_style === 'availability-first') {
-        loadAvailabilityOverview(groupId);
-      }
-    }
-    toast({
-      title: 'Success',
-      description: 'Event proposed successfully',
-      status: 'success',
-      duration: 3000,
-      isClosable: true,
-    });
+    router.push(`/groups/${groupId}/events/${eventId}`);
   };
 
   useEffect(() => {

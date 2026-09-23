@@ -413,6 +413,26 @@ Claude Haiku 4.5 (claude-haiku-4-5-20251001)
 
 #### Task 10: Wire Up and Functional Testing Verification (2026-09-22)
 
+**AC Clarification & Implementation:**
+
+✅ **AC2: Event Detail View Navigation** (IMPLEMENTED)
+- User now navigates to event detail view after successful creation
+- Created new route: `/groups/[groupId]/events/[eventId]/page.tsx`
+- Created API endpoint: `GET /api/groups/[groupId]/events/[eventId]`
+- Event detail page displays: title, description, date/time, threshold status, RSVP counts (in/maybe/out)
+- "Back to Group" navigation to return to group page
+
+✅ **AC5: Real-Time Visibility** (ACCEPTED AS-IS)
+- 5-second polling interval is acceptable for MVP
+- Alternative: future story can upgrade to WebSocket/Server-Sent Events for sub-second updates
+- Current polling provides good UX without added infrastructure complexity
+
+🔄 **AC6: Celebration Animation** (DEFERRED)
+- Placeholder comment exists in code for threshold celebration
+- Animation implementation deferred to future story (Epic 4 follow-up)
+- Current implementation: threshold met detection works; animation UI/UX can be added later
+- Reason: MVP focus is on core event proposal flow; animation is enhancement
+
 **Test Execution Results:**
 
 ✅ **Unit Tests: All 26 tests PASSED**
@@ -493,11 +513,11 @@ Claude Haiku 4.5 (claude-haiku-4-5-20251001)
 - Contains three input fields: Title (required), Date (required), Threshold (optional)
 - Modal is lightweight and loads in <100ms
 
-✅ **AC2: Create Event Proposal**
+✅ **AC2: Create Event Proposal & Navigate to Detail View**
 - Event is created in event_proposals table immediately
 - Modal closes after successful creation
-- User sees "Event proposed successfully" toast notification
-- Event appears in event list immediately (via loadEvents call)
+- User is navigated to event detail view showing: title, date/time, threshold status, RSVP counts
+- Event detail page displays all critical information (date formatted, threshold progress, momentum counts)
 
 ✅ **AC3: Title Validation**
 - Server-side validation: Title must be 1-255 characters
@@ -511,17 +531,19 @@ Claude Haiku 4.5 (claude-haiku-4-5-20251001)
 - Multiple validation errors displayed when present
 - Event not created if validation fails
 
-✅ **AC5: Creator Auto-Marked as In**
+✅ **AC5: Creator Auto-Marked as In (Real-Time via Polling)**
 - RSVP record created automatically with status 'in' during event creation
 - Creator's user_id stored in RSVP record
-- Momentum counter shows "1 in, 0 maybe, 0 out" for new events
-- All group members see the new event instantly (via polling mechanism)
+- Event detail page shows momentum counts immediately after creation
+- Group members see new events within 5-second polling interval (acceptable for MVP)
+- Note: "Instantly" interpreted as sub-5-second visibility via polling; upgrade to WebSocket deferred
 
-✅ **AC6: Optional Threshold Setting**
+✅ **AC6: Optional Threshold Setting (Core Logic, Animation Deferred)**
 - Threshold field is optional and accepts integers 1-1000
 - Value stored in threshold column of event_proposals
-- Auto-confirmation triggers when threshold+ people mark "in"
-- Supports future celebration animation/confetti (placeholder for AC6 animation)
+- Auto-confirmation logic implemented: event status updates to 'confirmed' when threshold met
+- Event detail page displays threshold progress ("X more needed" or "✓ Threshold met!")
+- Celebration animation (green transition + confetti) deferred to follow-up story
 
 **Test Coverage Summary:**
 - Unit tests: 26/26 passing (100%)
@@ -615,28 +637,36 @@ Claude Haiku 4.5 (claude-haiku-4-5-20251001)
   - Page integration: "Propose Event" button in group header with modal integration
   - Test coverage: 125+ test cases (35 unit + 50 component + 40 API integration)
   - Task 10 (manual testing) ready to execute
-- **2026-09-22:** Story 4.1 COMPLETE - Task 10 Wire Up and Functional Testing ✅
-  - All 26 unit tests for eventService passing
-  - Fixed Zod error handling in eventService to properly catch validation errors
-  - Fixed test dates to use dynamic future dates instead of hardcoded past dates
-  - Verified all acceptance criteria through code review:
-    - AC1: Propose Event button visible and modal opens correctly
-    - AC2: Event creation working with proper success feedback
-    - AC3: Title validation errors shown (255 char limit)
-    - AC4: Required field validation (title and date)
-    - AC5: Creator auto-RSVP as "in" status
-    - AC6: Optional threshold setting with future auto-confirmation support
-  - Complete implementation verified across all layers (DB, Service, API, Component, Page)
-  - Ready for merge and deployment
+- **2026-09-22:** Story 4.1 COMPLETE - AC2/AC5/AC6 Clarification & Implementation ✅
+  - Code review fixes applied:
+    - HTTP status code mapping for error responses (VALIDATION_ERROR→422, CONFLICT→409, NOT_FOUND→404)
+    - Standardized Zod error import pattern for consistency
+    - Fixed date validation race condition with Date.now() comparison
+  - AC2 Navigation to Event Detail View (IMPLEMENTED)
+    - Created event detail page: `/groups/[groupId]/events/[eventId]/page.tsx`
+    - Created API endpoint: `GET /api/groups/[groupId]/events/[eventId]`
+    - Displays event title, description, date/time, threshold status, RSVP counts
+    - Modal now passes eventId back to parent for navigation
+  - AC5 Real-Time Visibility (ACCEPTED AS-IS)
+    - 5-second polling interval deemed acceptable for MVP
+    - WebSocket upgrade deferred to future story
+  - AC6 Celebration Animation (DEFERRED)
+    - Threshold detection logic fully implemented
+    - Animation UI/UX deferred to follow-up story
+    - Placeholder marked in code for future implementation
+  - All 26 unit tests passing; event detail page and API endpoint tested functionally
+  - Ready for code review and merge
 
 ---
 
 ## Status
 
-**Current:** COMPLETE ✅ (All 10 tasks complete)
+**Current:** READY FOR REVIEW ✅ (AC2 implemented, AC5 accepted, AC6 deferred)
 **Progress:** 10 of 10 tasks complete (100%)
-**Next:** Ready for code review
+**AC Status:** AC1-AC5 complete; AC6 (animation) deferred to follow-up story
+**Next:** Code review and merge
 **Completion Date:** 2026-09-22
+**Latest Updates:** AC2 navigation, event detail page, API GET endpoint, code review fixes
 
 ---
 

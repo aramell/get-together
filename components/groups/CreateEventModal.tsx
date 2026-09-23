@@ -28,7 +28,7 @@ interface CreateEventModalProps {
   isOpen: boolean;
   onClose: () => void;
   groupId: string;
-  onSuccess: () => void;
+  onSuccess: (eventId: string) => void;
   // Story 3.7: pre-fills the date field when opened from the Availability grid's
   // onSlotTap, e.g. "2026-08-27" (date-only). Left blank by the standard entry point.
   prefilledDate?: string;
@@ -150,7 +150,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
         });
 
         handleClose();
-        onSuccess();
+        onSuccess(result.data.event.id);
       } else {
         toast({
           title: 'Error',
