@@ -1,6 +1,7 @@
 import React from 'react';
-import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act, within } from '@testing-library/react';
 import { ChakraProvider } from '@chakra-ui/react';
+import { format, addDays, subDays } from 'date-fns';
 import { EventLogistics } from '@/components/groups/EventLogistics';
 import { AuthProvider } from '@/lib/contexts/AuthContext';
 
@@ -41,6 +42,10 @@ const mockItems = [
     claims: [{ user_id: 'user-1', claimed_at: 't1' }], claim_count: 1,
   },
 ];
+
+const todayStr = format(new Date(), 'yyyy-MM-dd');
+const tomorrowStr = format(addDays(new Date(), 1), 'yyyy-MM-dd');
+const yesterdayStr = format(subDays(new Date(), 1), 'yyyy-MM-dd');
 
 function mockFetchSequence(itemsResponse = mockItems, membersResponse = mockMembers) {
   global.fetch = jest.fn((url: string) => {
@@ -307,5 +312,102 @@ describe('EventLogistics Component', () => {
       await Promise.resolve();
     });
     expect(logisticsCallCount).toBe(3);
+  });
+
+  describe('Today/date grouping', () => {
+    const groupedItems = [
+      { id: 'today-bring', created_by: 'user-1', category: 'bring', title: 'Today snacks', assigned_to: null, capacity: null, item_date: todayStr, claims: [], claim_count: 0 },
+      {
+        id: 'today-carpool', created_by: 'user-1', category: 'carpool', title: 'Today ride',
+        assigned_to: 'other-user', capacity: 2, item_date: todayStr, claims: [], claim_count: 0,
+      },
+      { id: 'future-bring', created_by: 'user-1', category: 'bring', title: 'Future snacks', assigned_to: null, capacity: null, item_date: tomorrowStr, claims: [], claim_count: 0 },
+      { id: 'undated-bring', created_by: 'user-1', category: 'bring', title: 'Undated snacks', assigned_to: null, capacity: null, item_date: null, claims: [], claim_count: 0 },
+    ];
+
+    it('renders a single cross-cutting "Today" group above the Bring/Carpool split, with category badges', async () => {
+      mockFetchSequence(groupedItems);
+      renderWithProviders(<EventLogistics eventId="event-1" groupId="group-1" />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { level: 3, name: /^today$/i })).toBeInTheDocument();
+        expect(screen.getByText('Today snacks')).toBeInTheDocument();
+        expect(screen.getByText('Today ride')).toBeInTheDocument();
+      });
+
+      const todayBringRow = screen.getByText('Today snacks').closest('div') as HTMLElement;
+      expect(within(todayBringRow).getByText('Bring')).toBeInTheDocument();
+
+      const todayCarpoolRow = screen.getByText('Today ride').closest('div') as HTMLElement;
+      expect(within(todayCarpoolRow).getByText('Carpool')).toBeInTheDocument();
+    });
+
+    it('keeps future/undated items out of Today, in the general Bring List', async () => {
+      mockFetchSequence(groupedItems);
+      renderWithProviders(<EventLogistics eventId="event-1" groupId="group-1" />);
+
+      await waitFor(() => expect(screen.getByText('Future snacks')).toBeInTheDocument());
+      expect(screen.getByText('Undated snacks')).toBeInTheDocument();
+      // Neither appears a second time under the Today heading.
+      expect(screen.getAllByText('Future snacks')).toHaveLength(1);
+      expect(screen.getAllByText('Undated snacks')).toHaveLength(1);
+    });
+
+    it('shows a date badge on a dated item and omits it on an undated item', async () => {
+      mockFetchSequence(groupedItems);
+      renderWithProviders(<EventLogistics eventId="event-1" groupId="group-1" />);
+
+      await waitFor(() => expect(screen.getByText('Today snacks')).toBeInTheDocument());
+
+      const todayLabel = format(new Date(), 'MMM d');
+      const todayRow = screen.getByText('Today snacks').closest('div') as HTMLElement;
+      expect(within(todayRow).getByText(todayLabel)).toBeInTheDocument();
+
+      const undatedRow = screen.getByText('Undated snacks').closest('div') as HTMLElement;
+      expect(within(undatedRow).queryByText(todayLabel)).not.toBeInTheDocument();
+    });
+
+    it('regroups an item on a poll tick when its date rolls from today to yesterday, without a reload', async () => {
+      jest.useFakeTimers();
+
+      let logisticsCallCount = 0;
+      global.fetch = jest.fn((url: string) => {
+        if (typeof url === 'string' && url.includes('/logistics')) {
+          logisticsCallCount += 1;
+          const item_date = logisticsCallCount === 1 ? todayStr : yesterdayStr;
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              success: true,
+              data: [{
+                id: 'rollover-item', created_by: 'user-1', category: 'bring', title: 'Rollover snacks',
+                assigned_to: null, capacity: null, item_date, claims: [], claim_count: 0,
+              }],
+            }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true, data: { members: mockMembers, currentUserRole: 'admin' } }),
+        });
+      }) as unknown as typeof fetch;
+
+      renderWithProviders(<EventLogistics eventId="event-1" groupId="group-1" />);
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await waitFor(() => expect(screen.getByRole('heading', { level: 3, name: /^today$/i })).toBeInTheDocument());
+
+      await act(async () => {
+        jest.advanceTimersByTime(5000);
+        await Promise.resolve();
+      });
+
+      await waitFor(() => {
+        expect(screen.queryByRole('heading', { level: 3, name: /^today$/i })).not.toBeInTheDocument();
+        expect(screen.getByText('Rollover snacks')).toBeInTheDocument();
+      });
+    });
   });
 });

@@ -31,7 +31,7 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const updates: { is_checked?: boolean; title?: string; assigned_to?: string | null } = {};
+    const updates: { is_checked?: boolean; title?: string; assigned_to?: string | null; item_date?: string | null } = {};
 
     if (typeof body.is_checked === 'boolean') {
       updates.is_checked = body.is_checked;
@@ -41,6 +41,15 @@ export async function PATCH(
     }
     if (body.assigned_to !== undefined) {
       updates.assigned_to = body.assigned_to;
+    }
+    if (body.item_date !== undefined) {
+      if (body.item_date !== null && typeof body.item_date !== 'string') {
+        return NextResponse.json(
+          { success: false, error: 'item_date must be a string or null', errorCode: 'VALIDATION_ERROR' },
+          { status: 400 }
+        );
+      }
+      updates.item_date = body.item_date;
     }
 
     if (Object.keys(updates).length === 0) {

@@ -121,6 +121,13 @@ export async function POST(
       );
     }
 
+    if (body.item_date !== undefined && body.item_date !== null && typeof body.item_date !== 'string') {
+      return NextResponse.json(
+        { success: false, error: 'item_date must be a string or null', errorCode: 'VALIDATION_ERROR' },
+        { status: 400 }
+      );
+    }
+
     const result = await addLogisticsItem(
       eventId,
       groupId,
@@ -128,7 +135,8 @@ export async function POST(
       body.category,
       body.title,
       body.assigned_to || null,
-      typeof body.capacity === 'number' ? body.capacity : undefined
+      typeof body.capacity === 'number' ? body.capacity : undefined,
+      typeof body.item_date === 'string' ? body.item_date : null
     );
 
     if (!result.success) {

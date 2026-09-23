@@ -118,4 +118,34 @@ describe('POST /api/groups/:groupId/events/:eventId/checklist', () => {
     );
     expect(res.status).toBe(400);
   });
+
+  it('forwards item_date to addChecklistItem', async () => {
+    (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('user-1');
+    (checklistService.addChecklistItem as jest.Mock).mockResolvedValue({
+      success: true,
+      message: 'Checklist item added',
+      data: { id: 'item-1', title: 'Book venue', item_date: '2026-09-23' },
+    });
+
+    await POST(
+      makeRequest({ authHeader: 'Bearer good-token', body: { title: 'Book venue', item_date: '2026-09-23' } }),
+      { params }
+    );
+
+    expect(checklistService.addChecklistItem).toHaveBeenCalledWith(
+      'event-1', 'group-1', 'user-1', 'Book venue', null, '2026-09-23'
+    );
+  });
+
+  it('returns 400 when item_date is not a string or null', async () => {
+    (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('user-1');
+
+    const res = await POST(
+      makeRequest({ authHeader: 'Bearer good-token', body: { title: 'Book venue', item_date: 12345 } }),
+      { params }
+    );
+
+    expect(res.status).toBe(400);
+    expect(checklistService.addChecklistItem).not.toHaveBeenCalled();
+  });
 });

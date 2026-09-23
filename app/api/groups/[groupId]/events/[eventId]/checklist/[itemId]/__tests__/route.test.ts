@@ -76,6 +76,35 @@ describe('PATCH /api/groups/:groupId/events/:eventId/checklist/:itemId', () => {
     );
     expect(res.status).toBe(404);
   });
+
+  it('includes item_date in the update payload sent to the service', async () => {
+    (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('user-1');
+    (checklistService.updateChecklistItem as jest.Mock).mockResolvedValue({
+      success: true,
+      data: { id: 'item-1', item_date: '2026-09-23' },
+    });
+
+    await PATCH(
+      makeRequest({ authHeader: 'Bearer good-token', body: { item_date: '2026-09-23' } }),
+      { params }
+    );
+
+    expect(checklistService.updateChecklistItem).toHaveBeenCalledWith(
+      'event-1', 'group-1', 'item-1', 'user-1', { item_date: '2026-09-23' }
+    );
+  });
+
+  it('returns 400 when item_date is not a string or null', async () => {
+    (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('user-1');
+
+    const res = await PATCH(
+      makeRequest({ authHeader: 'Bearer good-token', body: { item_date: 12345 } }),
+      { params }
+    );
+
+    expect(res.status).toBe(400);
+    expect(checklistService.updateChecklistItem).not.toHaveBeenCalled();
+  });
 });
 
 describe('DELETE /api/groups/:groupId/events/:eventId/checklist/:itemId', () => {

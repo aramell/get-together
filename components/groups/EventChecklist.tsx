@@ -19,6 +19,11 @@ import {
 } from '@chakra-ui/react';
 import { EditIcon, DeleteIcon } from '@chakra-ui/icons';
 import { useAuth } from '@/lib/contexts/AuthContext';
+import {
+  isItemToday,
+  formatItemDateLabel,
+  compareByItemDateThenCreatedAt,
+} from '@/lib/utils/itemDateGrouping';
 
 interface ChecklistItem {
   id: string;
@@ -26,6 +31,8 @@ interface ChecklistItem {
   assigned_to: string | null;
   title: string;
   is_checked: boolean;
+  item_date: string | null;
+  created_at: string;
 }
 
 interface GroupMember {
@@ -49,8 +56,10 @@ export function EventChecklist({ eventId, groupId }: EventChecklistProps) {
   const [loading, setLoading] = useState(true);
   const [newTitle, setNewTitle] = useState('');
   const [newAssignee, setNewAssignee] = useState('');
+  const [newDate, setNewDate] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
+  const [editingDate, setEditingDate] = useState('');
 
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isFetchingRef = useRef(false);
@@ -126,7 +135,11 @@ export function EventChecklist({ eventId, groupId }: EventChecklistProps) {
       const response = await fetch(`/api/groups/${groupId}/events/${eventId}/checklist`, {
         method: 'POST',
         headers: authHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ title: newTitle.trim(), assigned_to: newAssignee || undefined }),
+        body: JSON.stringify({
+          title: newTitle.trim(),
+          assigned_to: newAssignee || undefined,
+          item_date: newDate || undefined,
+        }),
       });
       const data = await response.json();
 
@@ -137,6 +150,7 @@ export function EventChecklist({ eventId, groupId }: EventChecklistProps) {
       setItems((prev) => [...prev, data.data]);
       setNewTitle('');
       setNewAssignee('');
+      setNewDate('');
     } catch (err: any) {
       toast({ title: 'Error', description: err.message || 'Failed to add item', status: 'error', duration: 3000, isClosable: true });
     }
@@ -169,6 +183,7 @@ export function EventChecklist({ eventId, groupId }: EventChecklistProps) {
   const handleStartEdit = (item: ChecklistItem) => {
     setEditingId(item.id);
     setEditingTitle(item.title);
+    setEditingDate(item.item_date ? item.item_date.slice(0, 10) : '');
   };
 
   const handleSaveEdit = async (itemId: string) => {
@@ -178,7 +193,7 @@ export function EventChecklist({ eventId, groupId }: EventChecklistProps) {
       const response = await fetch(`/api/groups/${groupId}/events/${eventId}/checklist/${itemId}`, {
         method: 'PATCH',
         headers: authHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ title: editingTitle.trim() }),
+        body: JSON.stringify({ title: editingTitle.trim(), item_date: editingDate || null }),
       });
       const data = await response.json();
 
@@ -218,6 +233,76 @@ export function EventChecklist({ eventId, groupId }: EventChecklistProps) {
     return members.find((m) => m.user_id === id)?.name || 'Unknown';
   };
 
+  const renderItemRow = (item: ChecklistItem) => (
+    <HStack key={item.id} spacing={3} py={2} borderBottom="1px solid" borderColor="cork.100">
+      <Checkbox
+        isChecked={item.is_checked}
+        onChange={() => handleToggle(item)}
+        aria-label={`Mark "${item.title}" as ${item.is_checked ? 'not done' : 'done'}`}
+      />
+      {editingId === item.id ? (
+        <HStack flex={1}>
+          <Input
+            size="sm"
+            value={editingTitle}
+            onChange={(e) => setEditingTitle(e.target.value)}
+            aria-label="Edit checklist item title"
+          />
+          <Input
+            size="sm"
+            type="date"
+            value={editingDate}
+            onChange={(e) => setEditingDate(e.target.value)}
+            aria-label="Edit checklist item date"
+          />
+          <Button size="sm" onClick={() => handleSaveEdit(item.id)}>
+            Save
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>
+            Cancel
+          </Button>
+        </HStack>
+      ) : (
+        <>
+          <Text flex={1} textDecoration={item.is_checked ? 'line-through' : 'none'} color={item.is_checked ? 'ink.400' : 'ink.800'}>
+            {item.title}
+          </Text>
+          {item.item_date && (
+            <Badge colorScheme="cork" fontSize="xs">
+              {formatItemDateLabel(item.item_date)}
+            </Badge>
+          )}
+          {item.assigned_to && (
+            <Badge colorScheme="cork" fontSize="xs">
+              {memberName(item.assigned_to)}
+            </Badge>
+          )}
+          {item.created_by === userId && (
+            <HStack spacing={1}>
+              <IconButton
+                aria-label="Edit item"
+                icon={<EditIcon />}
+                size="sm"
+                variant="ghost"
+                onClick={() => handleStartEdit(item)}
+              />
+              <IconButton
+                aria-label="Delete item"
+                icon={<DeleteIcon />}
+                size="sm"
+                variant="ghost"
+                onClick={() => handleDelete(item.id)}
+              />
+            </HStack>
+          )}
+        </>
+      )}
+    </HStack>
+  );
+
+  const todayItems = items.filter(isItemToday);
+  const generalItems = items.filter((item) => !isItemToday(item)).sort(compareByItemDateThenCreatedAt);
+
   if (loading) {
     return (
       <HStack justify="center" py={6}>
@@ -235,66 +320,24 @@ export function EventChecklist({ eventId, groupId }: EventChecklistProps) {
         Checklist
       </Heading>
 
+      {todayItems.length > 0 && (
+        <Box mb={6}>
+          <Heading as="h3" fontWeight="semibold" fontSize="md" mb={2}>
+            Today
+          </Heading>
+          <VStack spacing={2} align="stretch">
+            {todayItems.map(renderItemRow)}
+          </VStack>
+        </Box>
+      )}
+
       <VStack spacing={2} align="stretch" mb={6}>
-        {items.length === 0 && (
+        {generalItems.length === 0 && (
           <Text color="ink.500" fontSize="sm">
             No checklist items yet.
           </Text>
         )}
-        {items.map((item) => (
-          <HStack key={item.id} spacing={3} py={2} borderBottom="1px solid" borderColor="cork.100">
-            <Checkbox
-              isChecked={item.is_checked}
-              onChange={() => handleToggle(item)}
-              aria-label={`Mark "${item.title}" as ${item.is_checked ? 'not done' : 'done'}`}
-            />
-            {editingId === item.id ? (
-              <HStack flex={1}>
-                <Input
-                  size="sm"
-                  value={editingTitle}
-                  onChange={(e) => setEditingTitle(e.target.value)}
-                  aria-label="Edit checklist item title"
-                />
-                <Button size="sm" onClick={() => handleSaveEdit(item.id)}>
-                  Save
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>
-                  Cancel
-                </Button>
-              </HStack>
-            ) : (
-              <>
-                <Text flex={1} textDecoration={item.is_checked ? 'line-through' : 'none'} color={item.is_checked ? 'ink.400' : 'ink.800'}>
-                  {item.title}
-                </Text>
-                {item.assigned_to && (
-                  <Badge colorScheme="cork" fontSize="xs">
-                    {memberName(item.assigned_to)}
-                  </Badge>
-                )}
-                {item.created_by === userId && (
-                  <HStack spacing={1}>
-                    <IconButton
-                      aria-label="Edit item"
-                      icon={<EditIcon />}
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleStartEdit(item)}
-                    />
-                    <IconButton
-                      aria-label="Delete item"
-                      icon={<DeleteIcon />}
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleDelete(item.id)}
-                    />
-                  </HStack>
-                )}
-              </>
-            )}
-          </HStack>
-        ))}
+        {generalItems.map(renderItemRow)}
       </VStack>
 
       <HStack spacing={2} align="flex-end">
@@ -322,6 +365,14 @@ export function EventChecklist({ eventId, groupId }: EventChecklistProps) {
               </option>
             ))}
           </Select>
+        </FormControl>
+        <FormControl flex={1}>
+          <Input
+            type="date"
+            value={newDate}
+            onChange={(e) => setNewDate(e.target.value)}
+            aria-label="Item date (optional)"
+          />
         </FormControl>
         <Button onClick={handleAddItem} isDisabled={!newTitle.trim()} colorScheme="coral">
           Add

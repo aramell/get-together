@@ -31,7 +31,7 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const updates: { title?: string; assigned_to?: string | null; capacity?: number } = {};
+    const updates: { title?: string; assigned_to?: string | null; capacity?: number; item_date?: string | null } = {};
 
     if (typeof body.title === 'string') {
       updates.title = body.title;
@@ -41,6 +41,15 @@ export async function PATCH(
     }
     if (typeof body.capacity === 'number') {
       updates.capacity = body.capacity;
+    }
+    if (body.item_date !== undefined) {
+      if (body.item_date !== null && typeof body.item_date !== 'string') {
+        return NextResponse.json(
+          { success: false, error: 'item_date must be a string or null', errorCode: 'VALIDATION_ERROR' },
+          { status: 400 }
+        );
+      }
+      updates.item_date = body.item_date;
     }
 
     if (Object.keys(updates).length === 0) {

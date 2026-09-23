@@ -69,6 +69,35 @@ describe('eventChecklistService', () => {
       expect(result.success).toBe(false);
       expect(result.errorCode).toBe('VALIDATION_ERROR');
     });
+
+    it('persists item_date when provided', async () => {
+      mockEventExists();
+      (getUserGroupRole as jest.Mock).mockResolvedValueOnce('member');
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{
+          id: 'item-1', event_id: 'event-1', group_id: 'group-1', created_by: 'user-1', assigned_to: null,
+          title: 'Book venue', is_checked: false, checked_by: null, checked_at: null, item_date: '2026-09-23',
+          created_at: 'now', updated_at: 'now',
+        }],
+      });
+
+      const result = await addChecklistItem('event-1', 'group-1', 'user-1', 'Book venue', null, '2026-09-23');
+
+      expect(result.success).toBe(true);
+      expect(result.data?.item_date).toBe('2026-09-23');
+    });
+
+    it('rejects a malformed item_date', async () => {
+      const result = await addChecklistItem('event-1', 'group-1', 'user-1', 'Book venue', null, 'not-a-date');
+      expect(result.success).toBe(false);
+      expect(result.errorCode).toBe('VALIDATION_ERROR');
+    });
+
+    it('rejects a calendar-invalid item_date (Feb 30)', async () => {
+      const result = await addChecklistItem('event-1', 'group-1', 'user-1', 'Book venue', null, '2026-02-30');
+      expect(result.success).toBe(false);
+      expect(result.errorCode).toBe('VALIDATION_ERROR');
+    });
   });
 
   describe('getChecklistItems', () => {
@@ -91,6 +120,18 @@ describe('eventChecklistService', () => {
 
       expect(result.success).toBe(false);
       expect(result.errorCode).toBe('FORBIDDEN');
+    });
+
+    it('includes item_date in the selected columns and returned rows', async () => {
+      mockEventExists();
+      (getUserGroupRole as jest.Mock).mockResolvedValueOnce('member');
+      mockClient.query.mockResolvedValueOnce({ rows: [{ id: 'item-1', title: 'Book venue', item_date: '2026-09-23' }] });
+
+      const result = await getChecklistItems('event-1', 'group-1', 'user-1');
+
+      expect(result.data?.[0].item_date).toBe('2026-09-23');
+      const selectCall = mockClient.query.mock.calls[1];
+      expect(String(selectCall[0])).toContain('item_date');
     });
   });
 
@@ -179,6 +220,50 @@ describe('eventChecklistService', () => {
 
       expect(result.success).toBe(false);
       expect(result.errorCode).toBe('NOT_FOUND');
+    });
+
+    it('allows the creator to set item_date', async () => {
+      mockClient.query.mockResolvedValueOnce({ rows: [item] });
+      (getUserGroupRole as jest.Mock).mockResolvedValueOnce('member');
+      mockClient.query.mockResolvedValueOnce({ rows: [{ ...item, item_date: '2026-09-23' }] });
+
+      const result = await updateChecklistItem('event-1', 'group-1', 'item-1', 'creator-1', { item_date: '2026-09-23' });
+
+      expect(result.success).toBe(true);
+      expect(result.data?.item_date).toBe('2026-09-23');
+    });
+
+    it('allows clearing item_date by setting it to null', async () => {
+      mockClient.query.mockResolvedValueOnce({ rows: [{ ...item, item_date: '2026-09-23' }] });
+      (getUserGroupRole as jest.Mock).mockResolvedValueOnce('member');
+      mockClient.query.mockResolvedValueOnce({ rows: [{ ...item, item_date: null }] });
+
+      const result = await updateChecklistItem('event-1', 'group-1', 'item-1', 'creator-1', { item_date: null });
+
+      expect(result.success).toBe(true);
+      expect(result.data?.item_date).toBeNull();
+    });
+
+    it('rejects a malformed item_date and does not write the row', async () => {
+      mockClient.query.mockResolvedValueOnce({ rows: [item] });
+      (getUserGroupRole as jest.Mock).mockResolvedValueOnce('member');
+
+      const result = await updateChecklistItem('event-1', 'group-1', 'item-1', 'creator-1', { item_date: 'not-a-date' });
+
+      expect(result.success).toBe(false);
+      expect(result.errorCode).toBe('VALIDATION_ERROR');
+      expect(mockClient.query).toHaveBeenCalledTimes(1); // item lookup only — no UPDATE was issued
+    });
+
+    it('rejects an empty-string item_date and does not write the row', async () => {
+      mockClient.query.mockResolvedValueOnce({ rows: [item] });
+      (getUserGroupRole as jest.Mock).mockResolvedValueOnce('member');
+
+      const result = await updateChecklistItem('event-1', 'group-1', 'item-1', 'creator-1', { item_date: '' });
+
+      expect(result.success).toBe(false);
+      expect(result.errorCode).toBe('VALIDATION_ERROR');
+      expect(mockClient.query).toHaveBeenCalledTimes(1); // item lookup only — no UPDATE was issued
     });
   });
 

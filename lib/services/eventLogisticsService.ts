@@ -1,5 +1,6 @@
 import { getClient } from '@/lib/db/client';
 import { getUserGroupRole } from '@/lib/db/queries';
+import { isValidItemDate } from '@/lib/services/itemDateValidation';
 
 export type LogisticsCategory = 'bring' | 'carpool';
 
@@ -17,6 +18,7 @@ export interface LogisticsItem {
   title: string;
   assigned_to: string | null;
   capacity: number | null;
+  item_date: string | null;
   created_at: string;
   updated_at: string;
   claims: LogisticsClaim[];
@@ -54,6 +56,7 @@ function mapRow(row: any): LogisticsItem {
     title: row.title,
     assigned_to: row.assigned_to,
     capacity: row.capacity,
+    item_date: row.item_date,
     created_at: row.created_at,
     updated_at: row.updated_at,
     claims,
@@ -61,7 +64,7 @@ function mapRow(row: any): LogisticsItem {
   };
 }
 
-const ITEM_COLUMNS = `id, event_id, group_id, created_by, category, title, assigned_to, capacity, created_at, updated_at`;
+const ITEM_COLUMNS = `id, event_id, group_id, created_by, category, title, assigned_to, capacity, item_date, created_at, updated_at`;
 
 export async function addLogisticsItem(
   eventId: string,
@@ -70,7 +73,8 @@ export async function addLogisticsItem(
   category: LogisticsCategory,
   title: string,
   assignedTo?: string | null,
-  capacity?: number | null
+  capacity?: number | null,
+  itemDate?: string | null
 ): Promise<ServiceResult<LogisticsItem>> {
   const client = await getClient();
 
@@ -89,6 +93,15 @@ export async function addLogisticsItem(
         success: false,
         message: 'Title must be between 1 and 255 characters',
         error: 'INVALID_TITLE',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    if (itemDate && !isValidItemDate(itemDate)) {
+      return {
+        success: false,
+        message: 'Item date must be a valid date (YYYY-MM-DD)',
+        error: 'INVALID_ITEM_DATE',
         errorCode: 'VALIDATION_ERROR',
       };
     }
@@ -144,10 +157,19 @@ export async function addLogisticsItem(
     }
 
     const insertResult = await client.query(
-      `INSERT INTO event_logistics_items (event_id, group_id, created_by, category, title, assigned_to, capacity)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO event_logistics_items (event_id, group_id, created_by, category, title, assigned_to, capacity, item_date)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING ${ITEM_COLUMNS}`,
-      [eventId, groupId, userId, category, title.trim(), assignedTo || null, category === 'carpool' ? capacity : null]
+      [
+        eventId,
+        groupId,
+        userId,
+        category,
+        title.trim(),
+        assignedTo || null,
+        category === 'carpool' ? capacity : null,
+        itemDate || null,
+      ]
     );
 
     return {
@@ -198,7 +220,7 @@ export async function getLogisticsItems(
     const result = await client.query(
       `SELECT
          eli.id, eli.event_id, eli.group_id, eli.created_by, eli.category, eli.title,
-         eli.assigned_to, eli.capacity, eli.created_at, eli.updated_at,
+         eli.assigned_to, eli.capacity, eli.item_date, eli.created_at, eli.updated_at,
          COALESCE(
            json_agg(
              json_build_object('user_id', elc.user_id, 'claimed_at', elc.claimed_at)
@@ -236,7 +258,7 @@ export async function updateLogisticsItem(
   groupId: string,
   itemId: string,
   userId: string,
-  updates: { title?: string; assigned_to?: string | null; capacity?: number }
+  updates: { title?: string; assigned_to?: string | null; capacity?: number; item_date?: string | null }
 ): Promise<ServiceResult<LogisticsItem>> {
   const client = await getClient();
 
@@ -269,7 +291,8 @@ export async function updateLogisticsItem(
     const isAdmin = userRole === 'admin';
     const isCreator = item.created_by === userId;
 
-    const isMetadataUpdate = updates.title !== undefined || updates.capacity !== undefined;
+    const isMetadataUpdate =
+      updates.title !== undefined || updates.capacity !== undefined || updates.item_date !== undefined;
 
     // AC #5: claiming/unclaiming a 'bring' item's assigned_to is a relaxed
     // authorization path (any member), but ONLY for the narrow self-claim /
@@ -303,6 +326,15 @@ export async function updateLogisticsItem(
         success: false,
         message: 'Title must be between 1 and 255 characters',
         error: 'INVALID_TITLE',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    if (updates.item_date !== undefined && updates.item_date !== null && !isValidItemDate(updates.item_date)) {
+      return {
+        success: false,
+        message: 'Item date must be a valid date (YYYY-MM-DD)',
+        error: 'INVALID_ITEM_DATE',
         errorCode: 'VALIDATION_ERROR',
       };
     }
@@ -363,6 +395,10 @@ export async function updateLogisticsItem(
     if (updates.capacity !== undefined && item.category === 'carpool') {
       setClauses.push(`capacity = $${paramIndex++}`);
       values.push(updates.capacity);
+    }
+    if (updates.item_date !== undefined) {
+      setClauses.push(`item_date = $${paramIndex++}`);
+      values.push(updates.item_date);
     }
 
     values.push(itemId);

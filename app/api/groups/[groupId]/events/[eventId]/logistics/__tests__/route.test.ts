@@ -123,8 +123,44 @@ describe('POST /api/groups/:groupId/events/:eventId/logistics', () => {
     );
     expect(res.status).toBe(201);
     expect(logisticsService.addLogisticsItem).toHaveBeenCalledWith(
-      'event-1', 'group-1', 'user-1', 'carpool', 'Ride', 'driver-1', 4
+      'event-1', 'group-1', 'user-1', 'carpool', 'Ride', 'driver-1', 4, null
     );
+  });
+
+  it('forwards item_date to addLogisticsItem', async () => {
+    (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('user-1');
+    (logisticsService.addLogisticsItem as jest.Mock).mockResolvedValue({
+      success: true,
+      data: { id: 'item-1', category: 'bring', title: 'Speaker', item_date: '2026-09-23' },
+      message: 'Logistics item added',
+    });
+
+    await POST(
+      makeRequest({
+        authHeader: 'Bearer good-token',
+        body: { category: 'bring', title: 'Speaker', item_date: '2026-09-23' },
+      }),
+      { params }
+    );
+
+    expect(logisticsService.addLogisticsItem).toHaveBeenCalledWith(
+      'event-1', 'group-1', 'user-1', 'bring', 'Speaker', null, undefined, '2026-09-23'
+    );
+  });
+
+  it('returns 400 when item_date is not a string or null', async () => {
+    (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('user-1');
+
+    const res = await POST(
+      makeRequest({
+        authHeader: 'Bearer good-token',
+        body: { category: 'bring', title: 'Speaker', item_date: 12345 },
+      }),
+      { params }
+    );
+
+    expect(res.status).toBe(400);
+    expect(logisticsService.addLogisticsItem).not.toHaveBeenCalled();
   });
 
   it('returns 400 when the service reports VALIDATION_ERROR (e.g. carpool without capacity)', async () => {

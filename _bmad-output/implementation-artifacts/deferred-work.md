@@ -13,3 +13,7 @@
 - source_spec: `_bmad-output/implementation-artifacts/13-2-consistent-live-refresh-widgets.md`
   summary: No test across any of the 4 polling widgets exercises a poll landing while a user is mid-edit (focus in an input) to confirm the epic's "no stolen focus/scroll on live updates" requirement actually holds.
   evidence: Blind-hunter review found this gap for the new Timeline/PhotoGrid polling tests; confirmed via grep that the 3 pre-existing polling widgets' tests never covered this either. A codebase-wide, epic-level a11y verification gap predating this story, not something this story's narrow scope (extend the existing pattern consistently) introduced.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-13-3-date-day-context-checklist-logistics.md`
+  summary: Visually distinguish overdue (past-dated) checklist/logistics items from future-dated ones — both currently render the same neutral `Badge colorScheme="cork"`.
+  evidence: Blind-hunter review confirmed there's no visual "overdue" cue. Deferred rather than fixed in this story because `epic-13-context.md` (this story's loaded context) states "No visual identity changes this pass — everything built from existing primitives ... not restyled," which forecloses introducing a new distinguishing color this pass.

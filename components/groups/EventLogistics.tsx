@@ -22,6 +22,11 @@ import {
 } from '@chakra-ui/react';
 import { EditIcon, DeleteIcon } from '@chakra-ui/icons';
 import { useAuth } from '@/lib/contexts/AuthContext';
+import {
+  isItemToday,
+  formatItemDateLabel,
+  compareByItemDateThenCreatedAt,
+} from '@/lib/utils/itemDateGrouping';
 
 interface LogisticsClaim {
   user_id: string;
@@ -35,6 +40,8 @@ interface LogisticsItem {
   title: string;
   assigned_to: string | null;
   capacity: number | null;
+  item_date: string | null;
+  created_at: string;
   claims: LogisticsClaim[];
   claim_count: number;
 }
@@ -63,8 +70,10 @@ export function EventLogistics({ eventId, groupId }: EventLogisticsProps) {
   const [newTitle, setNewTitle] = useState('');
   const [newAssignee, setNewAssignee] = useState('');
   const [newCapacity, setNewCapacity] = useState('');
+  const [newDate, setNewDate] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
+  const [editingDate, setEditingDate] = useState('');
 
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isFetchingRef = useRef(false);
@@ -145,6 +154,7 @@ export function EventLogistics({ eventId, groupId }: EventLogisticsProps) {
           title: newTitle.trim(),
           assigned_to: newAssignee || undefined,
           capacity: newCategory === 'carpool' ? parseInt(newCapacity, 10) : undefined,
+          item_date: newDate || undefined,
         }),
       });
       const data = await response.json();
@@ -157,6 +167,7 @@ export function EventLogistics({ eventId, groupId }: EventLogisticsProps) {
       setNewTitle('');
       setNewAssignee('');
       setNewCapacity('');
+      setNewDate('');
     } catch (err: any) {
       toast({ title: 'Error', description: err.message || 'Failed to add item', status: 'error', duration: 3000, isClosable: true });
     }
@@ -165,6 +176,7 @@ export function EventLogistics({ eventId, groupId }: EventLogisticsProps) {
   const handleStartEdit = (item: LogisticsItem) => {
     setEditingId(item.id);
     setEditingTitle(item.title);
+    setEditingDate(item.item_date ? item.item_date.slice(0, 10) : '');
   };
 
   const handleSaveEdit = async (itemId: string) => {
@@ -174,7 +186,7 @@ export function EventLogistics({ eventId, groupId }: EventLogisticsProps) {
       const response = await fetch(`/api/groups/${groupId}/events/${eventId}/logistics/${itemId}`, {
         method: 'PATCH',
         headers: authHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ title: editingTitle.trim() }),
+        body: JSON.stringify({ title: editingTitle.trim(), item_date: editingDate || null }),
       });
       const data = await response.json();
 
@@ -296,6 +308,13 @@ export function EventLogistics({ eventId, groupId }: EventLogisticsProps) {
           onChange={(e) => setEditingTitle(e.target.value)}
           aria-label="Edit logistics item title"
         />
+        <Input
+          size="sm"
+          type="date"
+          value={editingDate}
+          onChange={(e) => setEditingDate(e.target.value)}
+          aria-label="Edit logistics item date"
+        />
         <Button size="sm" onClick={() => handleSaveEdit(item.id)}>
           Save
         </Button>
@@ -309,8 +328,95 @@ export function EventLogistics({ eventId, groupId }: EventLogisticsProps) {
       </Text>
     );
 
-  const bringItems = items.filter((i) => i.category === 'bring');
-  const carpoolItems = items.filter((i) => i.category === 'carpool');
+  const renderDateBadge = (item: LogisticsItem) =>
+    item.item_date && (
+      <Badge colorScheme="cork" fontSize="xs">
+        {formatItemDateLabel(item.item_date)}
+      </Badge>
+    );
+
+  // showCategoryBadge is true only inside the cross-cutting Today group,
+  // where items from both categories are interleaved and the Bring
+  // List/Carpool heading that normally conveys category isn't present.
+  const renderBringRow = (item: LogisticsItem, opts?: { showCategoryBadge?: boolean }) => {
+    const isSelf = item.assigned_to === userId;
+    return (
+      <HStack key={item.id} spacing={3} py={2} borderBottom="1px solid" borderColor="cork.100">
+        {renderTitleOrEdit(item)}
+        {editingId !== item.id && (
+          <>
+            {opts?.showCategoryBadge && (
+              <Badge colorScheme="cork" fontSize="xs">
+                Bring
+              </Badge>
+            )}
+            {renderDateBadge(item)}
+            {item.assigned_to ? (
+              <Badge colorScheme="cork" fontSize="xs">
+                {memberName(item.assigned_to)}
+              </Badge>
+            ) : (
+              <Text color="ink.500" fontSize="xs">
+                Unclaimed
+              </Text>
+            )}
+            {(item.assigned_to === null || isSelf) && (
+              <Button size="sm" variant="outline" onClick={() => handleBringClaimToggle(item)}>
+                {isSelf ? 'Never mind' : "I'll bring this"}
+              </Button>
+            )}
+            {renderItemControls(item)}
+          </>
+        )}
+      </HStack>
+    );
+  };
+
+  const renderCarpoolRow = (item: LogisticsItem, opts?: { showCategoryBadge?: boolean }) => {
+    const hasClaimed = item.claims.some((c) => c.user_id === userId);
+    const isFull = item.claim_count >= (item.capacity ?? 0);
+    return (
+      <HStack key={item.id} spacing={3} py={2} borderBottom="1px solid" borderColor="cork.100">
+        {renderTitleOrEdit(item)}
+        {editingId !== item.id && (
+          <>
+            {opts?.showCategoryBadge && (
+              <Badge colorScheme="cork" fontSize="xs">
+                Carpool
+              </Badge>
+            )}
+            {renderDateBadge(item)}
+            <Badge colorScheme="cork" fontSize="xs">
+              Driver: {memberName(item.assigned_to)}
+            </Badge>
+            <Text fontSize="xs" color="ink.500">
+              {item.claim_count}/{item.capacity} seats claimed
+            </Text>
+            <Button
+              size="sm"
+              variant="outline"
+              isDisabled={!hasClaimed && isFull}
+              onClick={() => handleCarpoolClaimToggle(item)}
+            >
+              {hasClaimed ? 'Unclaim seat' : 'Claim seat'}
+            </Button>
+            {renderItemControls(item)}
+          </>
+        )}
+      </HStack>
+    );
+  };
+
+  const renderItemRow = (item: LogisticsItem, opts?: { showCategoryBadge?: boolean }) =>
+    item.category === 'bring' ? renderBringRow(item, opts) : renderCarpoolRow(item, opts);
+
+  const todayItems = items.filter(isItemToday);
+  const generalItems = items.filter((item) => !isItemToday(item));
+  // Each general sub-list (Bring List, Carpool) is ordered by item_date
+  // ascending on its own — they render as separate lists under separate
+  // headings, so there's no single combined "general list" to sort.
+  const bringItems = generalItems.filter((i) => i.category === 'bring').sort(compareByItemDateThenCreatedAt);
+  const carpoolItems = generalItems.filter((i) => i.category === 'carpool').sort(compareByItemDateThenCreatedAt);
 
   if (loading) {
     return (
@@ -329,6 +435,20 @@ export function EventLogistics({ eventId, groupId }: EventLogisticsProps) {
         Logistics
       </Heading>
 
+      {/* Today — a single cross-cutting group above the Bring/Carpool split;
+          items keep their category badge since the section heading that
+          normally conveys it isn't present here. */}
+      {todayItems.length > 0 && (
+        <Box mb={6}>
+          <Heading as="h3" fontWeight="semibold" fontSize="md" mb={2}>
+            Today
+          </Heading>
+          <VStack spacing={2} align="stretch">
+            {todayItems.map((item) => renderItemRow(item, { showCategoryBadge: true }))}
+          </VStack>
+        </Box>
+      )}
+
       {/* Bring List */}
       <Box mb={6}>
         <Heading as="h3" fontWeight="semibold" fontSize="md" mb={2}>
@@ -340,33 +460,7 @@ export function EventLogistics({ eventId, groupId }: EventLogisticsProps) {
               Nothing on the bring list yet.
             </Text>
           )}
-          {bringItems.map((item) => {
-            const isSelf = item.assigned_to === userId;
-            return (
-              <HStack key={item.id} spacing={3} py={2} borderBottom="1px solid" borderColor="cork.100">
-                {renderTitleOrEdit(item)}
-                {editingId !== item.id && (
-                  <>
-                    {item.assigned_to ? (
-                      <Badge colorScheme="cork" fontSize="xs">
-                        {memberName(item.assigned_to)}
-                      </Badge>
-                    ) : (
-                      <Text color="ink.500" fontSize="xs">
-                        Unclaimed
-                      </Text>
-                    )}
-                    {(item.assigned_to === null || isSelf) && (
-                      <Button size="sm" variant="outline" onClick={() => handleBringClaimToggle(item)}>
-                        {isSelf ? 'Never mind' : "I'll bring this"}
-                      </Button>
-                    )}
-                    {renderItemControls(item)}
-                  </>
-                )}
-              </HStack>
-            );
-          })}
+          {bringItems.map((item) => renderItemRow(item))}
         </VStack>
       </Box>
 
@@ -381,34 +475,7 @@ export function EventLogistics({ eventId, groupId }: EventLogisticsProps) {
               No carpools set up yet.
             </Text>
           )}
-          {carpoolItems.map((item) => {
-            const hasClaimed = item.claims.some((c) => c.user_id === userId);
-            const isFull = item.claim_count >= (item.capacity ?? 0);
-            return (
-              <HStack key={item.id} spacing={3} py={2} borderBottom="1px solid" borderColor="cork.100">
-                {renderTitleOrEdit(item)}
-                {editingId !== item.id && (
-                  <>
-                    <Badge colorScheme="cork" fontSize="xs">
-                      Driver: {memberName(item.assigned_to)}
-                    </Badge>
-                    <Text fontSize="xs" color="ink.500">
-                      {item.claim_count}/{item.capacity} seats claimed
-                    </Text>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      isDisabled={!hasClaimed && isFull}
-                      onClick={() => handleCarpoolClaimToggle(item)}
-                    >
-                      {hasClaimed ? 'Unclaim seat' : 'Claim seat'}
-                    </Button>
-                    {renderItemControls(item)}
-                  </>
-                )}
-              </HStack>
-            );
-          })}
+          {carpoolItems.map((item) => renderItemRow(item))}
         </VStack>
       </Box>
 
@@ -454,6 +521,14 @@ export function EventLogistics({ eventId, groupId }: EventLogisticsProps) {
               </NumberInput>
             </FormControl>
           )}
+          <FormControl flex={1}>
+            <Input
+              type="date"
+              value={newDate}
+              onChange={(e) => setNewDate(e.target.value)}
+              aria-label="Item date (optional)"
+            />
+          </FormControl>
           <Button
             onClick={handleAddItem}
             isDisabled={!newTitle.trim() || (newCategory === 'carpool' && (!newAssignee || !newCapacity))}

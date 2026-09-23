@@ -1,6 +1,7 @@
 import React from 'react';
-import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act, within } from '@testing-library/react';
 import { ChakraProvider } from '@chakra-ui/react';
+import { format, addDays, subDays } from 'date-fns';
 import { EventChecklist } from '@/components/groups/EventChecklist';
 import { AuthProvider } from '@/lib/contexts/AuthContext';
 
@@ -36,6 +37,10 @@ const mockMembers = [
   { user_id: 'user-1', name: 'Alice', email: 'alice@example.com', role: 'admin' },
   { user_id: 'other-user', name: 'Bob', email: 'bob@example.com', role: 'member' },
 ];
+
+const todayStr = format(new Date(), 'yyyy-MM-dd');
+const tomorrowStr = format(addDays(new Date(), 1), 'yyyy-MM-dd');
+const yesterdayStr = format(subDays(new Date(), 1), 'yyyy-MM-dd');
 
 function mockFetchSequence(itemsResponse = mockItems, membersResponse = mockMembers) {
   global.fetch = jest.fn((url: string) => {
@@ -239,5 +244,92 @@ describe('EventChecklist Component', () => {
       await Promise.resolve();
     });
     expect(checklistCallCount).toBe(3);
+  });
+
+  describe('Today/date grouping', () => {
+    const groupedItems = [
+      { id: 'today-item', created_by: 'user-1', assigned_to: null, title: 'Today task', is_checked: false, item_date: todayStr },
+      { id: 'future-item', created_by: 'user-1', assigned_to: null, title: 'Future task', is_checked: false, item_date: tomorrowStr },
+      { id: 'past-item', created_by: 'user-1', assigned_to: null, title: 'Past task', is_checked: false, item_date: yesterdayStr },
+      { id: 'undated-item', created_by: 'user-1', assigned_to: null, title: 'Undated task', is_checked: false, item_date: null },
+    ];
+
+    it('renders a today-dated item inside a "Today" group above the general list', async () => {
+      mockFetchSequence(groupedItems);
+      renderWithProviders(<EventChecklist eventId="event-1" groupId="group-1" />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { level: 3, name: /today/i })).toBeInTheDocument();
+        expect(screen.getByText('Today task')).toBeInTheDocument();
+      });
+    });
+
+    it('renders future/past-dated items only in the general list, not duplicated under Today', async () => {
+      mockFetchSequence(groupedItems);
+      renderWithProviders(<EventChecklist eventId="event-1" groupId="group-1" />);
+
+      await waitFor(() => expect(screen.getByText('Future task')).toBeInTheDocument());
+      expect(screen.getByText('Past task')).toBeInTheDocument();
+      expect(screen.getAllByText('Today task')).toHaveLength(1);
+    });
+
+    it('shows a date badge on dated items and omits it on an undated item', async () => {
+      mockFetchSequence(groupedItems);
+      renderWithProviders(<EventChecklist eventId="event-1" groupId="group-1" />);
+
+      await waitFor(() => expect(screen.getByText('Today task')).toBeInTheDocument());
+
+      const todayLabel = format(new Date(), 'MMM d');
+      const todayRow = screen.getByText('Today task').closest('div') as HTMLElement;
+      expect(within(todayRow).getByText(todayLabel)).toBeInTheDocument();
+
+      const undatedRow = screen.getByText('Undated task').closest('div') as HTMLElement;
+      expect(within(undatedRow).queryByText(todayLabel)).not.toBeInTheDocument();
+    });
+
+    it('does not show a "Today" heading when no item is dated today', async () => {
+      mockFetchSequence([groupedItems[1], groupedItems[2], groupedItems[3]]);
+      renderWithProviders(<EventChecklist eventId="event-1" groupId="group-1" />);
+
+      await waitFor(() => expect(screen.getByText('Future task')).toBeInTheDocument());
+      expect(screen.queryByRole('heading', { level: 3, name: /today/i })).not.toBeInTheDocument();
+    });
+
+    it('regroups an item on a poll tick when its date rolls from today to yesterday, without a reload', async () => {
+      jest.useFakeTimers();
+
+      let checklistCallCount = 0;
+      global.fetch = jest.fn((url: string) => {
+        if (typeof url === 'string' && url.includes('/checklist')) {
+          checklistCallCount += 1;
+          const item_date = checklistCallCount === 1 ? todayStr : yesterdayStr;
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              success: true,
+              data: [{ id: 'rollover-item', created_by: 'user-1', assigned_to: null, title: 'Rollover task', is_checked: false, item_date }],
+            }),
+          });
+        }
+        return Promise.resolve({ ok: true, json: async () => ({ success: true, data: { members: mockMembers } }) });
+      }) as unknown as typeof fetch;
+
+      renderWithProviders(<EventChecklist eventId="event-1" groupId="group-1" />);
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await waitFor(() => expect(screen.getByRole('heading', { level: 3, name: /today/i })).toBeInTheDocument());
+
+      await act(async () => {
+        jest.advanceTimersByTime(5000);
+        await Promise.resolve();
+      });
+
+      await waitFor(() => {
+        expect(screen.queryByRole('heading', { level: 3, name: /today/i })).not.toBeInTheDocument();
+        expect(screen.getByText('Rollover task')).toBeInTheDocument();
+      });
+    });
   });
 });

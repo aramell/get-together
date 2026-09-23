@@ -1,5 +1,6 @@
 import { getClient } from '@/lib/db/client';
 import { getUserGroupRole } from '@/lib/db/queries';
+import { isValidItemDate } from '@/lib/services/itemDateValidation';
 
 export interface ChecklistItem {
   id: string;
@@ -11,6 +12,7 @@ export interface ChecklistItem {
   is_checked: boolean;
   checked_by: string | null;
   checked_at: string | null;
+  item_date: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -40,7 +42,8 @@ export async function addChecklistItem(
   groupId: string,
   userId: string,
   title: string,
-  assignedTo?: string | null
+  assignedTo?: string | null,
+  itemDate?: string | null
 ): Promise<ServiceResult<ChecklistItem>> {
   const client = await getClient();
 
@@ -50,6 +53,15 @@ export async function addChecklistItem(
         success: false,
         message: 'Title must be between 1 and 255 characters',
         error: 'INVALID_TITLE',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    if (itemDate && !isValidItemDate(itemDate)) {
+      return {
+        success: false,
+        message: 'Item date must be a valid date (YYYY-MM-DD)',
+        error: 'INVALID_ITEM_DATE',
         errorCode: 'VALIDATION_ERROR',
       };
     }
@@ -86,10 +98,10 @@ export async function addChecklistItem(
     }
 
     const insertResult = await client.query(
-      `INSERT INTO event_checklist_items (event_id, group_id, created_by, assigned_to, title)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, event_id, group_id, created_by, assigned_to, title, is_checked, checked_by, checked_at, created_at, updated_at`,
-      [eventId, groupId, userId, assignedTo || null, title.trim()]
+      `INSERT INTO event_checklist_items (event_id, group_id, created_by, assigned_to, title, item_date)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, event_id, group_id, created_by, assigned_to, title, is_checked, checked_by, checked_at, item_date, created_at, updated_at`,
+      [eventId, groupId, userId, assignedTo || null, title.trim(), itemDate || null]
     );
 
     return {
@@ -141,7 +153,7 @@ export async function getChecklistItems(
     }
 
     const result = await client.query(
-      `SELECT id, event_id, group_id, created_by, assigned_to, title, is_checked, checked_by, checked_at, created_at, updated_at
+      `SELECT id, event_id, group_id, created_by, assigned_to, title, is_checked, checked_by, checked_at, item_date, created_at, updated_at
        FROM event_checklist_items
        WHERE event_id = $1
        ORDER BY created_at ASC`,
@@ -170,7 +182,7 @@ export async function updateChecklistItem(
   groupId: string,
   itemId: string,
   userId: string,
-  updates: { is_checked?: boolean; title?: string; assigned_to?: string | null }
+  updates: { is_checked?: boolean; title?: string; assigned_to?: string | null; item_date?: string | null }
 ): Promise<ServiceResult<ChecklistItem>> {
   const client = await getClient();
 
@@ -202,7 +214,8 @@ export async function updateChecklistItem(
     }
     const isAdmin = userRole === 'admin';
 
-    const isMetadataUpdate = updates.title !== undefined || updates.assigned_to !== undefined;
+    const isMetadataUpdate =
+      updates.title !== undefined || updates.assigned_to !== undefined || updates.item_date !== undefined;
     const isCheckToggle = updates.is_checked !== undefined;
 
     if (isMetadataUpdate) {
@@ -221,6 +234,15 @@ export async function updateChecklistItem(
           success: false,
           message: 'Title must be between 1 and 255 characters',
           error: 'INVALID_TITLE',
+          errorCode: 'VALIDATION_ERROR',
+        };
+      }
+
+      if (updates.item_date !== undefined && updates.item_date !== null && !isValidItemDate(updates.item_date)) {
+        return {
+          success: false,
+          message: 'Item date must be a valid date (YYYY-MM-DD)',
+          error: 'INVALID_ITEM_DATE',
           errorCode: 'VALIDATION_ERROR',
         };
       }
@@ -263,6 +285,10 @@ export async function updateChecklistItem(
       setClauses.push(`assigned_to = $${paramIndex++}`);
       values.push(updates.assigned_to);
     }
+    if (updates.item_date !== undefined) {
+      setClauses.push(`item_date = $${paramIndex++}`);
+      values.push(updates.item_date);
+    }
     if (updates.is_checked !== undefined) {
       setClauses.push(`is_checked = $${paramIndex++}`);
       values.push(updates.is_checked);
@@ -276,7 +302,7 @@ export async function updateChecklistItem(
 
     const updateResult = await client.query(
       `UPDATE event_checklist_items SET ${setClauses.join(', ')} WHERE id = $${paramIndex}
-       RETURNING id, event_id, group_id, created_by, assigned_to, title, is_checked, checked_by, checked_at, created_at, updated_at`,
+       RETURNING id, event_id, group_id, created_by, assigned_to, title, is_checked, checked_by, checked_at, item_date, created_at, updated_at`,
       values
     );
 
