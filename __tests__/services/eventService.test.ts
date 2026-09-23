@@ -1,6 +1,14 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { createEvent, getEventMomentum } from '@/lib/services/eventService';
 
+// Helper function to generate future dates
+function getFutureDate(daysFromNow: number = 7): string {
+  const date = new Date();
+  date.setDate(date.getDate() + daysFromNow);
+  date.setHours(19, 0, 0, 0);
+  return date.toISOString();
+}
+
 // Mock database client
 jest.mock('@/lib/db/client', () => ({
   getClient: jest.fn(),
@@ -32,9 +40,10 @@ describe('Event Service - createEvent', () => {
 
   describe('Successful event creation', () => {
     it('should create event with all fields and auto-RSVP creator as "in"', async () => {
+      const futureDate = getFutureDate(7);
       const eventData = {
         title: 'Pizza Night at Downtown',
-        date: '2026-04-20T19:00:00Z',
+        date: futureDate,
         threshold: 5,
         description: 'Join us for a fun evening!',
       };
@@ -44,6 +53,7 @@ describe('Event Service - createEvent', () => {
       const eventId = '770e8400-e29b-41d4-a716-446655440002';
       const rsvpId = '880e8400-e29b-41d4-a716-446655440003';
 
+      const now = new Date().toISOString();
       mockClient.query
         .mockResolvedValueOnce({
           rows: [{
@@ -55,8 +65,8 @@ describe('Event Service - createEvent', () => {
             date: eventData.date,
             threshold: eventData.threshold,
             status: 'proposal',
-            created_at: '2026-03-16T10:00:00Z',
-            updated_at: '2026-03-16T10:00:00Z',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
           }],
         })
         .mockResolvedValueOnce({
@@ -65,7 +75,7 @@ describe('Event Service - createEvent', () => {
             event_id: eventId,
             user_id: validUserId,
             status: 'in',
-            responded_at: '2026-03-16T10:00:00Z',
+            responded_at: now,
           }],
         });
 
@@ -80,9 +90,10 @@ describe('Event Service - createEvent', () => {
     });
 
     it('should create event with minimal fields (no threshold, no description)', async () => {
+      const futureDate = getFutureDate(10);
       const eventData = {
         title: 'Hiking Trip',
-        date: '2026-05-10T08:00:00Z',
+        date: futureDate,
       };
 
       getUserGroupRole.mockResolvedValue('admin');
@@ -101,8 +112,8 @@ describe('Event Service - createEvent', () => {
             date: eventData.date,
             threshold: null,
             status: 'proposal',
-            created_at: '2026-03-16T10:00:00Z',
-            updated_at: '2026-03-16T10:00:00Z',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
           }],
         })
         .mockResolvedValueOnce({
@@ -125,9 +136,10 @@ describe('Event Service - createEvent', () => {
 
   describe('Validation errors', () => {
     it('should reject event with invalid group ID', async () => {
+      const futureDate = getFutureDate(7);
       const eventData = {
         title: 'Test Event',
-        date: '2026-04-20T19:00:00Z',
+        date: futureDate,
       };
 
       const result = await createEvent('', validUserId, eventData);
@@ -141,7 +153,7 @@ describe('Event Service - createEvent', () => {
     it('should reject event with invalid user ID', async () => {
       const eventData = {
         title: 'Test Event',
-        date: '2026-04-20T19:00:00Z',
+        date: getFutureDate(7),
       };
 
       const result = await createEvent(validGroupId, '', eventData);
@@ -155,7 +167,7 @@ describe('Event Service - createEvent', () => {
     it('should reject event with missing title', async () => {
       const eventData = {
         title: '',
-        date: '2026-04-20T19:00:00Z',
+        date: getFutureDate(7),
       };
 
       getUserGroupRole.mockResolvedValue('member');
@@ -170,7 +182,7 @@ describe('Event Service - createEvent', () => {
     it('should reject event with title exceeding 255 characters', async () => {
       const eventData = {
         title: 'A'.repeat(256),
-        date: '2026-04-20T19:00:00Z',
+        date: getFutureDate(7),
       };
 
       getUserGroupRole.mockResolvedValue('member');
@@ -214,7 +226,7 @@ describe('Event Service - createEvent', () => {
     it('should reject event with invalid threshold (zero)', async () => {
       const eventData = {
         title: 'Test Event',
-        date: '2026-04-20T19:00:00Z',
+        date: getFutureDate(7),
         threshold: 0,
       };
 
@@ -230,7 +242,7 @@ describe('Event Service - createEvent', () => {
     it('should reject event with invalid threshold (negative)', async () => {
       const eventData = {
         title: 'Test Event',
-        date: '2026-04-20T19:00:00Z',
+        date: getFutureDate(7),
         threshold: -5,
       };
 
@@ -245,7 +257,7 @@ describe('Event Service - createEvent', () => {
     it('should reject event with threshold exceeding 1000', async () => {
       const eventData = {
         title: 'Test Event',
-        date: '2026-04-20T19:00:00Z',
+        date: getFutureDate(7),
         threshold: 1001,
       };
 
@@ -261,7 +273,7 @@ describe('Event Service - createEvent', () => {
     it('should reject event with description exceeding 2000 characters', async () => {
       const eventData = {
         title: 'Test Event',
-        date: '2026-04-20T19:00:00Z',
+        date: getFutureDate(7),
         description: 'A'.repeat(2001),
       };
 
@@ -279,7 +291,7 @@ describe('Event Service - createEvent', () => {
     it('should reject if user is not a group member', async () => {
       const eventData = {
         title: 'Test Event',
-        date: '2026-04-20T19:00:00Z',
+        date: getFutureDate(7),
       };
 
       getUserGroupRole.mockResolvedValue(null);
@@ -296,7 +308,7 @@ describe('Event Service - createEvent', () => {
     it('should handle event creation database failure', async () => {
       const eventData = {
         title: 'Test Event',
-        date: '2026-04-20T19:00:00Z',
+        date: getFutureDate(7),
       };
 
       getUserGroupRole.mockResolvedValue('member');
@@ -312,7 +324,7 @@ describe('Event Service - createEvent', () => {
     it('should handle RSVP creation database failure', async () => {
       const eventData = {
         title: 'Test Event',
-        date: '2026-04-20T19:00:00Z',
+        date: getFutureDate(7),
       };
 
       const eventId = '770e8400-e29b-41d4-a716-446655440002';
@@ -329,8 +341,8 @@ describe('Event Service - createEvent', () => {
             date: eventData.date,
             threshold: null,
             status: 'proposal',
-            created_at: '2026-03-16T10:00:00Z',
-            updated_at: '2026-03-16T10:00:00Z',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
           }],
         })
         .mockResolvedValueOnce({ rows: [] });
@@ -345,7 +357,7 @@ describe('Event Service - createEvent', () => {
     it('should handle duplicate event constraint violation', async () => {
       const eventData = {
         title: 'Test Event',
-        date: '2026-04-20T19:00:00Z',
+        date: getFutureDate(7),
       };
 
       getUserGroupRole.mockResolvedValue('member');
@@ -363,7 +375,7 @@ describe('Event Service - createEvent', () => {
     it('should handle generic database errors', async () => {
       const eventData = {
         title: 'Test Event',
-        date: '2026-04-20T19:00:00Z',
+        date: getFutureDate(7),
       };
 
       getUserGroupRole.mockResolvedValue('member');
@@ -380,7 +392,7 @@ describe('Event Service - createEvent', () => {
     it('should always release database connection', async () => {
       const eventData = {
         title: 'Test Event',
-        date: '2026-04-20T19:00:00Z',
+        date: getFutureDate(7),
       };
 
       getUserGroupRole.mockResolvedValue('member');
@@ -396,7 +408,7 @@ describe('Event Service - createEvent', () => {
     it('should auto-create RSVP with status "in" for event creator', async () => {
       const eventData = {
         title: 'Test Event',
-        date: '2026-04-20T19:00:00Z',
+        date: getFutureDate(7),
       };
 
       getUserGroupRole.mockResolvedValue('member');
@@ -415,8 +427,8 @@ describe('Event Service - createEvent', () => {
             date: eventData.date,
             threshold: null,
             status: 'proposal',
-            created_at: '2026-03-16T10:00:00Z',
-            updated_at: '2026-03-16T10:00:00Z',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
           }],
         })
         .mockResolvedValueOnce({
@@ -442,7 +454,7 @@ describe('Event Service - createEvent', () => {
     it('should handle description with special characters', async () => {
       const eventData = {
         title: 'Test Event',
-        date: '2026-04-20T19:00:00Z',
+        date: getFutureDate(7),
         description: 'Test with special chars: @#$%^&*()',
       };
 
@@ -462,8 +474,8 @@ describe('Event Service - createEvent', () => {
             date: eventData.date,
             threshold: null,
             status: 'proposal',
-            created_at: '2026-03-16T10:00:00Z',
-            updated_at: '2026-03-16T10:00:00Z',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
           }],
         })
         .mockResolvedValueOnce({
@@ -485,7 +497,7 @@ describe('Event Service - createEvent', () => {
     it('should handle title with whitespace trimming', async () => {
       const eventData = {
         title: '  Test Event  ',
-        date: '2026-04-20T19:00:00Z',
+        date: getFutureDate(7),
       };
 
       getUserGroupRole.mockResolvedValue('member');
@@ -504,8 +516,8 @@ describe('Event Service - createEvent', () => {
             date: eventData.date,
             threshold: null,
             status: 'proposal',
-            created_at: '2026-03-16T10:00:00Z',
-            updated_at: '2026-03-16T10:00:00Z',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
           }],
         })
         .mockResolvedValueOnce({
@@ -526,7 +538,7 @@ describe('Event Service - createEvent', () => {
     it('should handle maximum threshold value (1000)', async () => {
       const eventData = {
         title: 'Test Event',
-        date: '2026-04-20T19:00:00Z',
+        date: getFutureDate(7),
         threshold: 1000,
       };
 
@@ -546,8 +558,8 @@ describe('Event Service - createEvent', () => {
             date: eventData.date,
             threshold: 1000,
             status: 'proposal',
-            created_at: '2026-03-16T10:00:00Z',
-            updated_at: '2026-03-16T10:00:00Z',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
           }],
         })
         .mockResolvedValueOnce({

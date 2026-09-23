@@ -1,5 +1,6 @@
 'use server';
 
+import { z } from 'zod';
 import { getClient } from '@/lib/db/client';
 import { getUserGroupRole } from '@/lib/db/queries';
 import { eventCreateSchema, EventProposal, RsvpStatus } from '@/lib/validation/eventSchema';
@@ -135,6 +136,17 @@ export async function createEvent(
     };
   } catch (error: any) {
     console.error('Error creating event:', error);
+
+    // Handle Zod validation errors
+    if (error instanceof z.ZodError) {
+      const firstIssue = error.issues?.[0];
+      return {
+        success: false,
+        message: firstIssue?.message || 'Validation error',
+        error: error.message,
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
 
     // Handle specific error types
     if (error.message?.includes('validation')) {
