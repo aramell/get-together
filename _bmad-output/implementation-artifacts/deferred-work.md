@@ -17,3 +17,11 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-13-3-date-day-context-checklist-logistics.md`
   summary: Visually distinguish overdue (past-dated) checklist/logistics items from future-dated ones — both currently render the same neutral `Badge colorScheme="cork"`.
   evidence: Blind-hunter review confirmed there's no visual "overdue" cue. Deferred rather than fixed in this story because `epic-13-context.md` (this story's loaded context) states "No visual identity changes this pass — everything built from existing primitives ... not restyled," which forecloses introducing a new distinguishing color this pass.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-13-4-customizable-widget-layout.md`
+  summary: `EventPlanningTab` never checks `useAuth()`'s `isLoading`/`isAuthenticated` flags, only `accessToken` truthiness — an expired/refresh-failed session could show an indefinite "Loading dashboard..." spinner instead of an auth/error state.
+  evidence: Blind-hunter review found this, but confirmed it's identical to `EventChecklist.tsx`'s own `if (!accessToken) return` gate — a pre-existing, app-wide pattern across every polling widget, not something this story introduced. A proper fix needs to be applied consistently across all of them at once.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-13-4-customizable-widget-layout.md`
+  summary: No concurrency/conflict handling on the shared per-group dashboard widget layout — `PATCH` is a full-replace with no version/timestamp check, so two members customizing simultaneously silently last-write-wins.
+  evidence: Blind-hunter review confirmed there's no versioning/conflict-detection pattern anywhere in this codebase to build the correct fix on (no shared per-group setting has one). Bounded risk — no data corruption, self-heals on the next ~5s poll — customize mode is already an infrequent action, and simultaneous conflicting edits from two members are rarer still.

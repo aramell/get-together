@@ -4,6 +4,7 @@ import { ChakraProvider } from '@chakra-ui/react';
 import { EventDetail } from '@/components/groups/EventDetail';
 import { AuthProvider } from '@/lib/contexts/AuthContext';
 import { getGroupDetails } from '@/lib/services/groupService';
+import { defaultWidgetLayout } from '@/lib/utils/dashboardWidgets';
 
 // Mock the fetch API
 global.fetch = jest.fn();
@@ -84,6 +85,13 @@ const mockFetchWith = (
 
     if (method === 'GET' && /\/events\/event-1(\?.*)?$/.test(url.split('?')[0])) {
       return { ok: true, json: async () => ({ success: true, data: event }) };
+    }
+
+    // Story 13.4: the real GET /dashboard-widgets endpoint always returns
+    // all 5 widgets (defaulting server-side when a group has no rows yet) --
+    // never an empty array, unlike the generic list fallback below.
+    if (method === 'GET' && /\/dashboard-widgets(\?.*)?$/.test(url.split('?')[0])) {
+      return { ok: true, json: async () => ({ success: true, data: defaultWidgetLayout() }) };
     }
 
     return { ok: true, json: async () => ({ success: true, data: [] }) };
