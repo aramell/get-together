@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Key screen — Event Dashboard (authenticated)</title>
+<style>
+/*
+  Illustrates (EXPERIENCE.md):
+  - Information Architecture: "Event Dashboard" row (header = former Details content;
+    widgets below in configured order) and "Widget customize mode" row.
+  - Component Patterns: "Dashboard widget", "Checklist / Logistics item"
+    (Today-group date badge), "Widget reorder control".
+  - State Patterns: "Live update from another member", "Cold load, no data in a widget"
+    (Photos/Polls shown lightly populated, not exhaustively).
+  - Key Flows, Flow 1 (Andrew) steps 2-4: header, configured widget order (Timeline +
+    Checklist kept near top per that group's layout), Checklist's "Today" group
+    surfacing "Make dinner — assigned to Priya".
+  - Key Flows, Flow 2 (Priya): the "Customize" control this screen exposes.
+
+  Visual note: DESIGN.md carries no color/typography/spacing tokens this pass (existing
+  Chakra UI v2 look kept as-is, no visual refresh). This mock approximates an ordinary
+  Chakra-style surface (system sans-serif stack, white/light-gray cards, a single
+  modest accent, simple 8px radii) rather than inventing a new visual identity.
+  Trip name/dates/location are illustrative placeholders — not a spec decision, just
+  concrete-enough content to avoid lorem ipsum.
+*/
+:root {
+  --accent: #3182CE;
+  --accent-soft: #EBF8FF;
+  --surface: #FFFFFF;
+  --surface-sunken: #F7FAFC;
+  --border: #E2E8F0;
+  --ink: #1A202C;
+  --ink-soft: #718096;
+  --radius: 8px;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: #EDF2F7;
+  color: var(--ink);
+  display: flex;
+  justify-content: center;
+  padding: 24px 12px;
+}
+.browser {
+  width: 720px;
+  max-width: 100%;
+  background: var(--surface);
+  border-radius: 10px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.chrome {
+  background: #F1F1F1;
+  border-bottom: 1px solid var(--border);
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dot { width: 10px; height: 10px; border-radius: 50%; background: #D0D0D0; }
+.urlbar {
+  flex: 1;
+  background: #FFF;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.page { padding: 20px; }
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.header h1 { font-size: 20px; margin: 0 0 4px; }
+.header .meta { font-size: 13px; color: var(--ink-soft); }
+.header .rsvp {
+  display: inline-block;
+  margin-top: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+.header .comments {
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-top: 8px;
+}
+.customize-btn {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 6px 12px;
+  white-space: nowrap;
+}
+.live-note {
+  font-size: 11px;
+  color: #38A169;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 10px;
+}
+.live-dot { width: 6px; height: 6px; border-radius: 50%; background: #38A169; }
+
+.widget {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+.widget-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--surface-sunken);
+  border-bottom: 1px solid var(--border);
+}
+.widget-head h2 { font-size: 13px; margin: 0; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-soft); }
+.widget-body { padding: 10px 14px; }
+
+.timeline-item { display: flex; gap: 10px; padding: 6px 0; font-size: 13px; }
+.timeline-item .time { color: var(--ink-soft); width: 56px; flex-shrink: 0; }
+
+.today-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 2px 0 6px;
+}
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 13px;
+}
+.check-row input { accent-color: var(--accent); }
+.check-row .assignee {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--ink-soft);
+  background: var(--surface-sunken);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+.date-badge {
+  font-size: 10px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 999px;
+  padding: 1px 6px;
+  margin-left: 6px;
+}
+hr.section { border: none; border-top: 1px solid var(--border); margin: 8px 0; }
+
+.light-row { display: flex; justify-content: space-between; font-size: 13px; padding: 5px 0; color: var(--ink); }
+.light-row .sub { color: var(--ink-soft); font-size: 12px; }
+
+.photo-grid { display: flex; gap: 6px; }
+.photo-thumb { width: 48px; height: 48px; border-radius: 6px; background: linear-gradient(135deg,#CBD5E0,#A0AEC0); }
+
+.poll-bar-track { background: var(--surface-sunken); border-radius: 4px; height: 8px; margin-top: 3px; overflow: hidden; }
+.poll-bar-fill { background: var(--accent); height: 100%; }
+</style>
+</head>
+<body>
+<div class="browser">
+  <div class="chrome">
+    <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+    <div class="urlbar">gettogether.app/e/lake-tahoe-weekend</div>
+  </div>
+  <div class="page">
+
+    <div class="header">
+      <div>
+        <h1>Lake Tahoe Weekend</h1>
+        <div class="meta">Sep 22 – 25 · South Lake Tahoe, CA</div>
+        <div class="rsvp">8 going · 1 maybe</div>
+        <div class="comments">💬 3 comments</div>
+        <div class="live-note"><span class="live-dot"></span>Live — updates automatically</div>
+      </div>
+      <button class="customize-btn">Customize</button>
+    </div>
+
+    <!-- Timeline widget — kept near top per this group's configured order -->
+    <div class="widget">
+      <div class="widget-head"><h2>Timeline</h2></div>
+      <div class="widget-body">
+        <div class="timeline-item"><span class="time">Today</span> Check-in at cabin, 4:00 PM</div>
+        <div class="timeline-item"><span class="time">Today</span> Group dinner, 7:00 PM</div>
+        <div class="timeline-item"><span class="time">Tomorrow</span> Hike to Eagle Falls, 9:00 AM</div>
+      </div>
+    </div>
+
+    <!-- Checklist widget — most detailed; Today group is the scenario's focus -->
+    <div class="widget">
+      <div class="widget-head"><h2>Checklist</h2></div>
+      <div class="widget-body">
+        <div class="today-label">Today</div>
+        <div class="check-row">
+          <input type="checkbox">
+          <span>Make dinner<span class="date-badge">tonight</span></span>
+          <span class="assignee">Priya</span>
+        </div>
+        <hr class="section">
+        <div class="check-row">
+          <input type="checkbox" checked>
+          <span>Book the cabin</span>
+          <span class="assignee">Andrew</span>
+        </div>
+        <div class="check-row">
+          <input type="checkbox">
+          <span>Bring board games</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Logistics — lighter weight -->
+    <div class="widget">
+      <div class="widget-head"><h2>Logistics</h2></div>
+      <div class="widget-body">
+        <div class="light-row"><span>Bring: Firewood</span><span class="sub">claimed — Marcus</span></div>
+        <div class="light-row"><span>Carpool: Andrew's car</span><span class="sub">3 seats claimed</span></div>
+      </div>
+    </div>
+
+    <!-- Photos — lighter weight -->
+    <div class="widget">
+      <div class="widget-head"><h2>Photos</h2></div>
+      <div class="widget-body">
+        <div class="photo-grid">
+          <div class="photo-thumb"></div><div class="photo-thumb"></div><div class="photo-thumb"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Polls — lighter weight -->
+    <div class="widget">
+      <div class="widget-head"><h2>Polls</h2></div>
+      <div class="widget-body">
+        <div class="light-row"><span>Sunday brunch spot?</span><span class="sub">5 votes</span></div>
+        <div class="poll-bar-track"><div class="poll-bar-fill" style="width:70%"></div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

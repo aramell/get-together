@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Key screen — Event Dashboard (customize mode)</title>
+<style>
+/*
+  Illustrates (EXPERIENCE.md):
+  - Information Architecture: "Widget customize mode" row (reorder/show-hide,
+    one shared layout per group, visible to every member and the no-login link).
+  - Component Patterns: "Widget reorder control" row (must offer a non-drag
+    equivalent -- shown here as per-widget move-up/move-down buttons, not drag).
+  - Interaction Primitives: "Widget reorder/hide must be operable without a
+    mouse" and "Customization is explicit... never reorders itself".
+  - Accessibility Floor: "Widget reorder/hide is keyboard-operable (e.g.
+    move-up/move-down controls per widget), not drag-and-drop only."
+  - State Patterns: "Reorder in progress" (optimistic -- acting member's own
+    screen updates immediately; a Save/Done action commits it for the group).
+  - Key Flows, Flow 2 (Priya, two days before the trip): hides Polls, moves
+    Checklist and Timeline above Logistics and Photos.
+
+  Visual note: same approximated Chakra-style surface as
+  key-dashboard-authenticated.html (no DESIGN.md tokens this pass -- existing
+  Chakra UI v2 look kept as-is). Same trip/content for continuity across the
+  three mocks; illustrative placeholders, not spec decisions.
+*/
+:root {
+  --accent: #3182CE;
+  --accent-soft: #EBF8FF;
+  --surface: #FFFFFF;
+  --surface-sunken: #F7FAFC;
+  --border: #E2E8F0;
+  --ink: #1A202C;
+  --ink-soft: #718096;
+  --radius: 8px;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: #EDF2F7;
+  color: var(--ink);
+  display: flex;
+  justify-content: center;
+  padding: 24px 12px;
+}
+.browser {
+  width: 720px;
+  max-width: 100%;
+  background: var(--surface);
+  border-radius: 10px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.chrome {
+  background: #F1F1F1;
+  border-bottom: 1px solid var(--border);
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dot { width: 10px; height: 10px; border-radius: 50%; background: #D0D0D0; }
+.urlbar {
+  flex: 1;
+  background: #FFF;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.page { padding: 20px; }
+
+.customize-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--accent-soft);
+  border: 1px solid #BEE3F8;
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: var(--accent);
+  font-weight: 600;
+}
+.customize-banner .hint {
+  font-weight: 400;
+  color: #2B6CB0;
+  font-size: 12px;
+}
+.done-btn {
+  font-size: 12px;
+  font-weight: 700;
+  color: #FFF;
+  background: var(--accent);
+  border: none;
+  border-radius: 6px;
+  padding: 7px 14px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.header h1 { font-size: 20px; margin: 0 0 4px; }
+.header .meta { font-size: 13px; color: var(--ink-soft); }
+
+.widget {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.widget.hidden-widget {
+  opacity: 0.5;
+}
+.widget-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px 8px 6px;
+  background: var(--surface-sunken);
+  border-bottom: 1px solid var(--border);
+  gap: 8px;
+}
+.widget-head-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.reorder-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.reorder-controls button {
+  width: 20px;
+  height: 16px;
+  font-size: 9px;
+  line-height: 1;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink-soft);
+  border-radius: 3px;
+  padding: 0;
+}
+.reorder-controls button:disabled {
+  opacity: 0.35;
+}
+.widget-head h2 { font-size: 13px; margin: 0; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-soft); }
+.widget-body { padding: 8px 14px 10px 42px; font-size: 12px; color: var(--ink-soft); }
+
+.visibility-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+.switch {
+  width: 30px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--border);
+  position: relative;
+  flex-shrink: 0;
+}
+.switch.on { background: var(--accent); }
+.switch .knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #FFF;
+}
+.switch.on .knob { left: 16px; }
+
+.order-badge {
+  font-size: 10px;
+  color: var(--ink-soft);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  min-width: 14px;
+  text-align: center;
+}
+</style>
+</head>
+<body>
+<div class="browser">
+  <div class="chrome">
+    <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+    <div class="urlbar">gettogether.app/e/lake-tahoe-weekend</div>
+  </div>
+  <div class="page">
+
+    <div class="customize-banner">
+      <span>Customizing dashboard layout</span>
+      <span class="hint">Changes apply to everyone in the group, including the shared link</span>
+      <button class="done-btn">Done</button>
+    </div>
+
+    <div class="header">
+      <div>
+        <h1>Lake Tahoe Weekend</h1>
+        <div class="meta">Sep 22 – 25 · South Lake Tahoe, CA</div>
+      </div>
+    </div>
+
+    <!-- Priya has already moved Timeline and Checklist above Logistics/Photos;
+         reorder controls are keyboard-operable (move-up/move-down), not drag. -->
+    <div class="widget">
+      <div class="widget-head">
+        <div class="widget-head-left">
+          <span class="order-badge">1</span>
+          <div class="reorder-controls">
+            <button disabled aria-label="Move Timeline up">▲</button>
+            <button aria-label="Move Timeline down">▼</button>
+          </div>
+          <h2>Timeline</h2>
+        </div>
+        <div class="visibility-toggle">
+          Shown
+          <div class="switch on"><div class="knob"></div></div>
+        </div>
+      </div>
+      <div class="widget-body">Check-in, group dinner, tomorrow's hike…</div>
+    </div>
+
+    <div class="widget">
+      <div class="widget-head">
+        <div class="widget-head-left">
+          <span class="order-badge">2</span>
+          <div class="reorder-controls">
+            <button aria-label="Move Checklist up">▲</button>
+            <button aria-label="Move Checklist down">▼</button>
+          </div>
+          <h2>Checklist</h2>
+        </div>
+        <div class="visibility-toggle">
+          Shown
+          <div class="switch on"><div class="knob"></div></div>
+        </div>
+      </div>
+      <div class="widget-body">Make dinner (tonight, Priya), book the cabin, board games…</div>
+    </div>
+
+    <div class="widget">
+      <div class="widget-head">
+        <div class="widget-head-left">
+          <span class="order-badge">3</span>
+          <div class="reorder-controls">
+            <button aria-label="Move Logistics up">▲</button>
+            <button aria-label="Move Logistics down">▼</button>
+          </div>
+          <h2>Logistics</h2>
+        </div>
+        <div class="visibility-toggle">
+          Shown
+          <div class="switch on"><div class="knob"></div></div>
+        </div>
+      </div>
+      <div class="widget-body">Firewood claimed, carpool 3 seats claimed…</div>
+    </div>
+
+    <div class="widget">
+      <div class="widget-head">
+        <div class="widget-head-left">
+          <span class="order-badge">4</span>
+          <div class="reorder-controls">
+            <button aria-label="Move Photos up">▲</button>
+            <button aria-label="Move Photos down">▼</button>
+          </div>
+          <h2>Photos</h2>
+        </div>
+        <div class="visibility-toggle">
+          Shown
+          <div class="switch on"><div class="knob"></div></div>
+        </div>
+      </div>
+      <div class="widget-body">3 photos so far…</div>
+    </div>
+
+    <!-- Polls -- Priya is hiding this one; toggled off, dimmed, still keyboard-reachable -->
+    <div class="widget hidden-widget">
+      <div class="widget-head">
+        <div class="widget-head-left">
+          <span class="order-badge">5</span>
+          <div class="reorder-controls">
+            <button aria-label="Move Polls up">▲</button>
+            <button disabled aria-label="Move Polls down">▼</button>
+          </div>
+          <h2>Polls</h2>
+        </div>
+        <div class="visibility-toggle">
+          Hidden
+          <div class="switch"><div class="knob"></div></div>
+        </div>
+      </div>
+      <div class="widget-body">Hidden from the shared dashboard — won't show for any member or the no-login link.</div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

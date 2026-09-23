@@ -4,10 +4,13 @@ stepsCompleted:
   - step-02-design-epics
   - step-02-update-epics-for-prd-2026-06-30
   - step-03-create-stories
+  - step-03-add-epic-13-dashboard-refinement-2026-09-23
 inputDocuments:
   - "prd.md (Product Requirements Document — updated 2026-06-30 with FR59-FR70, NFR30-NFR32)"
   - "architecture.md (Architecture Decision Document with Next.js starter)"
   - "ux-design-specification.md (UX Design Specification with Chakra UI)"
+  - "ux-designs/ux-get-together-2026-09-23/EXPERIENCE.md (bmad-ux spine, status: final — source for Epic 13)"
+  - "ux-designs/ux-get-together-2026-09-23/DESIGN.md (bmad-ux spine, status: final — source for Epic 13)"
 workflowType: create-epics-and-stories
 project_name: get-together
 user_name: Andrewramell
@@ -282,6 +285,39 @@ Each event gains a new "Planning" tab (left-side nav, alongside the existing eve
 4. **12.4 — Event Timeline/Agenda** (run-of-show for the event, refetch-on-focus)
 5. **12.5 — Logistics Coordination** (carpooling, who's-bringing-what)
 6. **12.6 — Quick Polls** (open decisions, e.g. "pizza or tacos?", 5s polling)
+
+---
+
+### Epic 13: Event Dashboard Refinement
+
+> **Note:** Added ad hoc post-UX-review (2026-09-23), same pattern as Epics 11 and 12 — not derived from an FR in the Requirements Inventory above and not covered in the Coverage Map below. Source: `_bmad-output/planning-artifacts/ux-designs/ux-get-together-2026-09-23/EXPERIENCE.md` and `DESIGN.md` (both `status: final`). Extends Epic 6 (Comments) and Epic 12 (Event Planning Dashboard), both already `done`.
+
+The Planning tab (Epic 12) becomes the actual one-stop, customizable dashboard the group lives in before and during a trip — reachable without login for a quick check, with item-level discussion instead of separate group texts/emails.
+
+**User Outcome:** A group member can open one link — logged in or not — and get a single, current, customized-to-the-group view of everything about the trip (tasks, schedule, who's bringing what, open decisions, discussion), instead of piecing it together from a chat thread.
+
+**UX Design Requirements covered:** UX-DR1–UX-DR8 (see the finalized UX design contract above).
+
+**Technical Considerations:**
+- Folding "Details" into the Dashboard header retires `EventDetail.tsx`'s tab split; the Dashboard becomes the only landing view for an event
+- Extending live-update to Timeline and Photos means adopting the same ~5s polling pattern already used by Checklist/Logistics/Polls (`EventPlanningTab.tsx` children) — no new sync mechanism, just wider application of the existing one
+- Checklist and Logistics items need a new optional date column (or day-of-trip reference) plus a "Today" grouping query — additive schema change, not a breaking one
+- Widget order/visibility is new per-group state (one row per group, not per user) — new table or a JSON column on `groups`, read by both the authenticated Dashboard and the no-login view
+- The no-login quick-access link supersedes `PublicEventPlanning.tsx`'s current hardcoded 3-widget view; it now needs to read the same per-group widget config the authenticated view uses, rendered read-only
+- Comments (Epic 6, FR43–48) currently only attach to `events` and `wishlist_items` — Checklist items, Logistics items, Timeline items, and Polls are not commentable entities today; each needs its own FK'd comment association (or a polymorphic `commentable_type`/`commentable_id` pair on the existing `comments` table, if that refactor is preferred over four new join patterns — flag to the architect)
+- Comment popover/modal is one reusable UI component (Story 13.7) reused against four entity types (13.7–13.10), not four separate UI builds
+
+**Candidate stories:**
+1. **13.1 — Unify Event Landing on the Dashboard** (fold "Details" into the Dashboard header; retire the Details/Planning tab split; existing 5 widgets keep today's order for now — foundational)
+2. **13.2 — Consistent Live Refresh Across All Widgets** (extend live-update to Timeline and Photos, closing the gap with Checklist/Logistics/Polls)
+3. **13.3 — Date/Day Context on Checklist & Logistics Items** (optional date field + "Today" grouping)
+4. **13.4 — Customizable Widget Layout** (reorder/hide, one shared layout per group, keyboard-operable customize mode)
+5. **13.5 — No-Login Quick-Access Dashboard Link** (mirrors the group's full configured Dashboard, read-only; supersedes today's reduced public view; login upgrades in place)
+6. **13.6 — General Trip Comment Access from Dashboard Header** (surface the existing event-level comment thread now that Details is gone)
+7. **13.7 — Comments on Checklist Items** (hover popover + click-to-open modal; new commentable entity type; builds the reusable comment popover/modal component)
+8. **13.8 — Comments on Logistics Items** (same pattern, Bring List/Carpool items)
+9. **13.9 — Comments on Timeline Items** (same pattern)
+10. **13.10 — Comments on Polls** (same pattern)
 
 ---
 
