@@ -1,41 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
+import { getUserIdFromRequest } from '@/lib/api/auth';
+import { generatePublicEventLink, revokePublicEventLink } from '@/lib/services/publicEventService';
+
+function statusForErrorCode(errorCode?: 'NOT_FOUND' | 'FORBIDDEN'): number {
+  if (errorCode === 'FORBIDDEN') return 403;
+  if (errorCode === 'NOT_FOUND') return 404;
+  return 500;
+}
 
 /**
  * POST /api/events/:eventId/public-link
- * Generate a public link for an event (creator or admin only)
+ * Generate a public link for an event (creator or group admin only)
  * AC1: Public Event Link Generation
  */
 export async function POST(
-  req: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ eventId: string }> }
 ) {
   try {
     const { eventId } = await params;
 
-    // TODO: Add authentication and authorization check
-    // - Extract user from JWT
-    // - Verify user is event creator or group admin
-    // - Return 403 if not authorized
+    const userId = await getUserIdFromRequest(request);
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, errorCode: 'UNAUTHORIZED', message: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
 
-    // Generate unique public token (32+ chars, URL-safe)
-    const publicToken = crypto.randomBytes(24).toString('hex');
+    const result = await generatePublicEventLink(eventId, userId);
 
-    // TODO: Update event_proposals table
-    // - Set public_token = publicToken for this event
-    // - Handle if token already exists (return existing link)
-
-    const publicLink = `${process.env.NEXT_PUBLIC_BASE_URL}/events/public/${publicToken}`;
+    if (!result.success || !result.publicToken || !result.publicUrl) {
+      return NextResponse.json(
+        { success: false, errorCode: result.errorCode || 'PUBLIC_LINK_GENERATION_FAILED', message: result.message },
+        { status: statusForErrorCode(result.errorCode) }
+      );
+    }
 
     return NextResponse.json(
       {
         success: true,
         data: {
           eventId,
-          publicToken,
-          publicLink,
+          publicToken: result.publicToken,
+          publicLink: `${request.nextUrl.origin}${result.publicUrl}`,
         },
-        message: 'Public link generated successfully',
+        message: result.message,
       },
       { status: 201 }
     );
@@ -54,29 +64,37 @@ export async function POST(
 
 /**
  * DELETE /api/events/:eventId/public-link
- * Revoke a public link for an event (creator or admin only)
+ * Revoke a public link for an event (creator or group admin only)
  */
 export async function DELETE(
-  req: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ eventId: string }> }
 ) {
   try {
     const { eventId } = await params;
 
-    // TODO: Add authentication and authorization check
-    // - Extract user from JWT
-    // - Verify user is event creator or group admin
-    // - Return 403 if not authorized
+    const userId = await getUserIdFromRequest(request);
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, errorCode: 'UNAUTHORIZED', message: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
 
-    // TODO: Update event_proposals table
-    // - Set public_token = null for this event
-    // - Effectively disables the public link
+    const result = await revokePublicEventLink(eventId, userId);
+
+    if (!result.success) {
+      return NextResponse.json(
+        { success: false, errorCode: result.errorCode || 'PUBLIC_LINK_REVOCATION_FAILED', message: result.message },
+        { status: statusForErrorCode(result.errorCode) }
+      );
+    }
 
     return NextResponse.json(
       {
         success: true,
         data: { eventId },
-        message: 'Public link revoked successfully',
+        message: result.message,
       },
       { status: 200 }
     );

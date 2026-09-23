@@ -20,6 +20,7 @@ import {
   CardBody,
   useToast,
 } from '@chakra-ui/react';
+import { FiMapPin } from 'react-icons/fi';
 import { useAuth } from '@/lib/contexts/AuthContext';
 
 interface EventDetails {
@@ -28,6 +29,7 @@ interface EventDetails {
   created_by: string;
   title: string;
   description: string | null;
+  location: string | null;
   date: string;
   threshold: number | null;
   status: 'proposal' | 'confirmed' | 'cancelled';
@@ -193,6 +195,12 @@ export default function EventDetailsPage() {
                   <Text color="gray.600" fontSize="lg" maxW="2xl">
                     {event.description}
                   </Text>
+                )}
+                {event.location && (
+                  <HStack spacing={2} color="gray.600" fontSize="md">
+                    <FiMapPin size={16} />
+                    <Text>{event.location}</Text>
+                  </HStack>
                 )}
               </VStack>
             </HStack>

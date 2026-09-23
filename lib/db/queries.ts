@@ -375,6 +375,25 @@ export async function getGroupMembers(
 }
 
 /**
+ * Get every group member's id and display name, unpaginated — for
+ * server-side name resolution (e.g. mapping assigned_to on a planning item
+ * to a name) rather than the paginated member-list UI getGroupMembers serves.
+ */
+export async function getGroupMemberNames(
+  groupId: string
+): Promise<Array<{ id: string; displayName: string | null }>> {
+  const results = await query<{ user_id: string; display_name: string | null }>(
+    `SELECT gm.user_id, u.display_name
+     FROM group_memberships gm
+     JOIN users u ON gm.user_id = u.id
+     WHERE gm.group_id = $1`,
+    [groupId]
+  );
+
+  return results.map((row) => ({ id: row.user_id, displayName: row.display_name }));
+}
+
+/**
  * Get count of admins in a group
  */
 export async function getAdminCount(groupId: string): Promise<number> {
@@ -1453,13 +1472,14 @@ export async function getEventByPublicToken(publicToken: string): Promise<{
   group_id: string;
   title: string;
   description: string | null;
+  location: string | null;
   date: string;
   threshold: number | null;
   status: string;
   created_at: string;
 } | null> {
   return queryOne(
-    `SELECT id, group_id, title, description, date, threshold, status, created_at
+    `SELECT id, group_id, title, description, location, date, threshold, status, created_at
      FROM event_proposals
      WHERE public_token = $1 AND deleted_at IS NULL`,
     [publicToken]
@@ -1469,7 +1489,7 @@ export async function getEventByPublicToken(publicToken: string): Promise<{
 /**
  * Update event with public token
  */
-export async function updateEventPublicToken(eventId: string, publicToken: string): Promise<void> {
+export async function updateEventPublicToken(eventId: string, publicToken: string | null): Promise<void> {
   await query(
     `UPDATE event_proposals
      SET public_token = $2, updated_at = CURRENT_TIMESTAMP

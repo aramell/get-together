@@ -56,6 +56,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
     date: toDateTimeLocalValue(prefilledDate),
     threshold: '',
     description: '',
+    location: '',
   });
 
   const [circleId, setCircleId] = useState<string | null>(null);
@@ -70,7 +71,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
 
   const handleClose = () => {
     if (!isLoading) {
-      setFormData({ title: '', date: '', threshold: '', description: '' });
+      setFormData({ title: '', date: '', threshold: '', description: '', location: '' });
       setErrors({});
       setCircleId(null);
       setExcludedContactIds([]);
@@ -105,6 +106,10 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
       }
     }
 
+    if (formData.location.length > 255) {
+      newErrors.location = 'Location must be 255 characters or less';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -127,6 +132,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
           date: new Date(formData.date).toISOString(),
           threshold: formData.threshold ? parseInt(formData.threshold) : undefined,
           description: formData.description || undefined,
+          location: formData.location || undefined,
           circleId: circleId || undefined,
           excludedContactIds: excludedContactIds.length > 0 ? excludedContactIds : undefined,
         }),
@@ -217,6 +223,24 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
                   minHeight="44px"
                 />
                 {errors.date && <FormErrorMessage>{errors.date}</FormErrorMessage>}
+              </FormControl>
+
+              {/* Location Field */}
+              <FormControl isInvalid={!!errors.location}>
+                <FormLabel htmlFor="event-location">Location (optional)</FormLabel>
+                <Input
+                  id="event-location"
+                  placeholder="e.g., Campsite 14B, or 123 Main St"
+                  value={formData.location}
+                  onChange={(e) =>
+                    setFormData({ ...formData, location: e.target.value })
+                  }
+                  isDisabled={isLoading}
+                  aria-label="Event location"
+                  maxLength={255}
+                  minHeight="44px"
+                />
+                {errors.location && <FormErrorMessage>{errors.location}</FormErrorMessage>}
               </FormControl>
 
               {/* Threshold Field */}

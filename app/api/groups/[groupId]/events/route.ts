@@ -72,7 +72,7 @@ export async function GET(
 /**
  * POST /api/groups/[groupId]/events
  * Propose a new event in the group; auto-RSVPs the creator as "in"
- * Body: { title, date, threshold?, description? }
+ * Body: { title, date, threshold?, description?, location? }
  */
 export async function POST(
   request: NextRequest,

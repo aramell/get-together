@@ -28,6 +28,12 @@ export const eventCreateSchema = z.object({
     .max(2000, 'Description must be 2000 characters or less')
     .optional(),
 
+  location: z
+    .string()
+    .trim()
+    .max(255, 'Location must be 255 characters or less')
+    .optional(),
+
   // Story 10.5: optional bulk-invite of a social circle's contacts (AC1, AC8)
   circleId: z.string().uuid().optional(),
   excludedContactIds: z.array(z.string().uuid()).optional(),
@@ -46,6 +52,7 @@ export const eventProposalSchema = z.object({
   created_by: z.string().uuid(),
   title: z.string(),
   description: z.string().nullable(),
+  location: z.string().nullable(),
   date: z.string().datetime(),
   threshold: z.number().nullable(),
   status: z.enum(['proposal', 'confirmed', 'cancelled']),

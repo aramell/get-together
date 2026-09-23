@@ -89,6 +89,56 @@ describe('Event Service - createEvent', () => {
       expect(mockClient.release).toHaveBeenCalled();
     });
 
+    it('should create event with a location', async () => {
+      const futureDate = getFutureDate(7);
+      const eventData = {
+        title: 'Camping Trip',
+        date: futureDate,
+        location: 'Campsite 14B, gravel lot past the ranger station',
+      };
+
+      getUserGroupRole.mockResolvedValue('member');
+
+      const eventId = 'bb0e8400-e29b-41d4-a716-446655440006';
+      const rsvpId = 'cc0e8400-e29b-41d4-a716-446655440007';
+
+      mockClient.query
+        .mockResolvedValueOnce({
+          rows: [{
+            id: eventId,
+            group_id: validGroupId,
+            created_by: validUserId,
+            title: eventData.title,
+            description: null,
+            location: eventData.location,
+            date: eventData.date,
+            threshold: null,
+            status: 'proposal',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          }],
+        })
+        .mockResolvedValueOnce({
+          rows: [{
+            id: rsvpId,
+            event_id: eventId,
+            user_id: validUserId,
+            status: 'in',
+            responded_at: new Date().toISOString(),
+          }],
+        });
+
+      const result = await createEvent(validGroupId, validUserId, eventData);
+
+      expect(result.success).toBe(true);
+      expect(result.data?.event.location).toBe(eventData.location);
+      expect(mockClient.query).toHaveBeenNthCalledWith(
+        1,
+        expect.stringContaining('INSERT INTO event_proposals'),
+        [validGroupId, validUserId, eventData.title, null, eventData.location, eventData.date, null]
+      );
+    });
+
     it('should create event with minimal fields (no threshold, no description)', async () => {
       const futureDate = getFutureDate(10);
       const eventData = {

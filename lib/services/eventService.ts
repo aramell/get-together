@@ -18,6 +18,7 @@ export async function createEvent(
     date: string;
     threshold?: number;
     description?: string;
+    location?: string;
   }
 ): Promise<{
   success: boolean;
@@ -73,10 +74,18 @@ export async function createEvent(
 
     // Create event proposal
     const eventResult = await client.query(
-      `INSERT INTO event_proposals (group_id, created_by, title, description, date, threshold, status)
-       VALUES ($1, $2, $3, $4, $5, $6, 'proposal')
-       RETURNING id, group_id, created_by, title, description, date, threshold, status, created_at, updated_at`,
-      [groupId, userId, validatedData.title, validatedData.description || null, validatedData.date, validatedData.threshold || null]
+      `INSERT INTO event_proposals (group_id, created_by, title, description, location, date, threshold, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'proposal')
+       RETURNING id, group_id, created_by, title, description, location, date, threshold, status, created_at, updated_at`,
+      [
+        groupId,
+        userId,
+        validatedData.title,
+        validatedData.description || null,
+        validatedData.location || null,
+        validatedData.date,
+        validatedData.threshold || null,
+      ]
     );
 
     if (eventResult.rows.length === 0) {
@@ -119,6 +128,7 @@ export async function createEvent(
           created_by: event.created_by,
           title: event.title,
           description: event.description,
+          location: event.location,
           date: event.date,
           threshold: event.threshold,
           status: event.status,
@@ -302,6 +312,7 @@ export async function getGroupEvents(
         e.created_by,
         e.title,
         e.description,
+        e.location,
         e.date,
         e.threshold,
         e.status,
@@ -313,7 +324,7 @@ export async function getGroupEvents(
        FROM event_proposals e
        LEFT JOIN event_rsvps r ON e.id = r.event_id
        WHERE e.group_id = $1 AND e.deleted_at IS NULL
-       GROUP BY e.id, e.group_id, e.created_by, e.title, e.description, e.date, e.threshold, e.status, e.created_at, e.updated_at
+       GROUP BY e.id, e.group_id, e.created_by, e.title, e.description, e.location, e.date, e.threshold, e.status, e.created_at, e.updated_at
        ORDER BY e.date DESC
        LIMIT $2 OFFSET $3`,
       [groupId, limit, offset]
@@ -326,6 +337,7 @@ export async function getGroupEvents(
       created_by: row.created_by,
       title: row.title,
       description: row.description,
+      location: row.location,
       date: row.date,
       threshold: row.threshold,
       status: row.status,
@@ -596,7 +608,7 @@ export async function updateEventThreshold(
 
     // Get current event and check authorization
     const eventResult = await client.query(
-      'SELECT id, group_id, created_by, title, description, date, threshold, status, version FROM event_proposals WHERE id = $1 AND deleted_at IS NULL',
+      'SELECT id, group_id, created_by, title, description, location, date, threshold, status, version FROM event_proposals WHERE id = $1 AND deleted_at IS NULL',
       [eventId]
     );
 
@@ -626,7 +638,7 @@ export async function updateEventThreshold(
       `UPDATE event_proposals
        SET threshold = $1, version = version + 1, updated_at = NOW()
        WHERE id = $2 AND version = $3 AND deleted_at IS NULL
-       RETURNING id, group_id, created_by, title, description, date, threshold, status, created_at, updated_at`,
+       RETURNING id, group_id, created_by, title, description, location, date, threshold, status, created_at, updated_at`,
       [newThreshold, eventId, event.version]
     );
 
@@ -675,6 +687,7 @@ export async function updateEventThreshold(
           created_by: updatedEvent.created_by,
           title: updatedEvent.title,
           description: updatedEvent.description,
+          location: updatedEvent.location,
           date: updatedEvent.date,
           threshold: updatedEvent.threshold,
           status: updatedEvent.status,

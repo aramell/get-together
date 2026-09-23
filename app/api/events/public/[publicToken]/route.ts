@@ -79,6 +79,7 @@ export async function GET(
         id: event.id,
         title: event.title,
         description: event.description,
+        location: event.location,
         date: event.date,
         threshold: event.threshold,
         status: event.status,

@@ -17,6 +17,7 @@ import {
 } from '@chakra-ui/react';
 import { PublicEventHeader } from '@/components/groups/PublicEventHeader';
 import { PublicRsvpForm } from '@/components/groups/PublicRsvpForm';
+import { PublicEventPlanning } from '@/components/groups/PublicEventPlanning';
 
 interface EventData {
   id: string;
@@ -227,6 +228,9 @@ export default function PublicEventPage() {
               onSuccess={handleRsvpSuccess}
             />
           </Box>
+
+          {/* Trip Planning (checklist / logistics / timeline) */}
+          <PublicEventPlanning publicToken={publicToken} />
         </VStack>
       </main>
     </Container>

@@ -46,6 +46,7 @@ export async function GET(
           e.created_by,
           e.title,
           e.description,
+          e.location,
           e.date,
           e.threshold,
           e.status,
@@ -57,7 +58,7 @@ export async function GET(
          FROM event_proposals e
          LEFT JOIN event_rsvps r ON e.id = r.event_id
          WHERE e.id = $1 AND e.group_id = $2 AND e.deleted_at IS NULL
-         GROUP BY e.id, e.group_id, e.created_by, e.title, e.description, e.date, e.threshold, e.status, e.created_at, e.updated_at`,
+         GROUP BY e.id, e.group_id, e.created_by, e.title, e.description, e.location, e.date, e.threshold, e.status, e.created_at, e.updated_at`,
         [eventId, groupId]
       );
 
@@ -79,6 +80,7 @@ export async function GET(
         created_by: row.created_by,
         title: row.title,
         description: row.description,
+        location: row.location,
         date: row.date,
         threshold: row.threshold,
         status: row.status,
