@@ -13,6 +13,9 @@ export const createGroupSchema = z.object({
     .trim()
     .optional()
     .nullable(),
+  // Story 10.4: optional bulk-invite of a social circle's contacts (AC1, AC8)
+  circleId: z.string().uuid().optional(),
+  excludedContactIds: z.array(z.string().uuid()).optional(),
 });
 
 export type CreateGroupInput = z.infer<typeof createGroupSchema>;
@@ -34,6 +37,9 @@ export interface CreateGroupResponse {
   success: boolean;
   message: string;
   group?: Group;
+  // Story 10.4: present when the group was created with a circleId (AC3, AC7)
+  invitesSent?: number;
+  invitesFailed?: number;
   error?: string;
   errorCode?: string;
 }

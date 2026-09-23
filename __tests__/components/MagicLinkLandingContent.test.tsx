@@ -60,18 +60,35 @@ describe('MagicLinkLandingContent Component (AC8)', () => {
     );
   });
 
-  it('redirects to the phone request page with an error flag on a 410 (used/expired)', async () => {
+  it('redirects to the magic link error page with the reason and token on a 410 (Story 9.3)', async () => {
     mockSearchParams = new URLSearchParams({ t: 'raw-token' });
     (global.fetch as jest.Mock).mockResolvedValue({
       ok: false,
       status: 410,
-      json: async () => ({ success: false, errorCode: 'INVALID_OR_EXPIRED_TOKEN' }),
+      json: async () => ({ success: false, reason: 'expired' }),
     });
 
     render(<MagicLinkLandingContent />);
 
     await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith('/auth/phone?error=expired');
+      expect(mockPush).toHaveBeenCalledWith('/auth/magic/error?reason=expired&t=raw-token');
+    });
+  });
+
+  it('carries target context through to the error page when present on the 410 response', async () => {
+    mockSearchParams = new URLSearchParams({ t: 'raw-token' });
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: false,
+      status: 410,
+      json: async () => ({ success: false, reason: 'already_used', targetType: 'group', targetId: 'group-1' }),
+    });
+
+    render(<MagicLinkLandingContent />);
+
+    await waitFor(() => {
+      expect(mockPush).toHaveBeenCalledWith(
+        '/auth/magic/error?reason=already_used&targetType=group&targetId=group-1&t=raw-token'
+      );
     });
   });
 

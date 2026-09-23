@@ -130,17 +130,17 @@ development_status:
   # EPIC 9: SMS Magic Link Authentication (from epics.md; story files existed on disk but epic was never registered here until this reconciliation)
   epic-9: in-progress
   9-1-sms-magic-link-request: review
-  9-2-auto-account-creation-magic-link: ready-for-dev
-  9-3-expired-used-link-rerequest: ready-for-dev
+  9-2-auto-account-creation-magic-link: review
+  9-3-expired-used-link-rerequest: done
   epic-9-retrospective: optional
 
   # EPIC 10: Social Circles (from epics.md; story files existed on disk but epic was never registered here until this reconciliation)
   epic-10: in-progress
-  10-1-create-social-circle: ready-for-dev
-  10-2-add-remove-circle-contacts: ready-for-dev
-  10-3-view-manage-social-circles: ready-for-dev
-  10-4-bulk-invite-circle-to-group: ready-for-dev
-  10-5-bulk-invite-circle-to-event: ready-for-dev
+  10-1-create-social-circle: review
+  10-2-add-remove-circle-contacts: review
+  10-3-view-manage-social-circles: review
+  10-4-bulk-invite-circle-to-group: review
+  10-5-bulk-invite-circle-to-event: review
   epic-10-retrospective: optional
 
   # EPIC 11: Production Database & Local Dev Environment (added ad hoc — not in epics.md, fast-tracked 2026-07-28)
@@ -165,10 +165,10 @@ summary:
   epics_done: 6
   epics_in_progress: 6
   epics_backlog: 0
-  stories_done: 46
+  stories_done: 47
   stories_in_progress: 0
-  stories_review: 8
+  stories_review: 14
   stories_backlog: 0
-  stories_ready_for_dev: 7
+  stories_ready_for_dev: 0
   retrospectives_optional: 12
   retrospectives_done: 0

@@ -140,4 +140,28 @@ describe('Group Validation Schema', () => {
       expect(result.success).toBe(false);
     });
   });
+
+  describe('Circle Bulk-Invite Fields (Story 10.4, AC1, AC8)', () => {
+    it('accepts a group with no circleId (AC8)', () => {
+      const data = { name: 'Group' };
+      const result = createGroupSchema.safeParse(data);
+      expect(result.success).toBe(true);
+    });
+
+    it('accepts a valid circleId and excludedContactIds', () => {
+      const data = {
+        name: 'Group',
+        circleId: '11111111-1111-4111-8111-111111111111',
+        excludedContactIds: ['22222222-2222-4222-8222-222222222222'],
+      };
+      const result = createGroupSchema.safeParse(data);
+      expect(result.success).toBe(true);
+    });
+
+    it('rejects a malformed circleId', () => {
+      const data = { name: 'Group', circleId: 'not-a-uuid' };
+      const result = createGroupSchema.safeParse(data);
+      expect(result.success).toBe(false);
+    });
+  });
 });

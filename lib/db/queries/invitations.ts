@@ -9,6 +9,7 @@ export interface Invitation {
   invited_at: string;
   responded_at: string | null;
   expires_at: string;
+  invitedByDisplayName?: string;
 }
 
 /**
@@ -49,7 +50,7 @@ export async function getPendingInvitationsForGroup(
   limit: number = 10,
   offset: number = 0
 ): Promise<{
-  invitations: (Invitation & { invitedUser?: { id: string; email: string; username: string } })[];
+  invitations: (Invitation & { invitedUser?: { id: string; email: string; displayName: string | null } })[];
   total: number;
 }> {
   // Get count
@@ -66,7 +67,7 @@ export async function getPendingInvitationsForGroup(
     SELECT
       gi.id, gi.group_id, gi.invited_user_id, gi.invited_by_user_id,
       gi.status, gi.invited_at, gi.responded_at, gi.expires_at,
-      u.email, u.username
+      u.email, u.display_name
     FROM group_invitations gi
     LEFT JOIN users u ON gi.invited_user_id = u.id
     WHERE gi.group_id = $1 AND gi.status = 'pending'
@@ -76,7 +77,7 @@ export async function getPendingInvitationsForGroup(
   `;
 
   const results = await query<
-    Invitation & { email: string; username: string }
+    Invitation & { email: string; display_name: string | null }
   >(sql, [groupId, limit, offset]);
 
   const invitations = results.map((row) => ({
@@ -92,7 +93,7 @@ export async function getPendingInvitationsForGroup(
       ? {
           id: row.invited_user_id,
           email: row.email,
-          username: row.username,
+          displayName: row.display_name,
         }
       : undefined,
   }));
@@ -131,7 +132,7 @@ export async function getUserInvitations(
       groupName: string;
       groupDescription: string | null;
       memberCount: number;
-      invitedByUsername: string;
+      invitedByDisplayName: string | null;
     }
   >;
   total: number;
@@ -154,7 +155,7 @@ export async function getUserInvitations(
       gi.status, gi.invited_at, gi.responded_at, gi.expires_at,
       g.name as group_name, g.description as group_description,
       (SELECT COUNT(*) FROM group_memberships WHERE group_id = g.id) as member_count,
-      u.username as invited_by_username
+      u.display_name as invited_by_display_name
     FROM group_invitations gi
     JOIN groups g ON gi.group_id = g.id
     JOIN users u ON gi.invited_by_user_id = u.id
@@ -168,7 +169,7 @@ export async function getUserInvitations(
       group_name: string;
       group_description: string | null;
       member_count: number;
-      invited_by_username: string;
+      invited_by_display_name: string | null;
     }
   >(sql, [userId, status, limit, offset]);
 
@@ -184,7 +185,7 @@ export async function getUserInvitations(
     groupName: row.group_name,
     groupDescription: row.group_description,
     memberCount: row.member_count,
-    invitedByUsername: row.invited_by_username,
+    invitedByDisplayName: row.invited_by_display_name,
   }));
 
   return { invitations, total };
@@ -248,7 +249,7 @@ export async function searchUsers(
   users: Array<{
     id: string;
     email: string;
-    username: string;
+    displayName: string | null;
     alreadyMember: boolean;
     hasPendingInvite: boolean;
   }>;
@@ -257,7 +258,7 @@ export async function searchUsers(
   // Get count
   const countSql = `
     SELECT COUNT(*) as count FROM users
-    WHERE (email ILIKE $1 OR username ILIKE $1);
+    WHERE (email ILIKE $1 OR display_name ILIKE $1);
   `;
   const searchTerm = `%${query_str}%`;
   const countResult = await queryOne<{ count: number }>(countSql, [searchTerm]);
@@ -266,7 +267,7 @@ export async function searchUsers(
   // Get users
   const sql = `
     SELECT
-      u.id, u.email, u.username,
+      u.id, u.email, u.display_name,
       EXISTS(
         SELECT 1 FROM group_memberships
         WHERE group_id = $2 AND user_id = u.id
@@ -276,15 +277,15 @@ export async function searchUsers(
         WHERE group_id = $2 AND invited_user_id = u.id AND status = 'pending'
       ) as has_pending_invite
     FROM users u
-    WHERE (u.email ILIKE $1 OR u.username ILIKE $1)
-    ORDER BY u.username ASC
+    WHERE (u.email ILIKE $1 OR u.display_name ILIKE $1)
+    ORDER BY u.display_name ASC
     LIMIT $3 OFFSET $4;
   `;
 
   const results = await query<{
     id: string;
     email: string;
-    username: string;
+    display_name: string | null;
     already_member: boolean;
     has_pending_invite: boolean;
   }>(sql, [searchTerm, groupId, limit, offset]);
@@ -292,7 +293,7 @@ export async function searchUsers(
   const users = results.map((row) => ({
     id: row.id,
     email: row.email,
-    username: row.username,
+    displayName: row.display_name,
     alreadyMember: row.already_member,
     hasPendingInvite: row.has_pending_invite,
   }));

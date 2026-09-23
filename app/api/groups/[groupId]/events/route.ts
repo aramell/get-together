@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createEvent, getGroupEvents } from '@/lib/services/eventService';
 import { getUserIdFromRequest } from '@/lib/api/auth';
 import { eventCreateSchema } from '@/lib/validation/eventSchema';
+import { bulkInviteCircleToEvent } from '@/lib/services/circleInviteService';
 
 export async function GET(
   request: NextRequest,
@@ -120,14 +121,41 @@ export async function POST(
       );
     }
 
-    const result = await createEvent(groupId, userId, validation.data);
+    const { circleId, excludedContactIds, ...eventData } = validation.data;
+
+    const result = await createEvent(groupId, userId, eventData);
 
     if (!result.success) {
       const statusCode = result.errorCode === 'FORBIDDEN' ? 403 : 500;
       return NextResponse.json(result, { status: statusCode });
     }
 
-    return NextResponse.json(result, { status: 201 });
+    // Story 10.5: bulk-invite a circle's contacts, if one was selected. This
+    // runs after the event is committed (fire-and-forget per Dev Notes) so a
+    // partial invite failure never rolls back or blocks event creation (AC7).
+    let invitesSent: number | undefined;
+    let invitesFailed: number | undefined;
+    if (circleId && result.data) {
+      const inviteResult = await bulkInviteCircleToEvent(
+        result.data.event.id,
+        groupId,
+        circleId,
+        userId,
+        excludedContactIds ?? []
+      );
+      if (inviteResult.success && inviteResult.data) {
+        invitesSent = inviteResult.data.invitesSent;
+        invitesFailed = inviteResult.data.invitesFailed;
+      }
+    }
+
+    return NextResponse.json(
+      {
+        ...result,
+        ...(invitesSent !== undefined ? { invitesSent, invitesFailed } : {}),
+      },
+      { status: 201 }
+    );
   } catch (error: any) {
     console.error('Error creating event:', error);
     return NextResponse.json(

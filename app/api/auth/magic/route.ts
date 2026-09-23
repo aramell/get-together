@@ -15,17 +15,27 @@ export async function POST(request: NextRequest) {
     const result = await signInViaMagicLink(token);
 
     if (!result.success) {
-      const status = result.errorCode === 'INVALID_OR_EXPIRED_TOKEN' ? 410 : 500;
+      if (result.errorCode === 'INTERNAL_SERVER_ERROR') {
+        return NextResponse.json(
+          { success: false, message: 'Server error', errorCode: result.errorCode },
+          { status: 500 }
+        );
+      }
+
+      // AC1, AC2, AC6: structured 410 so the client can show a specific
+      // expired/already-used/invalid message and carry target context into
+      // a re-request, instead of one generic "invalid or expired" result.
+      const reason =
+        result.errorCode === 'EXPIRED' ? 'expired' : result.errorCode === 'ALREADY_USED' ? 'already_used' : 'invalid';
+
       return NextResponse.json(
         {
           success: false,
-          message:
-            result.errorCode === 'INVALID_OR_EXPIRED_TOKEN'
-              ? 'This link has already been used or has expired.'
-              : 'Server error',
-          errorCode: result.errorCode,
+          reason,
+          targetType: result.targetType ?? undefined,
+          targetId: result.targetId ?? undefined,
         },
-        { status }
+        { status: 410 }
       );
     }
 

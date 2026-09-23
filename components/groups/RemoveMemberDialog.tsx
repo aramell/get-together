@@ -18,7 +18,7 @@ import {
 interface Member {
   id: string;
   email: string;
-  username: string;
+  displayName: string | null;
   role: 'admin' | 'member';
 }
 
@@ -59,7 +59,7 @@ const RemoveMemberDialog: React.FC<RemoveMemberDialogProps> = ({
           <AlertDialogBody>
             <VStack spacing={4} align="stretch">
               <Text>
-                Are you sure you want to remove <strong>{member.username}</strong> from
+                Are you sure you want to remove <strong>{member.displayName || member.email}</strong> from
                 this group?
               </Text>
 
@@ -70,7 +70,7 @@ const RemoveMemberDialog: React.FC<RemoveMemberDialogProps> = ({
                     This action cannot be undone
                   </Text>
                   <Text fontSize="sm">
-                    {member.username} will lose access to the group and all its
+                    {member.displayName || member.email} will lose access to the group and all its
                     content. They can rejoin if invited again.
                   </Text>
                 </VStack>

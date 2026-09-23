@@ -19,7 +19,7 @@ import RemoveMemberDialog from './RemoveMemberDialog';
 interface Member {
   id: string;
   email: string;
-  username: string;
+  displayName: string | null;
   role: 'admin' | 'member';
   joinedAt: string;
   isCurrentUser?: boolean;
@@ -78,7 +78,7 @@ const MemberListWithActions: React.FC<MemberListWithActionsProps> = ({
       if (result.success) {
         toast({
           title: 'Member removed',
-          description: `${member.username} has been removed from the group`,
+          description: `${member.displayName || member.email} has been removed from the group`,
           status: 'success',
           duration: 2000,
           isClosable: true,
@@ -129,7 +129,7 @@ const MemberListWithActions: React.FC<MemberListWithActionsProps> = ({
       if (result.success) {
         toast({
           title: 'Role updated',
-          description: `${member.username} is now a ${newRole}`,
+          description: `${member.displayName || member.email} is now a ${newRole}`,
           status: 'success',
           duration: 2000,
           isClosable: true,
@@ -190,7 +190,7 @@ const MemberListWithActions: React.FC<MemberListWithActionsProps> = ({
             <HStack justify="space-between" align="start">
               <VStack align="flex-start" spacing={1} flex={1}>
                 <HStack>
-                  <Text fontWeight="semibold">{member.username}</Text>
+                  <Text fontWeight="semibold">{member.displayName || member.email}</Text>
                   {member.isCurrentUser && (
                     <Badge colorScheme="blue" fontSize="xs">
                       You

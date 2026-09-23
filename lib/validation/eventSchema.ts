@@ -27,6 +27,10 @@ export const eventCreateSchema = z.object({
     .string()
     .max(2000, 'Description must be 2000 characters or less')
     .optional(),
+
+  // Story 10.5: optional bulk-invite of a social circle's contacts (AC1, AC8)
+  circleId: z.string().uuid().optional(),
+  excludedContactIds: z.array(z.string().uuid()).optional(),
 });
 
 export type EventCreateInput = z.infer<typeof eventCreateSchema>;

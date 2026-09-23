@@ -327,7 +327,7 @@ export async function getGroupMembers(
   members: Array<{
     id: string;
     email: string;
-    username: string;
+    displayName: string | null;
     role: 'admin' | 'member';
     joinedAt: string;
   }>;
@@ -344,14 +344,14 @@ export async function getGroupMembers(
   const results = await query<{
     user_id: string;
     email: string;
-    username: string;
+    display_name: string | null;
     role: 'admin' | 'member';
     joined_at: string;
   }>(
     `SELECT
        gm.user_id as user_id,
        u.email,
-       u.username,
+       u.display_name,
        gm.role,
        gm.joined_at
      FROM group_memberships gm
@@ -366,7 +366,7 @@ export async function getGroupMembers(
     members: results.map((row) => ({
       id: row.user_id,
       email: row.email,
-      username: row.username,
+      displayName: row.display_name,
       role: row.role,
       joinedAt: row.joined_at,
     })),

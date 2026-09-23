@@ -44,6 +44,8 @@ export async function createGroup(
     const validatedInput = {
       name: input.name?.trim() || '',
       description: input.description?.trim() || null,
+      circleId: input.circleId,
+      excludedContactIds: input.excludedContactIds,
     };
 
     if (!validatedInput.name) {
@@ -82,6 +84,8 @@ export async function createGroup(
       body: JSON.stringify({
         name: validatedInput.name,
         description: validatedInput.description,
+        circleId: validatedInput.circleId,
+        excludedContactIds: validatedInput.excludedContactIds,
       }),
     });
 
@@ -102,6 +106,8 @@ export async function createGroup(
         success: true,
         message: 'Group created successfully',
         group: data.group,
+        invitesSent: data.invitesSent,
+        invitesFailed: data.invitesFailed,
       };
     } else {
       return {

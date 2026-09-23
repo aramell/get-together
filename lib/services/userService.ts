@@ -101,6 +101,30 @@ export async function createUserProfileByPhoneHash(
 }
 
 /**
+ * Find an active user by exact (case-insensitive) display name or email match
+ * (Story 10.2, AC2/AC4). Used to resolve a social circle contact added by
+ * "app username" instead of phone number.
+ */
+export async function findUserByDisplayNameOrEmail(query: string): Promise<UserProfile | null> {
+  const client = await getClient();
+  try {
+    const result = await client.query(
+      `SELECT id, email, display_name, avatar_url, created_at, updated_at FROM users
+       WHERE deleted_at IS NULL AND (LOWER(email) = LOWER($1) OR LOWER(display_name) = LOWER($1))
+       LIMIT 1`,
+      [query]
+    );
+
+    return result.rows.length > 0 ? result.rows[0] : null;
+  } catch (error) {
+    console.error('Error finding user by display name or email:', error);
+    return null;
+  } finally {
+    client.release();
+  }
+}
+
+/**
  * Get user profile by Cognito sub
  */
 export async function getUserProfile(cognitoSub: string): Promise<UserProfile | null> {

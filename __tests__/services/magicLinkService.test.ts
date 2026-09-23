@@ -37,14 +37,20 @@ jest.mock('@/lib/services/userService', () => ({
   createUserProfileByPhoneHash: jest.fn(),
 }));
 
+jest.mock('@/lib/db/queries/smsTokens', () => ({
+  findTokenContextByHash: jest.fn(),
+}));
+
 import { getClient, query, queryOne } from '@/lib/db/client';
 import { addUserToGroup } from '@/lib/db/queries';
 import { findUserByPhoneHash, createUserProfileByPhoneHash } from '@/lib/services/userService';
+import { findTokenContextByHash } from '@/lib/db/queries/smsTokens';
 import {
   consumeToken,
   findOrCreateUserByPhoneHash,
   addUserToTarget,
   signInViaMagicLink,
+  getTokenTargetContext,
 } from '@/lib/services/magicLinkService';
 
 const mockGetClient = getClient as jest.MockedFunction<typeof getClient>;
@@ -55,6 +61,7 @@ const mockFindUserByPhoneHash = findUserByPhoneHash as jest.MockedFunction<typeo
 const mockCreateUserProfileByPhoneHash = createUserProfileByPhoneHash as jest.MockedFunction<
   typeof createUserProfileByPhoneHash
 >;
+const mockFindTokenContextByHash = findTokenContextByHash as jest.MockedFunction<typeof findTokenContextByHash>;
 
 describe('magicLinkService', () => {
   const mockClient = {
@@ -67,16 +74,27 @@ describe('magicLinkService', () => {
     mockGetClient.mockResolvedValue(mockClient);
   });
 
-  describe('consumeToken (AC1, AC6)', () => {
+  describe('consumeToken (AC1, AC2, AC6)', () => {
     const rawToken = 'raw-token-value';
     const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const future = new Date(Date.now() + 60_000).toISOString();
+    const past = new Date(Date.now() - 60_000).toISOString();
 
     it('hashes the raw token, locks the row, and marks it used inside one transaction', async () => {
       mockClient.query.mockImplementation((sql: string) => {
         if (sql.startsWith('BEGIN')) return Promise.resolve();
         if (sql.includes('FOR UPDATE')) {
           return Promise.resolve({
-            rows: [{ id: 'token-1', phone_hash: 'hashed-phone', target_type: null, target_id: null }],
+            rows: [
+              {
+                id: 'token-1',
+                phone_hash: 'hashed-phone',
+                target_type: null,
+                target_id: null,
+                used_at: null,
+                expires_at: future,
+              },
+            ],
           });
         }
         if (sql.startsWith('UPDATE')) return Promise.resolve();
@@ -86,7 +104,10 @@ describe('magicLinkService', () => {
 
       const result = await consumeToken(rawToken);
 
-      expect(result).toEqual({ id: 'token-1', phone_hash: 'hashed-phone', target_type: null, target_id: null });
+      expect(result).toEqual({
+        status: 'consumed',
+        token: { id: 'token-1', phone_hash: 'hashed-phone', target_type: null, target_id: null },
+      });
 
       const selectCall = mockClient.query.mock.calls.find((c) => (c[0] as string).includes('FOR UPDATE'));
       expect(selectCall![1]).toEqual([tokenHash]);
@@ -98,7 +119,7 @@ describe('magicLinkService', () => {
       expect(mockClient.release).toHaveBeenCalled();
     });
 
-    it('returns null and rolls back when the token is not found (used, expired, or nonexistent)', async () => {
+    it('returns status "invalid" and rolls back when the token does not exist (AC6)', async () => {
       mockClient.query.mockImplementation((sql: string) => {
         if (sql.includes('FOR UPDATE')) return Promise.resolve({ rows: [] });
         return Promise.resolve();
@@ -106,18 +127,78 @@ describe('magicLinkService', () => {
 
       const result = await consumeToken(rawToken);
 
-      expect(result).toBeNull();
+      expect(result).toEqual({ status: 'invalid' });
       expect(mockClient.query).toHaveBeenCalledWith('ROLLBACK');
       expect(mockClient.query).not.toHaveBeenCalledWith(expect.stringContaining('UPDATE sms_magic_link_tokens'), expect.anything());
     });
 
-    it('simulates the losing side of a concurrent double-click: the second call sees zero rows', async () => {
+    it('returns status "already_used" with target context and rolls back when used_at is set (AC2)', async () => {
+      mockClient.query.mockImplementation((sql: string) => {
+        if (sql.includes('FOR UPDATE')) {
+          return Promise.resolve({
+            rows: [
+              {
+                id: 'token-1',
+                phone_hash: 'hashed-phone',
+                target_type: 'group',
+                target_id: 'group-1',
+                used_at: past,
+                expires_at: future,
+              },
+            ],
+          });
+        }
+        return Promise.resolve();
+      });
+
+      const result = await consumeToken(rawToken);
+
+      expect(result).toEqual({ status: 'already_used', target_type: 'group', target_id: 'group-1' });
+      expect(mockClient.query).toHaveBeenCalledWith('ROLLBACK');
+      expect(mockClient.query).not.toHaveBeenCalledWith(expect.stringContaining('UPDATE sms_magic_link_tokens'), expect.anything());
+    });
+
+    it('returns status "expired" with target context and rolls back when expires_at has passed (AC1)', async () => {
+      mockClient.query.mockImplementation((sql: string) => {
+        if (sql.includes('FOR UPDATE')) {
+          return Promise.resolve({
+            rows: [
+              {
+                id: 'token-1',
+                phone_hash: 'hashed-phone',
+                target_type: 'event',
+                target_id: 'event-1',
+                used_at: null,
+                expires_at: past,
+              },
+            ],
+          });
+        }
+        return Promise.resolve();
+      });
+
+      const result = await consumeToken(rawToken);
+
+      expect(result).toEqual({ status: 'expired', target_type: 'event', target_id: 'event-1' });
+      expect(mockClient.query).toHaveBeenCalledWith('ROLLBACK');
+    });
+
+    it('simulates the losing side of a concurrent double-click: the second call sees the first as already_used', async () => {
       // First call: row is locked, found unused, marked used.
       let used = false;
       mockClient.query.mockImplementation((sql: string) => {
         if (sql.includes('FOR UPDATE')) {
           return Promise.resolve({
-            rows: used ? [] : [{ id: 'token-1', phone_hash: 'hashed-phone', target_type: null, target_id: null }],
+            rows: [
+              {
+                id: 'token-1',
+                phone_hash: 'hashed-phone',
+                target_type: null,
+                target_id: null,
+                used_at: used ? new Date().toISOString() : null,
+                expires_at: future,
+              },
+            ],
           });
         }
         if (sql.startsWith('UPDATE')) {
@@ -130,8 +211,8 @@ describe('magicLinkService', () => {
       const first = await consumeToken(rawToken);
       const second = await consumeToken(rawToken);
 
-      expect(first).not.toBeNull();
-      expect(second).toBeNull();
+      expect(first.status).toBe('consumed');
+      expect(second).toEqual({ status: 'already_used', target_type: null, target_id: null });
     });
 
     it('rolls back and rethrows on a database error', async () => {
@@ -142,6 +223,31 @@ describe('magicLinkService', () => {
 
       await expect(consumeToken(rawToken)).rejects.toThrow('db down');
       expect(mockClient.query).toHaveBeenCalledWith('ROLLBACK');
+    });
+  });
+
+  describe('getTokenTargetContext (AC4)', () => {
+    it('hashes the raw token and looks up its context regardless of expiry/used status', async () => {
+      const rawToken = 'raw-token-value';
+      const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+      mockFindTokenContextByHash.mockResolvedValue({
+        phone_hash: 'hashed-phone',
+        target_type: 'group',
+        target_id: 'group-1',
+      });
+
+      const result = await getTokenTargetContext(rawToken);
+
+      expect(mockFindTokenContextByHash).toHaveBeenCalledWith(tokenHash);
+      expect(result).toEqual({ phone_hash: 'hashed-phone', target_type: 'group', target_id: 'group-1' });
+    });
+
+    it('returns null when the token was never found', async () => {
+      mockFindTokenContextByHash.mockResolvedValue(null);
+
+      const result = await getTokenTargetContext('nonexistent-token');
+
+      expect(result).toBeNull();
     });
   });
 
@@ -286,7 +392,10 @@ describe('magicLinkService', () => {
   });
 
   describe('signInViaMagicLink (end-to-end orchestration)', () => {
-    it('returns INVALID_OR_EXPIRED_TOKEN when the token cannot be consumed', async () => {
+    const future = new Date(Date.now() + 60_000).toISOString();
+    const past = new Date(Date.now() - 60_000).toISOString();
+
+    it('returns errorCode INVALID when the token does not exist (AC6)', async () => {
       mockClient.query.mockImplementation((sql: string) => {
         if (sql.includes('FOR UPDATE')) return Promise.resolve({ rows: [] });
         return Promise.resolve();
@@ -295,14 +404,77 @@ describe('magicLinkService', () => {
       const result = await signInViaMagicLink('bad-token');
 
       expect(result.success).toBe(false);
-      expect(result.errorCode).toBe('INVALID_OR_EXPIRED_TOKEN');
+      expect(result.errorCode).toBe('INVALID');
+    });
+
+    it('returns errorCode EXPIRED with target context when the token has expired (AC1)', async () => {
+      mockClient.query.mockImplementation((sql: string) => {
+        if (sql.includes('FOR UPDATE')) {
+          return Promise.resolve({
+            rows: [
+              {
+                id: 'token-1',
+                phone_hash: 'hashed-phone',
+                target_type: 'group',
+                target_id: 'group-1',
+                used_at: null,
+                expires_at: past,
+              },
+            ],
+          });
+        }
+        return Promise.resolve();
+      });
+
+      const result = await signInViaMagicLink('expired-token');
+
+      expect(result.success).toBe(false);
+      expect(result.errorCode).toBe('EXPIRED');
+      expect(result.targetType).toBe('group');
+      expect(result.targetId).toBe('group-1');
+    });
+
+    it('returns errorCode ALREADY_USED with target context when the token was already used (AC2)', async () => {
+      mockClient.query.mockImplementation((sql: string) => {
+        if (sql.includes('FOR UPDATE')) {
+          return Promise.resolve({
+            rows: [
+              {
+                id: 'token-1',
+                phone_hash: 'hashed-phone',
+                target_type: 'event',
+                target_id: 'event-1',
+                used_at: past,
+                expires_at: future,
+              },
+            ],
+          });
+        }
+        return Promise.resolve();
+      });
+
+      const result = await signInViaMagicLink('used-token');
+
+      expect(result.success).toBe(false);
+      expect(result.errorCode).toBe('ALREADY_USED');
+      expect(result.targetType).toBe('event');
+      expect(result.targetId).toBe('event-1');
     });
 
     it('signs the user in and includes the target redirect on success', async () => {
       mockClient.query.mockImplementation((sql: string) => {
         if (sql.includes('FOR UPDATE')) {
           return Promise.resolve({
-            rows: [{ id: 'token-1', phone_hash: 'hashed-phone', target_type: 'group', target_id: 'group-1' }],
+            rows: [
+              {
+                id: 'token-1',
+                phone_hash: 'hashed-phone',
+                target_type: 'group',
+                target_id: 'group-1',
+                used_at: null,
+                expires_at: future,
+              },
+            ],
           });
         }
         return Promise.resolve();
@@ -329,7 +501,16 @@ describe('magicLinkService', () => {
       mockClient.query.mockImplementation((sql: string) => {
         if (sql.includes('FOR UPDATE')) {
           return Promise.resolve({
-            rows: [{ id: 'token-1', phone_hash: 'hashed-phone', target_type: null, target_id: null }],
+            rows: [
+              {
+                id: 'token-1',
+                phone_hash: 'hashed-phone',
+                target_type: null,
+                target_id: null,
+                used_at: null,
+                expires_at: future,
+              },
+            ],
           });
         }
         return Promise.resolve();

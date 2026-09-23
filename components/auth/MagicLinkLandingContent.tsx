@@ -29,9 +29,11 @@ export default function MagicLinkLandingContent() {
         if (response.ok && data.success) {
           router.push(data.redirectPath || '/groups');
         } else if (response.status === 410) {
-          // Story 9.3 owns the dedicated expired/used-link experience; until
-          // then, send the user back to request a fresh link.
-          router.push('/auth/phone?error=expired');
+          const params = new URLSearchParams({ reason: data.reason || 'invalid' });
+          if (data.targetType) params.set('targetType', data.targetType);
+          if (data.targetId) params.set('targetId', data.targetId);
+          params.set('t', token);
+          router.push(`/auth/magic/error?${params.toString()}`);
         } else {
           setError(data.message || 'Something went wrong. Please try again.');
         }

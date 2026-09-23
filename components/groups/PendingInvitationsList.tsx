@@ -25,7 +25,7 @@ interface Invitation {
   invitedUser?: {
     id: string;
     email: string;
-    username: string;
+    displayName: string | null;
   };
   invitedAt: string;
   expiresAt: string;
@@ -132,7 +132,7 @@ const PendingInvitationsList: React.FC<PendingInvitationsListProps> = ({
             <HStack justify="space-between" align="start">
               <VStack align="flex-start" spacing={1} flex={1}>
                 <Text fontWeight="semibold">
-                  {invitation.invitedUser?.username}
+                  {invitation.invitedUser?.displayName || invitation.invitedUser?.email}
                 </Text>
                 <Text fontSize="sm" color="gray.600">
                   {invitation.invitedUser?.email}
@@ -172,7 +172,7 @@ const PendingInvitationsList: React.FC<PendingInvitationsListProps> = ({
 
             <AlertDialogBody>
               Are you sure you want to revoke the invitation to{' '}
-              {selectedInvitation?.invitedUser?.username}? They won't be able to
+              {selectedInvitation?.invitedUser?.displayName || selectedInvitation?.invitedUser?.email}? They won't be able to
               join using this invitation.
             </AlertDialogBody>
 

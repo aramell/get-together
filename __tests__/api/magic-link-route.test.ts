@@ -67,10 +67,10 @@ describe('POST /api/auth/magic', () => {
     expect(response.cookies.get('refreshToken')?.value).toBe('refresh-token');
   });
 
-  it('returns 410 for an invalid/used/expired token without setting cookies (AC6)', async () => {
+  it('returns 410 with reason "invalid" for a nonexistent token, without setting cookies (AC6)', async () => {
     mockSignInViaMagicLink.mockResolvedValue({
       success: false,
-      errorCode: 'INVALID_OR_EXPIRED_TOKEN',
+      errorCode: 'INVALID',
     });
 
     const response = await POST(makeRequest({ token: 'bad-token' }));
@@ -78,7 +78,42 @@ describe('POST /api/auth/magic', () => {
 
     expect(response.status).toBe(410);
     expect(data.success).toBe(false);
+    expect(data.reason).toBe('invalid');
     expect(response.cookies.get('accessToken')).toBeUndefined();
+  });
+
+  it('returns 410 with reason "expired" and target context for an expired token (AC1)', async () => {
+    mockSignInViaMagicLink.mockResolvedValue({
+      success: false,
+      errorCode: 'EXPIRED',
+      targetType: 'group',
+      targetId: 'group-1',
+    });
+
+    const response = await POST(makeRequest({ token: 'expired-token' }));
+    const data = await response.json();
+
+    expect(response.status).toBe(410);
+    expect(data.reason).toBe('expired');
+    expect(data.targetType).toBe('group');
+    expect(data.targetId).toBe('group-1');
+  });
+
+  it('returns 410 with reason "already_used" for a used token, without target context when there was none (AC2)', async () => {
+    mockSignInViaMagicLink.mockResolvedValue({
+      success: false,
+      errorCode: 'ALREADY_USED',
+      targetType: null,
+      targetId: null,
+    });
+
+    const response = await POST(makeRequest({ token: 'used-token' }));
+    const data = await response.json();
+
+    expect(response.status).toBe(410);
+    expect(data.reason).toBe('already_used');
+    expect(data.targetType).toBeUndefined();
+    expect(data.targetId).toBeUndefined();
   });
 
   it('returns 422 for a missing token', async () => {

@@ -3,7 +3,7 @@ story_key: "10-1-create-social-circle"
 epic: "10"
 story: "1"
 title: "Create a Social Circle"
-status: "ready-for-dev"
+status: "review"
 created_date: "2026-06-30"
 ---
 
@@ -12,7 +12,7 @@ created_date: "2026-06-30"
 **Epic:** 10 - Social Circles
 **Story Key:** 10-1-create-social-circle
 **Created:** 2026-06-30
-**Status:** ready-for-dev
+**Status:** review
 
 ---
 
@@ -116,33 +116,68 @@ POST /api/circles
 
 ## Tasks/Subtasks
 
-- [ ] **Task 1:** Database migration (`migrations/0012_social_circles.sql`)
-- [ ] **Task 2:** Create Zod schema (`lib/validation/circleSchema.ts`)
-- [ ] **Task 3:** Create circle service function (`lib/services/circleService.ts`)
-  - [ ] 3a: `createCircle(userId, name)`
-- [ ] **Task 4:** API endpoint (`app/api/circles/route.ts` — POST)
-- [ ] **Task 5:** Build CreateCircleModal component (`components/circles/CreateCircleModal.tsx`)
-  - [ ] 5a: Name input with validation
-  - [ ] 5b: Loading and success states
-  - [ ] 5c: Accessibility
-- [ ] **Task 6:** Add "Social Circles" section to profile page
-- [ ] **Task 7:** Write tests (validation, service, API, component)
+- [x] **Task 1:** Database migration (`lib/db/migrations/028_create_social_circles_table.sql` — see Dev Notes on path correction)
+- [x] **Task 2:** Create Zod schema (`lib/validation/circleSchema.ts`)
+- [x] **Task 3:** Create circle service function (`lib/services/circleService.ts`)
+  - [x] 3a: `createCircle(userId, name)`
+- [x] **Task 4:** API endpoint (`app/api/circles/route.ts` — POST, plus GET to list circles; see Completion Notes)
+- [x] **Task 5:** Build CreateCircleModal component (`components/circles/CreateCircleModal.tsx`)
+  - [x] 5a: Name input with validation
+  - [x] 5b: Loading and success states
+  - [x] 5c: Accessibility
+- [x] **Task 6:** Add "Social Circles" section to profile page
+- [x] **Task 7:** Write tests (validation, service, API, component)
 
 ---
 
 ## File List
 
-**Files to Create:**
-- `migrations/0012_social_circles.sql`
+**Files Created:**
+- `lib/db/migrations/028_create_social_circles_table.sql`
 - `lib/validation/circleSchema.ts`
+- `lib/db/queries/circles.ts`
 - `lib/services/circleService.ts`
 - `app/api/circles/route.ts`
 - `components/circles/CreateCircleModal.tsx`
-- `__tests__/circles/createCircle.test.ts`
+- `components/circles/SocialCirclesSection.tsx`
+- `__tests__/validation/circleSchema.test.ts`
+- `__tests__/services/circleService.test.ts`
+- `__tests__/api/circles.test.ts`
+- `__tests__/components/CreateCircleModal.test.tsx`
+- `__tests__/components/SocialCirclesSection.test.tsx`
+
+**Files Modified:**
+- `app/profile/page.tsx` — mounts `SocialCirclesSection`
+
+---
+
+## Dev Agent Record
+
+### Implementation Plan
+
+- Followed the existing wishlist feature (`lib/validation/wishlistSchema.ts`, `lib/services/wishlistService.ts`, `app/api/groups/[groupId]/wishlist/route.ts`) as the closest analog for a user/group-owned named entity with Zod validation, a service-layer result shape (`{ success, message, data?, error?, errorCode? }`), and Chakra modal conventions (`components/groups/CreateEventModal.tsx`).
+- DB access split into `lib/db/queries/circles.ts` (matching the newer per-feature query file convention used by `smsTokens.ts`/`invitations.ts`) rather than appending to the large `lib/db/queries.ts`.
+- `contactCount` is hardcoded to 0 everywhere (no `circle_contacts` table exists yet — that's Story 10.2), so both create and list responses return 0 until that story lands.
+
+### Completion Notes
+
+- **Task 1 path correction:** the story's Dev Notes specified `migrations/0012_social_circles.sql`, but the actual migration runner (`scripts/migrate.js`) reads from `lib/db/migrations/`, which is already at `027_add_phone_hash_to_users.sql`. Created `028_create_social_circles_table.sql` there instead; the root `migrations/` folder is not used by any script.
+- `user_id` references `users(id)` (the actual PK column name — the story's Dev Notes reference `users(cognito_sub)`, which doesn't exist; verified against `lib/db/migrations/013_create_users_table.sql`).
+- **Added a GET /api/circles endpoint** (not in the original Task/File List) — AC1 requires the "Social Circles" section to show existing circles, and AC3 requires new ones to appear immediately; a list endpoint is necessary for the section to render real data on page load, not just optimistically after creation in the same session. Backed by `getUserCirclesService`.
+- **Added `components/circles/SocialCirclesSection.tsx`** (not in the original File List) to hold Task 6's profile-page section: fetches the circle list, renders it, and owns the `CreateCircleModal` open state. Mounted in `app/profile/page.tsx` alongside the existing `CalendarConnectionSetting`.
+- AC4's "name longer than 100 characters" is enforced three ways: the Zod schema (server), the modal's client-side validation, and the input's native `maxLength={100}` (which makes it physically impossible to type past 100 chars in the UI — the component test for this covers the truncation behavior at the input level rather than a rejected 101-char submission, since the latter is unreachable through typing).
+- All tests pass (29 new tests across 5 suites). Ran the full existing suite before and after (via `git stash`/`git stash pop`) to confirm baseline: 458 pre-existing failing tests / 71 failing suites, unrelated to this story (e.g. `jsdom`'s `Response` has no static `.json()`, breaking `NextResponse.json()` in any API-route test not using the `@jest-environment node` override — same pre-existing issue documented in Story 9.1/9.3's API tests). Failure count is identical before and after this story's changes — no regressions introduced.
+- `npm run lint` was already failing with 912 pre-existing problems (mostly `@typescript-eslint/no-explicit-any` on `catch (error: any)` blocks used throughout the existing codebase, e.g. `app/api/groups/[groupId]/wishlist/route.ts`). New files follow the same established `catch (error: any)` pattern for consistency; no new lint rule violations introduced beyond that existing pattern.
+
+---
+
+## Change Log
+
+- 2026-09-02: Implemented Story 10.1 end-to-end (migration, schema, service, API, modal, profile section, tests). Status set to review.
 
 ---
 
 ## Status
 
-**Current Status:** ready-for-dev
-**Last Updated:** 2026-06-30
+**Current Status:** review
+**Last Updated:** 2026-09-02

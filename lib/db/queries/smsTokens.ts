@@ -43,3 +43,17 @@ export async function createToken(
 
   return result;
 }
+
+/**
+ * Look up a token's owner and group-or-event target by its hash, regardless
+ * of used_at/expires_at (Story 9.3 AC4) -- lets a re-request recover the
+ * original invite context from an already-expired/used token. Callers MUST
+ * check phone_hash against the re-requesting phone number before trusting
+ * the target -- this lookup alone doesn't prove who is asking.
+ */
+export async function findTokenContextByHash(
+  tokenHash: string
+): Promise<{ phone_hash: string; target_type: 'group' | 'event' | null; target_id: string | null } | null> {
+  const sql = `SELECT phone_hash, target_type, target_id FROM sms_magic_link_tokens WHERE token_hash = $1`;
+  return queryOne(sql, [tokenHash]);
+}

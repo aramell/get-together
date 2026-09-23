@@ -15,17 +15,7 @@ import {
   Spinner,
 } from '@chakra-ui/react';
 import NextLink from 'next/link';
-import { phoneNumberSchema } from '@/lib/validation/smsAuthSchema';
-
-// Small fixed list -- no dependency is installed for full country-code data,
-// and adding one is outside this story's scope. Covers the launch markets.
-const COUNTRY_CODES = [
-  { code: '+1', label: 'US/CA (+1)' },
-  { code: '+44', label: 'UK (+44)' },
-  { code: '+61', label: 'AU (+61)' },
-  { code: '+33', label: 'FR (+33)' },
-  { code: '+49', label: 'DE (+49)' },
-];
+import { phoneNumberSchema, COUNTRY_CODES } from '@/lib/validation/smsAuthSchema';
 
 export default function PhoneMagicLinkForm() {
   const [countryCode, setCountryCode] = useState('+1');

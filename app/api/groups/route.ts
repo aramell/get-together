@@ -5,6 +5,7 @@ import { ZodError } from 'zod';
 import { getClient } from '@/lib/db/client';
 import { createGroupWithMembership } from '@/lib/db/queries';
 import { getUserIdFromRequest } from '@/lib/api/auth';
+import { bulkInviteCircleToGroup } from '@/lib/services/groupServerService';
 
 /**
  * Generate a cryptographically secure invite code (16 hex characters)
@@ -35,6 +36,8 @@ export async function POST(request: NextRequest) {
     const validatedData = createGroupSchema.parse({
       name: body.name,
       description: body.description || null,
+      circleId: body.circleId || undefined,
+      excludedContactIds: body.excludedContactIds || undefined,
     });
 
     // Extract user ID (Cognito sub) from JWT token in cookies
@@ -60,6 +63,24 @@ export async function POST(request: NextRequest) {
       inviteCode
     );
 
+    // Story 10.4: bulk-invite a circle's contacts, if one was selected. This
+    // runs after the group is committed (fire-and-forget per Dev Notes) so a
+    // partial invite failure never rolls back or blocks group creation (AC7).
+    let invitesSent: number | undefined;
+    let invitesFailed: number | undefined;
+    if (validatedData.circleId) {
+      const inviteResult = await bulkInviteCircleToGroup(
+        group.id,
+        validatedData.circleId,
+        userId,
+        validatedData.excludedContactIds ?? []
+      );
+      if (inviteResult.success && inviteResult.data) {
+        invitesSent = inviteResult.data.invitesSent;
+        invitesFailed = inviteResult.data.invitesFailed;
+      }
+    }
+
     return NextResponse.json(
       {
         success: true,
@@ -68,6 +89,7 @@ export async function POST(request: NextRequest) {
           ...group,
           invite_url: constructInviteUrl(group.invite_code),
         },
+        ...(invitesSent !== undefined ? { invitesSent, invitesFailed } : {}),
       },
       { status: 201 }
     );

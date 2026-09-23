@@ -25,6 +25,23 @@ describe('CreateEventModal Component', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // CircleSelector (Story 10.5) fetches '/api/circles' on mount; jsdom has
+    // no global fetch, so it must be stubbed or every test crashes on mount.
+    (global as any).fetch = jest.fn((url: string) => {
+      if (typeof url === 'string' && url.startsWith('/api/circles')) {
+        return Promise.resolve({ json: async () => ({ success: true, data: [] }) });
+      }
+      return Promise.resolve({
+        json: async () => ({
+          success: true,
+          message: 'Event proposed successfully',
+          data: {
+            event: { id: 'event-1', title: 'Test Event', date: '2026-04-20T19:00:00Z' },
+            rsvp: { id: 'rsvp-1', status: 'in' },
+          },
+        }),
+      });
+    });
     mockCreateEvent.mockResolvedValue({
       success: true,
       message: 'Event proposed successfully',

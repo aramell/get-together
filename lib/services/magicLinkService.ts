@@ -10,6 +10,7 @@ import {
 import { getClient, query, queryOne } from '@/lib/db/client';
 import { addUserToGroup } from '@/lib/db/queries';
 import { findUserByPhoneHash, createUserProfileByPhoneHash } from '@/lib/services/userService';
+import { findTokenContextByHash } from '@/lib/db/queries/smsTokens';
 
 const USER_POOL_ID = process.env.NEXT_PUBLIC_USER_POOL_ID || '';
 const CLIENT_ID = process.env.NEXT_PUBLIC_USER_POOL_WEB_CLIENT_ID || '';
@@ -62,15 +63,21 @@ export interface ConsumedToken {
   target_id: string | null;
 }
 
+export type TokenConsumptionResult =
+  | { status: 'consumed'; token: ConsumedToken }
+  | { status: 'expired' | 'already_used'; target_type: 'group' | 'event' | null; target_id: string | null }
+  | { status: 'invalid' };
+
 /**
- * Atomically consume a magic link token (AC1, AC6): look it up by its hash,
- * require it to be unused and unexpired, and mark it used inside a row lock
- * so a second simultaneous request for the same token cannot also succeed --
- * `SELECT ... FOR UPDATE` blocks the second transaction until the first
- * commits, and its `used_at IS NULL` condition is re-evaluated on wake, so
- * the loser correctly sees zero rows instead of a stale unused row.
+ * Atomically consume a magic link token (AC1, AC2, AC6): look it up by its
+ * hash under a row lock -- so a second simultaneous request for the same
+ * token cannot also succeed, since `SELECT ... FOR UPDATE` blocks the second
+ * transaction until the first commits and its `used_at` is re-read on wake --
+ * then classify why it can't be consumed (never found at all vs. found but
+ * already used vs. found but expired) so the caller can show a specific
+ * message (Story 9.3) instead of one generic "invalid or expired" result.
  */
-export async function consumeToken(rawToken: string): Promise<ConsumedToken | null> {
+export async function consumeToken(rawToken: string): Promise<TokenConsumptionResult> {
   const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
   const client = await getClient();
 
@@ -78,30 +85,67 @@ export async function consumeToken(rawToken: string): Promise<ConsumedToken | nu
     await client.query('BEGIN');
 
     const result = await client.query(
-      `SELECT id, phone_hash, target_type, target_id
+      `SELECT id, phone_hash, target_type, target_id, used_at, expires_at
        FROM sms_magic_link_tokens
-       WHERE token_hash = $1 AND used_at IS NULL AND expires_at > NOW()
+       WHERE token_hash = $1
        FOR UPDATE`,
       [tokenHash]
     );
 
     if (result.rows.length === 0) {
       await client.query('ROLLBACK');
-      return null;
+      return { status: 'invalid' };
     }
 
     const token = result.rows[0];
 
+    if (token.used_at !== null) {
+      await client.query('ROLLBACK');
+      return { status: 'already_used', target_type: token.target_type, target_id: token.target_id };
+    }
+
+    if (new Date(token.expires_at).getTime() <= Date.now()) {
+      await client.query('ROLLBACK');
+      return { status: 'expired', target_type: token.target_type, target_id: token.target_id };
+    }
+
     await client.query(`UPDATE sms_magic_link_tokens SET used_at = NOW() WHERE id = $1`, [token.id]);
     await client.query('COMMIT');
 
-    return token;
+    return {
+      status: 'consumed',
+      token: {
+        id: token.id,
+        phone_hash: token.phone_hash,
+        target_type: token.target_type,
+        target_id: token.target_id,
+      },
+    };
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
   } finally {
     client.release();
   }
+}
+
+/**
+ * Look up an expired/used/nonexistent token's owner and group-or-event
+ * context without consuming it (Story 9.3 AC4), so a re-request from the
+ * error page can carry the original invite forward. Deliberately does not
+ * filter on used_at / expires_at -- the whole point is to read context from
+ * a token that has already failed one of those checks. Returns phone_hash so
+ * the caller can verify the re-requester is the token's original recipient
+ * before trusting target_type/target_id -- without that check, anyone who
+ * obtains any stale token (forwarded, intercepted, or their own after being
+ * removed from the target) could self-issue a fresh link into its group or
+ * event under a different phone number.
+ */
+export async function getTokenTargetContext(
+  rawToken: string
+): Promise<{ phone_hash: string; target_type: 'group' | 'event' | null; target_id: string | null } | null> {
+  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+  return findTokenContextByHash(tokenHash);
 }
 
 /**
@@ -249,19 +293,35 @@ export interface MagicLinkSignInResult {
   idToken?: string;
   refreshToken?: string;
   redirectPath?: string;
-  errorCode?: 'INVALID_OR_EXPIRED_TOKEN' | 'INTERNAL_SERVER_ERROR';
+  errorCode?: 'EXPIRED' | 'ALREADY_USED' | 'INVALID' | 'INTERNAL_SERVER_ERROR';
+  targetType?: 'group' | 'event' | null;
+  targetId?: string | null;
 }
 
 /**
  * Full magic link sign-in flow (AC1-AC7): consume the token, resolve the
  * account (creating one if needed), grant target access, and return a
- * ready-to-use Cognito session.
+ * ready-to-use Cognito session. A token that can't be consumed reports a
+ * specific reason (Story 9.3 AC1, AC2, AC6) plus its original target so a
+ * re-request can carry the invite forward.
  */
 export async function signInViaMagicLink(rawToken: string): Promise<MagicLinkSignInResult> {
-  const token = await consumeToken(rawToken);
-  if (!token) {
-    return { success: false, errorCode: 'INVALID_OR_EXPIRED_TOKEN' };
+  const result = await consumeToken(rawToken);
+
+  if (result.status !== 'consumed') {
+    if (result.status === 'invalid') {
+      return { success: false, errorCode: 'INVALID' };
+    }
+
+    return {
+      success: false,
+      errorCode: result.status === 'expired' ? 'EXPIRED' : 'ALREADY_USED',
+      targetType: result.target_type,
+      targetId: result.target_id,
+    };
   }
+
+  const token = result.token;
 
   try {
     const auth = await findOrCreateUserByPhoneHash(token.phone_hash);

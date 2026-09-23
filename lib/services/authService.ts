@@ -461,10 +461,55 @@ export async function resetPassword(
       };
     }
 
-    if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 8) {
+    if (!newPassword || typeof newPassword !== 'string') {
+      return {
+        success: false,
+        message: 'Password is required',
+        error: 'INVALID_PASSWORD',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    if (newPassword.length < 8) {
       return {
         success: false,
         message: 'Password must be at least 8 characters',
+        error: 'INVALID_PASSWORD',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    if (!/[A-Z]/.test(newPassword)) {
+      return {
+        success: false,
+        message: 'Password must contain at least one uppercase letter',
+        error: 'INVALID_PASSWORD',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    if (!/[a-z]/.test(newPassword)) {
+      return {
+        success: false,
+        message: 'Password must contain at least one lowercase letter',
+        error: 'INVALID_PASSWORD',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    if (!/[0-9]/.test(newPassword)) {
+      return {
+        success: false,
+        message: 'Password must contain at least one number',
+        error: 'INVALID_PASSWORD',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newPassword)) {
+      return {
+        success: false,
+        message: 'Password must contain at least one special character',
         error: 'INVALID_PASSWORD',
         errorCode: 'VALIDATION_ERROR',
       };

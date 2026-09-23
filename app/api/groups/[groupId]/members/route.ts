@@ -53,7 +53,7 @@ export async function GET(
         members: result.members.map((member) => ({
           id: member.id,
           email: member.email,
-          username: member.username,
+          displayName: member.displayName,
           role: member.role,
           joinedAt: member.joinedAt,
           isCurrentUser: member.id === userId,

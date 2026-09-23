@@ -14,7 +14,7 @@ import {
 interface UserSearchResult {
   id: string;
   email: string;
-  username: string;
+  displayName: string | null;
   alreadyMember: boolean;
   hasPendingInvite: boolean;
 }
@@ -52,7 +52,7 @@ const UserSearchResults: React.FC<UserSearchResultsProps> = ({
             />
 
             <VStack align="flex-start" spacing={0} flex={1}>
-              <Text fontWeight="semibold">{user.username}</Text>
+              <Text fontWeight="semibold">{user.displayName || user.email}</Text>
               <Text fontSize="sm" color="gray.600">
                 {user.email}
               </Text>

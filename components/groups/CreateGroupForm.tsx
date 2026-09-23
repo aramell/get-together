@@ -18,6 +18,7 @@ import {
 } from '@chakra-ui/react';
 import { createGroupSchema, CreateGroupInput } from '@/lib/validation/groupSchema';
 import { createGroup } from '@/lib/services/groupService';
+import { CircleSelector } from '@/components/circles/CircleSelector';
 import { ZodError } from 'zod';
 
 export interface CreateGroupFormProps {
@@ -29,6 +30,10 @@ export const CreateGroupForm: React.FC<CreateGroupFormProps> = ({ onSuccess }) =
     name: '',
     description: '',
   });
+
+  const [circleId, setCircleId] = useState<string | null>(null);
+  const [excludedContactIds, setExcludedContactIds] = useState<string[]>([]);
+  const [inviteSummary, setInviteSummary] = useState<string | null>(null);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -84,10 +89,15 @@ export const CreateGroupForm: React.FC<CreateGroupFormProps> = ({ onSuccess }) =
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
+    setInviteSummary(null);
 
     // Validate full form
     try {
-      const validatedData = createGroupSchema.parse(formData);
+      const validatedData = createGroupSchema.parse({
+        ...formData,
+        circleId: circleId || undefined,
+        excludedContactIds: excludedContactIds.length > 0 ? excludedContactIds : undefined,
+      });
 
       setIsLoading(true);
 
@@ -103,11 +113,20 @@ export const CreateGroupForm: React.FC<CreateGroupFormProps> = ({ onSuccess }) =
           isClosable: true,
         });
 
+        // Story 10.4, AC7: surface bulk-invite counts when a circle was used
+        if (result.invitesSent !== undefined) {
+          setInviteSummary(
+            `Group created. ${result.invitesSent} invite${result.invitesSent === 1 ? '' : 's'} sent, ${result.invitesFailed} failed. You can resend from the group settings.`
+          );
+        }
+
         // Reset form
         setFormData({
           name: '',
           description: '',
         });
+        setCircleId(null);
+        setExcludedContactIds([]);
 
         // Call onSuccess callback if provided with group ID and name
         if (onSuccess && result.group?.id && result.group?.name) {
@@ -168,6 +187,14 @@ export const CreateGroupForm: React.FC<CreateGroupFormProps> = ({ onSuccess }) =
             Create a New Group
           </Heading>
 
+          {inviteSummary && (
+            <Box bg="blue.50" border="1px" borderColor="blue.200" p="3" rounded="md" role="status">
+              <Text color="blue.700" fontSize="sm">
+                {inviteSummary}
+              </Text>
+            </Box>
+          )}
+
           {errors.form && (
             <Box
               bg="red.50"
@@ -226,6 +253,14 @@ export const CreateGroupForm: React.FC<CreateGroupFormProps> = ({ onSuccess }) =
               </FormErrorMessage>
             )}
           </FormControl>
+
+          <CircleSelector
+            onSelectionChange={(selectedCircleId, excluded) => {
+              setCircleId(selectedCircleId);
+              setExcludedContactIds(excluded);
+            }}
+            isDisabled={isLoading}
+          />
 
           <Button
             type="submit"

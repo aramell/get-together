@@ -199,3 +199,5 @@ sam-tests.json
 # Keep these important files
 !.gitkeep
 !.claude/settings.local.json
+.vercel
+.env*

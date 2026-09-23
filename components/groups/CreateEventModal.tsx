@@ -21,6 +21,7 @@ import {
   Spinner,
   useToast,
 } from '@chakra-ui/react';
+import { CircleSelector } from '@/components/circles/CircleSelector';
 // Removed: use API endpoint instead
 
 interface CreateEventModalProps {
@@ -57,6 +58,9 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
     description: '',
   });
 
+  const [circleId, setCircleId] = useState<string | null>(null);
+  const [excludedContactIds, setExcludedContactIds] = useState<string[]>([]);
+
   // Re-apply the prefilled date each time the modal is (re)opened from a new slot tap.
   useEffect(() => {
     if (isOpen) {
@@ -68,6 +72,8 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
     if (!isLoading) {
       setFormData({ title: '', date: '', threshold: '', description: '' });
       setErrors({});
+      setCircleId(null);
+      setExcludedContactIds([]);
       onClose();
     }
   };
@@ -121,15 +127,23 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
           date: new Date(formData.date).toISOString(),
           threshold: formData.threshold ? parseInt(formData.threshold) : undefined,
           description: formData.description || undefined,
+          circleId: circleId || undefined,
+          excludedContactIds: excludedContactIds.length > 0 ? excludedContactIds : undefined,
         }),
       });
 
       const result = await response.json();
 
       if (result.success) {
+        // Story 10.5, AC7: surface bulk-invite counts when a circle was used
+        const description =
+          result.invitesSent !== undefined
+            ? `Event proposed. ${result.invitesSent} invite${result.invitesSent === 1 ? '' : 's'} sent, ${result.invitesFailed} failed.`
+            : 'Event proposed successfully';
+
         toast({
           title: 'Success',
-          description: 'Event proposed successfully',
+          description,
           status: 'success',
           duration: 3000,
           isClosable: true,
@@ -252,6 +266,15 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
                   {formData.description.length}/2000 characters
                 </Text>
               </FormControl>
+
+              {/* Circle Selector (Story 10.5, AC1, AC2, AC8, AC9) */}
+              <CircleSelector
+                onSelectionChange={(selectedCircleId, excluded) => {
+                  setCircleId(selectedCircleId);
+                  setExcludedContactIds(excluded);
+                }}
+                isDisabled={isLoading}
+              />
             </VStack>
           </ModalBody>
 
