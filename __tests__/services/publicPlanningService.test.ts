@@ -72,6 +72,27 @@ describe('getPublicEventPlanning', () => {
       ])
       .mockResolvedValueOnce([
         { id: 'tl-1', item_time: '2026-09-20T14:00:00Z', title: 'Scavenger hunt', description: null },
+      ])
+      .mockResolvedValueOnce([
+        { id: 'photo-1', url: 'https://cdn.example.com/photo-1.jpg', caption: 'Campfire' },
+      ])
+      .mockResolvedValueOnce([
+        {
+          poll_id: 'poll-1',
+          question: 'Pizza or tacos?',
+          option_id: 'opt-1',
+          label: 'Pizza',
+          display_order: 0,
+          vote_count: '3',
+        },
+        {
+          poll_id: 'poll-1',
+          question: 'Pizza or tacos?',
+          option_id: 'opt-2',
+          label: 'Tacos',
+          display_order: 1,
+          vote_count: '1',
+        },
       ]);
 
     const result = await getPublicEventPlanning(publicToken);
@@ -104,10 +125,38 @@ describe('getPublicEventPlanning', () => {
     expect(result.data?.timeline).toEqual([
       { id: 'tl-1', item_time: '2026-09-20T14:00:00Z', title: 'Scavenger hunt', description: null },
     ]);
+    expect(result.data?.photos).toEqual([
+      { id: 'photo-1', url: 'https://cdn.example.com/photo-1.jpg', caption: 'Campfire' },
+    ]);
+    expect(result.data?.polls).toEqual([
+      {
+        id: 'poll-1',
+        question: 'Pizza or tacos?',
+        options: [
+          { id: 'opt-1', label: 'Pizza', vote_count: 3 },
+          { id: 'opt-2', label: 'Tacos', vote_count: 1 },
+        ],
+        total_votes: 4,
+      },
+    ]);
+    expect(result.data?.group_id).toBeUndefined();
 
     const serialized = JSON.stringify(result.data);
     expect(serialized).not.toContain('user-andrew');
     expect(serialized).not.toContain('user-jamie');
+    expect(serialized).not.toContain(groupId);
+  });
+
+  it('includes group_id only when a requesting user ID is provided (authenticated caller)', async () => {
+    getEventByPublicToken.mockResolvedValue({ id: eventId, group_id: groupId, status: 'proposal' });
+    getGroupMemberNames.mockResolvedValue([]);
+    query.mockResolvedValue([]);
+
+    const anonymous = await getPublicEventPlanning(publicToken);
+    expect(anonymous.data?.group_id).toBeUndefined();
+
+    const authenticated = await getPublicEventPlanning(publicToken, 'user-andrew');
+    expect(authenticated.data?.group_id).toBe(groupId);
   });
 
   it('returns internal-error on an unexpected failure', async () => {

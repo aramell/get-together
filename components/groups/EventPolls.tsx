@@ -33,16 +33,54 @@ interface Poll {
   user_vote: string | null;
 }
 
-interface EventPollsProps {
-  eventId: string;
-  groupId: string;
+// Guest (no-login) shape from publicPlanningService (Story 13.5). No
+// user_vote -- a guest hasn't voted, and no per-voter identity is exposed
+// (matches what even authenticated members see: vote counts only).
+interface GuestPollOption {
+  id: string;
+  label: string;
+  vote_count: number;
 }
 
-export function EventPolls({ eventId, groupId }: EventPollsProps) {
+interface GuestPoll {
+  id: string;
+  question: string;
+  options: GuestPollOption[];
+  total_votes: number;
+}
+
+interface EventPollsProps {
+  eventId: string;
+  // groupId is only known when rendered from the authenticated Dashboard.
+  // A guest render (publicToken set instead) doesn't have it up front --
+  // see resolvedGroupId below.
+  groupId?: string;
+  // Set when rendered from the no-login public event page instead of the
+  // authenticated Dashboard.
+  publicToken?: string;
+  // Opens the public page's login-in-place modal; only relevant in guest
+  // context (publicToken set).
+  requestLogin?: () => void;
+}
+
+export function EventPolls({ eventId, groupId, publicToken, requestLogin }: EventPollsProps) {
   const { userId, accessToken } = useAuth();
   const toast = useToast();
 
   const [polls, setPolls] = useState<Poll[]>([]);
+  const [guestPolls, setGuestPolls] = useState<GuestPoll[]>([]);
+  // Learned from the public planning endpoint once a guest logs in via the
+  // in-place modal -- lets this widget upgrade to the interactive fetch
+  // below without navigating away.
+  const [resolvedGroupId, setResolvedGroupId] = useState<string | null>(null);
+  const effectiveGroupId = groupId ?? resolvedGroupId ?? undefined;
+  // Set only once the authenticated fetch below actually succeeds for a
+  // guest-resolved group -- a resolved group_id alone doesn't prove
+  // membership. See EventChecklist.tsx for the shared pattern this mirrors.
+  const [membershipConfirmed, setMembershipConfirmed] = useState(false);
+  const canAttemptAuthenticated = Boolean(accessToken && effectiveGroupId);
+  const interactive =
+    Boolean(accessToken && groupId) || Boolean(accessToken && resolvedGroupId && membershipConfirmed);
   const [userRole, setUserRole] = useState<'admin' | 'member' | null>(null);
   const [loading, setLoading] = useState(true);
   const [newQuestion, setNewQuestion] = useState('');
@@ -62,27 +100,29 @@ export function EventPolls({ eventId, groupId }: EventPollsProps) {
   );
 
   const fetchPolls = useCallback(async () => {
-    if (isFetchingRef.current) return;
+    if (!effectiveGroupId || isFetchingRef.current) return;
     isFetchingRef.current = true;
     try {
-      const response = await fetch(`/api/groups/${groupId}/events/${eventId}/polls`, {
+      const response = await fetch(`/api/groups/${effectiveGroupId}/events/${eventId}/polls`, {
         headers: authHeaders(),
       });
       if (!response.ok) return;
       const data = await response.json();
       if (data.success && Array.isArray(data.data)) {
         setPolls(data.data);
+        setMembershipConfirmed(true);
       }
     } catch (err) {
       console.error('Error fetching polls:', err);
     } finally {
       isFetchingRef.current = false;
     }
-  }, [eventId, groupId, authHeaders]);
+  }, [eventId, effectiveGroupId, authHeaders]);
 
   const fetchUserRole = useCallback(async () => {
+    if (!effectiveGroupId) return;
     try {
-      const response = await fetch(`/api/groups/${groupId}`, { headers: authHeaders() });
+      const response = await fetch(`/api/groups/${effectiveGroupId}`, { headers: authHeaders() });
       if (!response.ok) return;
       const data = await response.json();
       if (data.success && data.data?.currentUserRole) {
@@ -91,10 +131,32 @@ export function EventPolls({ eventId, groupId }: EventPollsProps) {
     } catch (err) {
       console.error('Error fetching group role:', err);
     }
-  }, [groupId, authHeaders]);
+  }, [effectiveGroupId, authHeaders]);
+
+  // Guest (no-login) read-only fetch -- see EventChecklist.tsx for the
+  // shared pattern this mirrors.
+  const fetchGuestPlanning = useCallback(async () => {
+    if (!publicToken || isFetchingRef.current) return;
+    isFetchingRef.current = true;
+    try {
+      const headers: Record<string, string> = {};
+      if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+      const response = await fetch(`/api/events/public/${publicToken}/planning`, { headers });
+      if (!response.ok) return;
+      const data = await response.json();
+      if (data.success && data.data) {
+        if (Array.isArray(data.data.polls)) setGuestPolls(data.data.polls);
+        if (typeof data.data.group_id === 'string') setResolvedGroupId(data.data.group_id);
+      }
+    } catch (err) {
+      console.error('Error fetching public polls:', err);
+    } finally {
+      isFetchingRef.current = false;
+    }
+  }, [publicToken, accessToken]);
 
   useEffect(() => {
-    if (!accessToken) return;
+    if (!canAttemptAuthenticated) return;
 
     setLoading(true);
     Promise.all([fetchPolls(), fetchUserRole()]).finally(() => setLoading(false));
@@ -109,7 +171,18 @@ export function EventPolls({ eventId, groupId }: EventPollsProps) {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId, groupId, accessToken]);
+  }, [eventId, effectiveGroupId, accessToken]);
+
+  useEffect(() => {
+    if (!publicToken || interactive) return;
+
+    setLoading(true);
+    fetchGuestPlanning().finally(() => setLoading(false));
+
+    const interval = setInterval(fetchGuestPlanning, 5000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId, publicToken, accessToken, effectiveGroupId]);
 
   const handleOptionChange = (index: number, value: string) => {
     setNewOptions((prev) => prev.map((o, i) => (i === index ? value : o)));
@@ -130,7 +203,7 @@ export function EventPolls({ eventId, groupId }: EventPollsProps) {
     if (!canCreatePoll) return;
 
     try {
-      const response = await fetch(`/api/groups/${groupId}/events/${eventId}/polls`, {
+      const response = await fetch(`/api/groups/${effectiveGroupId}/events/${eventId}/polls`, {
         method: 'POST',
         headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
@@ -173,7 +246,7 @@ export function EventPolls({ eventId, groupId }: EventPollsProps) {
 
     try {
       const response = await fetch(
-        `/api/groups/${groupId}/events/${eventId}/polls/${pollId}/vote`,
+        `/api/groups/${effectiveGroupId}/events/${eventId}/polls/${pollId}/vote`,
         {
           method: 'POST',
           headers: authHeaders({ 'Content-Type': 'application/json' }),
@@ -211,7 +284,7 @@ export function EventPolls({ eventId, groupId }: EventPollsProps) {
 
     try {
       const response = await fetch(
-        `/api/groups/${groupId}/events/${eventId}/polls/${pollId}/vote`,
+        `/api/groups/${effectiveGroupId}/events/${eventId}/polls/${pollId}/vote`,
         { method: 'DELETE', headers: authHeaders() }
       );
       const data = await response.json();
@@ -230,7 +303,7 @@ export function EventPolls({ eventId, groupId }: EventPollsProps) {
     setPolls((prev) => prev.filter((p) => p.id !== pollId));
 
     try {
-      const response = await fetch(`/api/groups/${groupId}/events/${eventId}/polls/${pollId}`, {
+      const response = await fetch(`/api/groups/${effectiveGroupId}/events/${eventId}/polls/${pollId}`, {
         method: 'DELETE',
         headers: authHeaders(),
       });
@@ -245,6 +318,13 @@ export function EventPolls({ eventId, groupId }: EventPollsProps) {
     }
   };
 
+  // Neither an authenticated group nor a public token to read from -- there
+  // is nothing this widget can render, and without one of them neither
+  // fetch effect above ever resolves `loading`.
+  if (!groupId && !publicToken) {
+    return null;
+  }
+
   if (loading) {
     return (
       <HStack justify="center" py={6}>
@@ -253,6 +333,63 @@ export function EventPolls({ eventId, groupId }: EventPollsProps) {
           Loading polls...
         </Text>
       </HStack>
+    );
+  }
+
+  // Guest (no-login) read-only render: same vote bars, no selection state
+  // (a guest hasn't voted), and Vote prompts login instead of voting. No
+  // create-poll form.
+  if (!interactive && publicToken) {
+    return (
+      <Box>
+        <Heading as="h2" fontWeight="bold" fontSize="lg" mb={4}>
+          Polls
+        </Heading>
+
+        <VStack spacing={4} align="stretch">
+          {guestPolls.length === 0 && (
+            <Text color="ink.500" fontSize="sm">
+              No polls yet.
+            </Text>
+          )}
+          {guestPolls.map((poll) => (
+            <Box key={poll.id} p={3} borderWidth="1px" borderColor="cork.100" borderRadius="md">
+              <Text fontWeight="semibold" mb={2}>
+                {poll.question}
+              </Text>
+              <VStack spacing={2} align="stretch">
+                {poll.options.map((option) => {
+                  const pct = poll.total_votes > 0 ? Math.round((option.vote_count / poll.total_votes) * 100) : 0;
+                  return (
+                    <HStack key={option.id} spacing={3}>
+                      <Box flex={1} position="relative" bg="cork.100" borderRadius="md" overflow="hidden" h="32px">
+                        <Box
+                          position="absolute"
+                          top={0}
+                          left={0}
+                          bottom={0}
+                          bg="cork.300"
+                          width={`${pct}%`}
+                          transition="width 0.2s"
+                        />
+                        <HStack position="relative" h="100%" px={2} justify="space-between">
+                          <Text fontSize="sm">{option.label}</Text>
+                          <Text fontSize="xs" color="ink.600">
+                            {option.vote_count} ({pct}%)
+                          </Text>
+                        </HStack>
+                      </Box>
+                      <Button size="sm" variant="outline" onClick={() => requestLogin?.()}>
+                        Log in to vote
+                      </Button>
+                    </HStack>
+                  );
+                })}
+              </VStack>
+            </Box>
+          ))}
+        </VStack>
+      </Box>
     );
   }
 

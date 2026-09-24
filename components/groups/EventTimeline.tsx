@@ -26,9 +26,28 @@ interface TimelineItem {
   description: string | null;
 }
 
+// Guest (no-login) shape from publicPlanningService (Story 13.5).
+interface GuestTimelineItem {
+  id: string;
+  item_time: string;
+  title: string;
+  description: string | null;
+}
+
 interface EventTimelineProps {
   eventId: string;
-  groupId: string;
+  // groupId is only known when rendered from the authenticated Dashboard.
+  // A guest render (publicToken set instead) doesn't have it up front --
+  // see resolvedGroupId below.
+  groupId?: string;
+  // Set when rendered from the no-login public event page instead of the
+  // authenticated Dashboard.
+  publicToken?: string;
+  // Opens the public page's login-in-place modal; only relevant in guest
+  // context (publicToken set). Timeline has no guest-triggerable action
+  // today (no checkbox/claim/vote/upload), but the prop is accepted for a
+  // consistent widget signature.
+  requestLogin?: () => void;
 }
 
 function formatItemTime(itemTime: string): string {
@@ -44,11 +63,25 @@ function formatItemTime(itemTime: string): string {
   return `${formattedDate}, ${formattedTime}`;
 }
 
-export function EventTimeline({ eventId, groupId }: EventTimelineProps) {
+export function EventTimeline({ eventId, groupId, publicToken, requestLogin }: EventTimelineProps) {
   const { userId, accessToken } = useAuth();
   const toast = useToast();
+  void requestLogin; // no guest-triggerable action in this widget yet -- see prop doc above
 
   const [items, setItems] = useState<TimelineItem[]>([]);
+  const [guestItems, setGuestItems] = useState<GuestTimelineItem[]>([]);
+  // Learned from the public planning endpoint once a guest logs in via the
+  // in-place modal -- lets this widget upgrade to the interactive fetch
+  // below without navigating away.
+  const [resolvedGroupId, setResolvedGroupId] = useState<string | null>(null);
+  const effectiveGroupId = groupId ?? resolvedGroupId ?? undefined;
+  // Set only once the authenticated fetch below actually succeeds for a
+  // guest-resolved group -- a resolved group_id alone doesn't prove
+  // membership. See EventChecklist.tsx for the shared pattern this mirrors.
+  const [membershipConfirmed, setMembershipConfirmed] = useState(false);
+  const canAttemptAuthenticated = Boolean(accessToken && effectiveGroupId);
+  const interactive =
+    Boolean(accessToken && groupId) || Boolean(accessToken && resolvedGroupId && membershipConfirmed);
   const [loading, setLoading] = useState(true);
   const [newItemTime, setNewItemTime] = useState('');
   const [newTitle, setNewTitle] = useState('');
@@ -70,16 +103,17 @@ export function EventTimeline({ eventId, groupId }: EventTimelineProps) {
   );
 
   const fetchItems = useCallback(async () => {
-    if (isFetchingRef.current) return;
+    if (!effectiveGroupId || isFetchingRef.current) return;
     isFetchingRef.current = true;
     try {
-      const response = await fetch(`/api/groups/${groupId}/events/${eventId}/timeline`, {
+      const response = await fetch(`/api/groups/${effectiveGroupId}/events/${eventId}/timeline`, {
         headers: authHeaders(),
       });
       if (!response.ok) return;
       const data = await response.json();
       if (data.success && Array.isArray(data.data)) {
         setItems(data.data);
+        setMembershipConfirmed(true);
       }
     } catch (err) {
       console.error('Error fetching timeline items:', err);
@@ -87,10 +121,32 @@ export function EventTimeline({ eventId, groupId }: EventTimelineProps) {
     } finally {
       isFetchingRef.current = false;
     }
-  }, [eventId, groupId, authHeaders]);
+  }, [eventId, effectiveGroupId, authHeaders]);
+
+  // Guest (no-login) read-only fetch -- see EventChecklist.tsx for the
+  // shared pattern this mirrors.
+  const fetchGuestPlanning = useCallback(async () => {
+    if (!publicToken || isFetchingRef.current) return;
+    isFetchingRef.current = true;
+    try {
+      const headers: Record<string, string> = {};
+      if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+      const response = await fetch(`/api/events/public/${publicToken}/planning`, { headers });
+      if (!response.ok) return;
+      const data = await response.json();
+      if (data.success && data.data) {
+        if (Array.isArray(data.data.timeline)) setGuestItems(data.data.timeline);
+        if (typeof data.data.group_id === 'string') setResolvedGroupId(data.data.group_id);
+      }
+    } catch (err) {
+      console.error('Error fetching public timeline:', err);
+    } finally {
+      isFetchingRef.current = false;
+    }
+  }, [publicToken, accessToken]);
 
   useEffect(() => {
-    if (!accessToken) return;
+    if (!canAttemptAuthenticated) return;
     setLoading(true);
     fetchItems().finally(() => setLoading(false));
 
@@ -104,13 +160,24 @@ export function EventTimeline({ eventId, groupId }: EventTimelineProps) {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId, groupId, accessToken]);
+  }, [eventId, effectiveGroupId, accessToken]);
+
+  useEffect(() => {
+    if (!publicToken || interactive) return;
+
+    setLoading(true);
+    fetchGuestPlanning().finally(() => setLoading(false));
+
+    const interval = setInterval(fetchGuestPlanning, 5000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId, publicToken, accessToken, effectiveGroupId]);
 
   const handleAddItem = async () => {
     if (!newItemTime || !newTitle.trim()) return;
 
     try {
-      const response = await fetch(`/api/groups/${groupId}/events/${eventId}/timeline`, {
+      const response = await fetch(`/api/groups/${effectiveGroupId}/events/${eventId}/timeline`, {
         method: 'POST',
         headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
@@ -145,7 +212,7 @@ export function EventTimeline({ eventId, groupId }: EventTimelineProps) {
     if (!editingItemTime || !editingTitle.trim()) return;
 
     try {
-      const response = await fetch(`/api/groups/${groupId}/events/${eventId}/timeline/${itemId}`, {
+      const response = await fetch(`/api/groups/${effectiveGroupId}/events/${eventId}/timeline/${itemId}`, {
         method: 'PATCH',
         headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
@@ -172,7 +239,7 @@ export function EventTimeline({ eventId, groupId }: EventTimelineProps) {
     setItems((prev) => prev.filter((i) => i.id !== itemId));
 
     try {
-      const response = await fetch(`/api/groups/${groupId}/events/${eventId}/timeline/${itemId}`, {
+      const response = await fetch(`/api/groups/${effectiveGroupId}/events/${eventId}/timeline/${itemId}`, {
         method: 'DELETE',
         headers: authHeaders(),
       });
@@ -187,6 +254,13 @@ export function EventTimeline({ eventId, groupId }: EventTimelineProps) {
     }
   };
 
+  // Neither an authenticated group nor a public token to read from -- there
+  // is nothing this widget can render, and without one of them neither
+  // fetch effect above ever resolves `loading`.
+  if (!groupId && !publicToken) {
+    return null;
+  }
+
   if (loading) {
     return (
       <HStack justify="center" py={6}>
@@ -195,6 +269,38 @@ export function EventTimeline({ eventId, groupId }: EventTimelineProps) {
           Loading timeline...
         </Text>
       </HStack>
+    );
+  }
+
+  // Guest (no-login) read-only render: purely informational -- Timeline has
+  // no guest-triggerable interactive control (no checkbox/claim/vote/upload).
+  if (!interactive && publicToken) {
+    return (
+      <Box>
+        <Heading as="h2" fontWeight="bold" fontSize="lg" mb={4}>
+          Timeline
+        </Heading>
+        <VStack spacing={2} align="stretch">
+          {guestItems.length === 0 && (
+            <Text color="ink.500" fontSize="sm">
+              No timeline items yet.
+            </Text>
+          )}
+          {guestItems.map((item) => (
+            <Box key={item.id} py={2} borderBottom="1px solid" borderColor="cork.100">
+              <Text fontWeight="semibold" fontSize="sm" color="ink.600">
+                {formatItemTime(item.item_time)}
+              </Text>
+              <Text color="ink.800">{item.title}</Text>
+              {item.description && (
+                <Text fontSize="sm" color="ink.500">
+                  {item.description}
+                </Text>
+              )}
+            </Box>
+          ))}
+        </VStack>
+      </Box>
     );
   }
 

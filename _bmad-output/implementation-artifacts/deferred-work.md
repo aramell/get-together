@@ -25,3 +25,11 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-13-4-customizable-widget-layout.md`
   summary: No concurrency/conflict handling on the shared per-group dashboard widget layout — `PATCH` is a full-replace with no version/timestamp check, so two members customizing simultaneously silently last-write-wins.
   evidence: Blind-hunter review confirmed there's no versioning/conflict-detection pattern anywhere in this codebase to build the correct fix on (no shared per-group setting has one). Bounded risk — no data corruption, self-heals on the next ~5s poll — customize mode is already an infrequent action, and simultaneous conflicting edits from two members are rarer still.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-13-5-no-login-quick-access-dashboard-link.md`
+  summary: `isValidWidgetLayoutResponse` (`lib/utils/dashboardWidgets.ts`) checks shape/length of a widget-layout response but not uniqueness of `widget_key`/`position` — a malformed response with duplicate keys would pass validation and could produce duplicate React keys / silently dropped widgets.
+  evidence: Edge-case-hunter review found this gap, but the validator is unmodified by this story and already used identically by `EventPlanningTab.tsx` since Story 13.4 (this story's `PublicEventPlanning.tsx` just reuses it) — pre-existing, not introduced here.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-13-5-no-login-quick-access-dashboard-link.md`
+  summary: No test renders the real `app/events/public/[publicToken]/page.tsx` to confirm `requestLogin`/`useDisclosure`/`LoginInPlaceModal` are actually wired together end-to-end — each half (the click trigger in `PublicEventPlanning.test.tsx`, the modal's own success/failure behavior in `LoginInPlaceModal.test.tsx`) is only tested in isolation.
+  evidence: Verification-gap review confirmed no test imports/renders this page component (consistent with the repo's existing convention of no `app/**/page.tsx` tests, per Story 13.1's own Verification section). A wiring mistake here is a thin two-line `useDisclosure` regression, not deep logic, so deferred rather than introducing a new page-test pattern for this story alone.

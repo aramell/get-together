@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import { ChakraProvider } from '@chakra-ui/react';
 import { EventTimeline } from '@/components/groups/EventTimeline';
-import { AuthProvider } from '@/lib/contexts/AuthContext';
+import { AuthProvider, useAuth } from '@/lib/contexts/AuthContext';
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: jest.fn() }),
@@ -196,5 +196,46 @@ describe('EventTimeline Component', () => {
       await Promise.resolve();
     });
     expect(timelineCallCount).toBe(3);
+  });
+
+  describe('guest (no-login) mode', () => {
+    const guestTimeline = [
+      { id: 'tl-1', item_time: '2026-09-20T14:00:00Z', title: 'Scavenger hunt', description: 'Bring a flashlight' },
+    ];
+
+    beforeEach(() => {
+      (useAuth as jest.Mock).mockReturnValue({
+        userId: null,
+        accessToken: null,
+        isAuthenticated: false,
+        isLoading: false,
+      });
+      global.fetch = jest.fn((url: string) => {
+        if (typeof url === 'string' && url.includes('/planning')) {
+          return Promise.resolve({ ok: true, json: async () => ({ success: true, data: { timeline: guestTimeline } }) });
+        }
+        return Promise.resolve({ ok: true, json: async () => ({ success: true, data: [] }) });
+      }) as unknown as typeof fetch;
+    });
+
+    afterEach(() => {
+      (useAuth as jest.Mock).mockReturnValue({
+        userId: 'user-1',
+        accessToken: 'test-token',
+        isAuthenticated: true,
+        isLoading: false,
+      });
+    });
+
+    it('renders read-only items from the public endpoint, with no add-item form', async () => {
+      renderWithProviders(<EventTimeline eventId="event-1" publicToken={'a'.repeat(64)} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Scavenger hunt')).toBeInTheDocument();
+        expect(screen.getByText('Bring a flashlight')).toBeInTheDocument();
+      });
+
+      expect(screen.queryByLabelText(/new timeline item title/i)).not.toBeInTheDocument();
+    });
   });
 });

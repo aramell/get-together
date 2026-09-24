@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import { ChakraProvider } from '@chakra-ui/react';
 import { EventPolls } from '@/components/groups/EventPolls';
-import { AuthProvider } from '@/lib/contexts/AuthContext';
+import { AuthProvider, useAuth } from '@/lib/contexts/AuthContext';
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: jest.fn() }),
@@ -288,5 +288,64 @@ describe('EventPolls Component', () => {
       await Promise.resolve();
     });
     expect(pollsCallCount).toBe(3);
+  });
+
+  describe('guest (no-login) mode', () => {
+    const guestPolls = [
+      {
+        id: 'poll-1',
+        question: 'Pizza or tacos?',
+        options: [
+          { id: 'opt-1', label: 'Pizza', vote_count: 3 },
+          { id: 'opt-2', label: 'Tacos', vote_count: 1 },
+        ],
+        total_votes: 4,
+      },
+    ];
+
+    beforeEach(() => {
+      (useAuth as jest.Mock).mockReturnValue({
+        userId: null,
+        accessToken: null,
+        isAuthenticated: false,
+        isLoading: false,
+      });
+      global.fetch = jest.fn((url: string) => {
+        if (typeof url === 'string' && url.includes('/planning')) {
+          return Promise.resolve({ ok: true, json: async () => ({ success: true, data: { polls: guestPolls } }) });
+        }
+        return Promise.resolve({ ok: true, json: async () => ({ success: true, data: [] }) });
+      }) as unknown as typeof fetch;
+    });
+
+    afterEach(() => {
+      (useAuth as jest.Mock).mockReturnValue({
+        userId: 'user-1',
+        accessToken: 'test-token',
+        isAuthenticated: true,
+        isLoading: false,
+      });
+    });
+
+    it('renders read-only vote bars from the public endpoint, no create-poll form', async () => {
+      renderWithProviders(<EventPolls eventId="event-1" publicToken={'a'.repeat(64)} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Pizza or tacos?')).toBeInTheDocument();
+      });
+
+      expect(screen.queryByLabelText(/new poll question/i)).not.toBeInTheDocument();
+    });
+
+    it('clicking Vote calls requestLogin instead of voting', async () => {
+      const requestLogin = jest.fn();
+      renderWithProviders(<EventPolls eventId="event-1" publicToken={'a'.repeat(64)} requestLogin={requestLogin} />);
+
+      await waitFor(() => expect(screen.getByText('Pizza or tacos?')).toBeInTheDocument());
+
+      fireEvent.click(screen.getAllByRole('button', { name: /log in to vote/i })[0]);
+
+      expect(requestLogin).toHaveBeenCalledTimes(1);
+    });
   });
 });

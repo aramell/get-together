@@ -1,11 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPublicEventPlanning } from '@/lib/services/publicPlanningService';
+import { getUserIdFromBearerToken } from '@/lib/api/auth';
 
 /**
  * GET /api/events/public/[publicToken]/planning
- * Read-only checklist/logistics/timeline data for the public event page.
- * Gated by the same public_token as the rest of the public event view — no
- * authentication, no separate per-section visibility toggle.
+ * Read-only checklist/logistics/timeline/photos/polls data for the public
+ * event page. Gated by the same public_token as the rest of the public
+ * event view — no authentication required, no separate per-section
+ * visibility toggle.
+ *
+ * An optional `Authorization: Bearer` header is honored (not required): if
+ * it resolves to a verified user, the response additionally includes
+ * `group_id` (see publicPlanningService's `PublicPlanningData.group_id`
+ * doc) so a guest who just logged in via the public page's in-place login
+ * modal (Story 13.5) can upgrade to the real per-group member endpoints
+ * without navigating away. An anonymous request never gets `group_id`.
  */
 export async function GET(
   request: NextRequest,
@@ -21,7 +30,9 @@ export async function GET(
       );
     }
 
-    const result = await getPublicEventPlanning(publicToken);
+    const requestingUserId = await getUserIdFromBearerToken(request);
+
+    const result = await getPublicEventPlanning(publicToken, requestingUserId);
 
     if (!result.success) {
       const statusCode = result.message === 'This event is no longer available' ? 410 : 404;

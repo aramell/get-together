@@ -41,7 +41,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: "2026-08-31"
-last_updated: "09-23-2026 18:00"
+last_updated: "09-24-2026 11:30"
 project: get-together
 project_key: NOKEY
 tracking_system: file-system
@@ -174,7 +174,7 @@ development_status:
   13-2-consistent-live-refresh-widgets: review
   13-3-date-day-context-checklist-logistics: review
   13-4-customizable-widget-layout: review
-  13-5-no-login-quick-access-dashboard-link: backlog
+  13-5-no-login-quick-access-dashboard-link: review
   13-6-general-trip-comment-access: backlog
   13-7-comments-on-checklist-items: backlog
   13-8-comments-on-logistics-items: backlog
@@ -190,8 +190,8 @@ summary:
   epics_backlog: 1
   stories_done: 47
   stories_in_progress: 0
-  stories_review: 16
-  stories_backlog: 8
+  stories_review: 17
+  stories_backlog: 7
   stories_ready_for_dev: 0
   retrospectives_optional: 13
   retrospectives_done: 0

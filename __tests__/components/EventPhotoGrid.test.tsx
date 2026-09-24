@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import { ChakraProvider } from '@chakra-ui/react';
 import { EventPhotoGrid } from '@/components/groups/EventPhotoGrid';
-import { AuthProvider } from '@/lib/contexts/AuthContext';
+import { AuthProvider, useAuth } from '@/lib/contexts/AuthContext';
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: jest.fn() }),
@@ -211,5 +211,56 @@ describe('EventPhotoGrid Component', () => {
       await Promise.resolve();
     });
     expect(photosCallCount).toBe(3);
+  });
+
+  describe('guest (no-login) mode', () => {
+    const guestPhotos = [{ id: 'photo-1', url: 'https://example.com/photo1.jpg', caption: 'Campfire' }];
+
+    beforeEach(() => {
+      (useAuth as jest.Mock).mockReturnValue({
+        userId: null,
+        accessToken: null,
+        isAuthenticated: false,
+        isLoading: false,
+      });
+      global.fetch = jest.fn((url: string) => {
+        if (typeof url === 'string' && url.includes('/planning')) {
+          return Promise.resolve({ ok: true, json: async () => ({ success: true, data: { photos: guestPhotos } }) });
+        }
+        return Promise.resolve({ ok: true, json: async () => ({ success: true, data: [] }) });
+      }) as unknown as typeof fetch;
+    });
+
+    afterEach(() => {
+      (useAuth as jest.Mock).mockReturnValue({
+        userId: 'user-1',
+        accessToken: 'test-token',
+        isAuthenticated: true,
+        isLoading: false,
+      });
+    });
+
+    it('renders a read-only grid from the public endpoint, no delete controls', async () => {
+      renderWithProviders(<EventPhotoGrid eventId="event-1" publicToken={'a'.repeat(64)} />);
+
+      await waitFor(() => {
+        expect(screen.getByAltText('Campfire')).toBeInTheDocument();
+      });
+
+      expect(screen.queryByLabelText(/delete photo/i)).not.toBeInTheDocument();
+    });
+
+    it('clicking Upload Photo calls requestLogin instead of opening the file picker', async () => {
+      const requestLogin = jest.fn();
+      renderWithProviders(
+        <EventPhotoGrid eventId="event-1" publicToken={'a'.repeat(64)} requestLogin={requestLogin} />
+      );
+
+      await waitFor(() => expect(screen.getByAltText('Campfire')).toBeInTheDocument());
+
+      fireEvent.click(screen.getByRole('button', { name: /log in to upload a photo/i }));
+
+      expect(requestLogin).toHaveBeenCalledTimes(1);
+    });
   });
 });

@@ -3,7 +3,7 @@ import { render, screen, waitFor, fireEvent, act, within } from '@testing-librar
 import { ChakraProvider } from '@chakra-ui/react';
 import { format, addDays, subDays } from 'date-fns';
 import { EventChecklist } from '@/components/groups/EventChecklist';
-import { AuthProvider } from '@/lib/contexts/AuthContext';
+import { AuthProvider, useAuth } from '@/lib/contexts/AuthContext';
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: jest.fn() }),
@@ -330,6 +330,97 @@ describe('EventChecklist Component', () => {
         expect(screen.queryByRole('heading', { level: 3, name: /today/i })).not.toBeInTheDocument();
         expect(screen.getByText('Rollover task')).toBeInTheDocument();
       });
+    });
+  });
+
+  describe('guest (no-login) mode', () => {
+    const guestChecklist = [
+      { id: 'chk-1', title: 'Bring firewood', is_checked: false, assignee_first_name: 'Andrew' },
+    ];
+
+    beforeEach(() => {
+      (useAuth as jest.Mock).mockReturnValue({
+        userId: null,
+        accessToken: null,
+        isAuthenticated: false,
+        isLoading: false,
+      });
+      global.fetch = jest.fn((url: string) => {
+        if (typeof url === 'string' && url.includes('/planning')) {
+          return Promise.resolve({ ok: true, json: async () => ({ success: true, data: { checklist: guestChecklist } }) });
+        }
+        return Promise.resolve({ ok: true, json: async () => ({ success: true, data: [] }) });
+      }) as unknown as typeof fetch;
+    });
+
+    afterEach(() => {
+      (useAuth as jest.Mock).mockReturnValue({
+        userId: 'user-1',
+        accessToken: 'test-token',
+        isAuthenticated: true,
+        isLoading: false,
+      });
+    });
+
+    it('renders read-only items from the public endpoint, with no add-item form', async () => {
+      renderWithProviders(<EventChecklist eventId="event-1" publicToken={'a'.repeat(64)} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Bring firewood')).toBeInTheDocument();
+        expect(screen.getByText('Andrew')).toBeInTheDocument();
+      });
+
+      expect(screen.queryByLabelText(/new checklist item title/i)).not.toBeInTheDocument();
+    });
+
+    it('clicking the disabled checkbox calls requestLogin instead of toggling', async () => {
+      const requestLogin = jest.fn();
+      renderWithProviders(
+        <EventChecklist eventId="event-1" publicToken={'a'.repeat(64)} requestLogin={requestLogin} />
+      );
+
+      await waitFor(() => expect(screen.getByText('Bring firewood')).toBeInTheDocument());
+
+      fireEvent.click(screen.getByLabelText(/log in to mark/i));
+
+      expect(requestLogin).toHaveBeenCalledTimes(1);
+    });
+
+    it('stays on the read-only guest view when a resolved group_id belongs to a non-member (403)', async () => {
+      // Simulates a guest who logged in via the modal (accessToken now set)
+      // whose public planning fetch resolved group_id, but who isn't
+      // actually a member of that group -- the authenticated checklist
+      // fetch below must 403, and the widget must NOT flip to the
+      // interactive/member render just because group_id resolved.
+      (useAuth as jest.Mock).mockReturnValue({
+        userId: 'user-1',
+        accessToken: 'test-token',
+        isAuthenticated: true,
+        isLoading: false,
+      });
+
+      global.fetch = jest.fn((url: string) => {
+        if (typeof url === 'string' && url.includes('/planning')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ success: true, data: { checklist: guestChecklist, group_id: 'group-1' } }),
+          });
+        }
+        if (typeof url === 'string' && url.includes('/api/groups/group-1/events/event-1/checklist')) {
+          return Promise.resolve({ ok: false, status: 403, json: async () => ({ success: false, error: 'Forbidden' }) });
+        }
+        return Promise.resolve({ ok: false, status: 403, json: async () => ({ success: false, error: 'Forbidden' }) });
+      }) as unknown as typeof fetch;
+
+      renderWithProviders(<EventChecklist eventId="event-1" publicToken={'a'.repeat(64)} />);
+
+      await waitFor(() => expect(screen.getByText('Bring firewood')).toBeInTheDocument());
+
+      // Still the guest read-only render: the checkbox is wired to
+      // requestLogin (aria-label says "Log in to..."), not a real toggle,
+      // and no member-only add-item form is present.
+      expect(screen.getByLabelText(/log in to mark/i)).toBeInTheDocument();
+      expect(screen.queryByLabelText(/new checklist item title/i)).not.toBeInTheDocument();
     });
   });
 });

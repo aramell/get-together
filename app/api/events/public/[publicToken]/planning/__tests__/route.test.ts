@@ -9,15 +9,24 @@ jest.mock('@/lib/services/publicPlanningService', () => ({
   getPublicEventPlanning: jest.fn(),
 }));
 
+jest.mock('@/lib/api/auth', () => ({
+  getUserIdFromBearerToken: jest.fn(),
+}));
+
 const { getPublicEventPlanning } = require('@/lib/services/publicPlanningService');
+const { getUserIdFromBearerToken } = require('@/lib/api/auth');
 
 describe('GET /api/events/public/[publicToken]/planning', () => {
   const validToken = 'a'.repeat(64);
 
-  const makeRequest = () => ({} as NextRequest);
+  const makeRequest = (authHeader?: string) =>
+    ({
+      headers: { get: (name: string) => (name === 'authorization' ? authHeader ?? null : null) },
+    }) as unknown as NextRequest;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    getUserIdFromBearerToken.mockResolvedValue(null);
   });
 
   it('returns 404 for a token that is too short', async () => {
@@ -67,5 +76,27 @@ describe('GET /api/events/public/[publicToken]/planning', () => {
     const data = await response.json();
     expect(data.success).toBe(true);
     expect(data.data).toEqual(planningData);
+  });
+
+  it('resolves an anonymous request with no requestingUserId', async () => {
+    getPublicEventPlanning.mockResolvedValue({ success: true, data: {} });
+
+    await GET(makeRequest(), { params: Promise.resolve({ publicToken: validToken }) });
+
+    expect(getUserIdFromBearerToken).toHaveBeenCalled();
+    expect(getPublicEventPlanning).toHaveBeenCalledWith(validToken, null);
+  });
+
+  it('passes the verified user ID through for an authenticated request', async () => {
+    getUserIdFromBearerToken.mockResolvedValue('user-andrew');
+    getPublicEventPlanning.mockResolvedValue({ success: true, data: { group_id: 'group-1' } });
+
+    const response = await GET(makeRequest('Bearer valid-token'), {
+      params: Promise.resolve({ publicToken: validToken }),
+    });
+    const data = await response.json();
+
+    expect(getPublicEventPlanning).toHaveBeenCalledWith(validToken, 'user-andrew');
+    expect(data.data.group_id).toBe('group-1');
   });
 });

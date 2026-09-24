@@ -53,17 +53,51 @@ interface GroupMember {
   role: 'admin' | 'member';
 }
 
-interface EventLogisticsProps {
-  eventId: string;
-  groupId: string;
+// Guest (no-login) shape from publicPlanningService -- first-name-only
+// identity (Story 13.5).
+interface GuestLogisticsItem {
+  id: string;
+  category: 'bring' | 'carpool';
+  title: string;
+  capacity: number | null;
+  assignee_first_name: string | null;
+  claim_count: number;
+  claimant_first_names: string[];
 }
 
-export function EventLogistics({ eventId, groupId }: EventLogisticsProps) {
+interface EventLogisticsProps {
+  eventId: string;
+  // groupId is only known when rendered from the authenticated Dashboard.
+  // A guest render (publicToken set instead) doesn't have it up front --
+  // see resolvedGroupId below.
+  groupId?: string;
+  // Set when rendered from the no-login public event page instead of the
+  // authenticated Dashboard.
+  publicToken?: string;
+  // Opens the public page's login-in-place modal; only relevant in guest
+  // context (publicToken set).
+  requestLogin?: () => void;
+}
+
+export function EventLogistics({ eventId, groupId, publicToken, requestLogin }: EventLogisticsProps) {
   const { userId, accessToken } = useAuth();
   const toast = useToast();
 
   const [items, setItems] = useState<LogisticsItem[]>([]);
   const [members, setMembers] = useState<GroupMember[]>([]);
+  const [guestItems, setGuestItems] = useState<GuestLogisticsItem[]>([]);
+  // Learned from the public planning endpoint once a guest logs in via the
+  // in-place modal -- lets this widget upgrade to the interactive fetches
+  // below without navigating away.
+  const [resolvedGroupId, setResolvedGroupId] = useState<string | null>(null);
+  const effectiveGroupId = groupId ?? resolvedGroupId ?? undefined;
+  // Set only once the authenticated fetch below actually succeeds for a
+  // guest-resolved group -- a resolved group_id alone doesn't prove
+  // membership. See EventChecklist.tsx for the shared pattern this mirrors.
+  const [membershipConfirmed, setMembershipConfirmed] = useState(false);
+  const canAttemptAuthenticated = Boolean(accessToken && effectiveGroupId);
+  const interactive =
+    Boolean(accessToken && groupId) || Boolean(accessToken && resolvedGroupId && membershipConfirmed);
   const [userRole, setUserRole] = useState<'admin' | 'member' | null>(null);
   const [loading, setLoading] = useState(true);
   const [newCategory, setNewCategory] = useState<'bring' | 'carpool'>('bring');
@@ -89,27 +123,29 @@ export function EventLogistics({ eventId, groupId }: EventLogisticsProps) {
   );
 
   const fetchItems = useCallback(async () => {
-    if (isFetchingRef.current) return;
+    if (!effectiveGroupId || isFetchingRef.current) return;
     isFetchingRef.current = true;
     try {
-      const response = await fetch(`/api/groups/${groupId}/events/${eventId}/logistics`, {
+      const response = await fetch(`/api/groups/${effectiveGroupId}/events/${eventId}/logistics`, {
         headers: authHeaders(),
       });
       if (!response.ok) return;
       const data = await response.json();
       if (data.success && Array.isArray(data.data)) {
         setItems(data.data);
+        setMembershipConfirmed(true);
       }
     } catch (err) {
       console.error('Error fetching logistics items:', err);
     } finally {
       isFetchingRef.current = false;
     }
-  }, [eventId, groupId, authHeaders]);
+  }, [eventId, effectiveGroupId, authHeaders]);
 
   const fetchMembers = useCallback(async () => {
+    if (!effectiveGroupId) return;
     try {
-      const response = await fetch(`/api/groups/${groupId}`, { headers: authHeaders() });
+      const response = await fetch(`/api/groups/${effectiveGroupId}`, { headers: authHeaders() });
       if (!response.ok) return;
       const data = await response.json();
       if (data.success && Array.isArray(data.data?.members)) {
@@ -121,10 +157,32 @@ export function EventLogistics({ eventId, groupId }: EventLogisticsProps) {
     } catch (err) {
       console.error('Error fetching group members:', err);
     }
-  }, [groupId, authHeaders]);
+  }, [effectiveGroupId, authHeaders]);
+
+  // Guest (no-login) read-only fetch -- see EventChecklist.tsx for the
+  // shared pattern this mirrors.
+  const fetchGuestPlanning = useCallback(async () => {
+    if (!publicToken || isFetchingRef.current) return;
+    isFetchingRef.current = true;
+    try {
+      const headers: Record<string, string> = {};
+      if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+      const response = await fetch(`/api/events/public/${publicToken}/planning`, { headers });
+      if (!response.ok) return;
+      const data = await response.json();
+      if (data.success && data.data) {
+        if (Array.isArray(data.data.logistics)) setGuestItems(data.data.logistics);
+        if (typeof data.data.group_id === 'string') setResolvedGroupId(data.data.group_id);
+      }
+    } catch (err) {
+      console.error('Error fetching public logistics:', err);
+    } finally {
+      isFetchingRef.current = false;
+    }
+  }, [publicToken, accessToken]);
 
   useEffect(() => {
-    if (!accessToken) return;
+    if (!canAttemptAuthenticated) return;
 
     setLoading(true);
     Promise.all([fetchItems(), fetchMembers()]).finally(() => setLoading(false));
@@ -139,14 +197,25 @@ export function EventLogistics({ eventId, groupId }: EventLogisticsProps) {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId, groupId, accessToken]);
+  }, [eventId, effectiveGroupId, accessToken]);
+
+  useEffect(() => {
+    if (!publicToken || interactive) return;
+
+    setLoading(true);
+    fetchGuestPlanning().finally(() => setLoading(false));
+
+    const interval = setInterval(fetchGuestPlanning, 5000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId, publicToken, accessToken, effectiveGroupId]);
 
   const handleAddItem = async () => {
     if (!newTitle.trim()) return;
     if (newCategory === 'carpool' && (!newAssignee || !newCapacity)) return;
 
     try {
-      const response = await fetch(`/api/groups/${groupId}/events/${eventId}/logistics`, {
+      const response = await fetch(`/api/groups/${effectiveGroupId}/events/${eventId}/logistics`, {
         method: 'POST',
         headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
@@ -183,7 +252,7 @@ export function EventLogistics({ eventId, groupId }: EventLogisticsProps) {
     if (!editingTitle.trim()) return;
 
     try {
-      const response = await fetch(`/api/groups/${groupId}/events/${eventId}/logistics/${itemId}`, {
+      const response = await fetch(`/api/groups/${effectiveGroupId}/events/${eventId}/logistics/${itemId}`, {
         method: 'PATCH',
         headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ title: editingTitle.trim(), item_date: editingDate || null }),
@@ -206,7 +275,7 @@ export function EventLogistics({ eventId, groupId }: EventLogisticsProps) {
     setItems((prev) => prev.filter((i) => i.id !== itemId));
 
     try {
-      const response = await fetch(`/api/groups/${groupId}/events/${eventId}/logistics/${itemId}`, {
+      const response = await fetch(`/api/groups/${effectiveGroupId}/events/${eventId}/logistics/${itemId}`, {
         method: 'DELETE',
         headers: authHeaders(),
       });
@@ -230,7 +299,7 @@ export function EventLogistics({ eventId, groupId }: EventLogisticsProps) {
     );
 
     try {
-      const response = await fetch(`/api/groups/${groupId}/events/${eventId}/logistics/${item.id}`, {
+      const response = await fetch(`/api/groups/${effectiveGroupId}/events/${eventId}/logistics/${item.id}`, {
         method: 'PATCH',
         headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ assigned_to: claiming ? userId : null }),
@@ -254,7 +323,7 @@ export function EventLogistics({ eventId, groupId }: EventLogisticsProps) {
 
     try {
       const response = await fetch(
-        `/api/groups/${groupId}/events/${eventId}/logistics/${item.id}/claims`,
+        `/api/groups/${effectiveGroupId}/events/${eventId}/logistics/${item.id}/claims`,
         {
           method: hasClaimed ? 'DELETE' : 'POST',
           headers: authHeaders(),
@@ -418,6 +487,13 @@ export function EventLogistics({ eventId, groupId }: EventLogisticsProps) {
   const bringItems = generalItems.filter((i) => i.category === 'bring').sort(compareByItemDateThenCreatedAt);
   const carpoolItems = generalItems.filter((i) => i.category === 'carpool').sort(compareByItemDateThenCreatedAt);
 
+  // Neither an authenticated group nor a public token to read from -- there
+  // is nothing this widget can render, and without one of them neither
+  // fetch effect above ever resolves `loading`.
+  if (!groupId && !publicToken) {
+    return null;
+  }
+
   if (loading) {
     return (
       <HStack justify="center" py={6}>
@@ -426,6 +502,89 @@ export function EventLogistics({ eventId, groupId }: EventLogisticsProps) {
           Loading logistics...
         </Text>
       </HStack>
+    );
+  }
+
+  // Guest (no-login) read-only render: same Bring List/Carpool split, minus
+  // interactive controls. Claim buttons prompt login instead of claiming.
+  if (!interactive && publicToken) {
+    const guestBringItems = guestItems.filter((i) => i.category === 'bring');
+    const guestCarpoolItems = guestItems.filter((i) => i.category === 'carpool');
+    return (
+      <Box>
+        <Heading as="h2" fontWeight="bold" fontSize="lg" mb={4}>
+          Logistics
+        </Heading>
+
+        <Box mb={6}>
+          <Heading as="h3" fontWeight="semibold" fontSize="md" mb={2}>
+            Bring List
+          </Heading>
+          <VStack spacing={2} align="stretch">
+            {guestBringItems.length === 0 && (
+              <Text color="ink.500" fontSize="sm">
+                Nothing on the bring list yet.
+              </Text>
+            )}
+            {guestBringItems.map((item) => (
+              <HStack key={item.id} spacing={3} py={2} borderBottom="1px solid" borderColor="cork.100">
+                <Text flex={1} color="ink.800">
+                  {item.title}
+                </Text>
+                {item.assignee_first_name ? (
+                  <Badge colorScheme="cork" fontSize="xs">
+                    {item.assignee_first_name}
+                  </Badge>
+                ) : (
+                  <>
+                    <Text color="ink.500" fontSize="xs">
+                      Unclaimed
+                    </Text>
+                    <Button size="sm" variant="outline" onClick={() => requestLogin?.()}>
+                      Log in to bring this
+                    </Button>
+                  </>
+                )}
+              </HStack>
+            ))}
+          </VStack>
+        </Box>
+
+        <Box mb={6}>
+          <Heading as="h3" fontWeight="semibold" fontSize="md" mb={2}>
+            Carpool
+          </Heading>
+          <VStack spacing={2} align="stretch">
+            {guestCarpoolItems.length === 0 && (
+              <Text color="ink.500" fontSize="sm">
+                No carpools set up yet.
+              </Text>
+            )}
+            {guestCarpoolItems.map((item) => {
+              const isFull = item.claim_count >= (item.capacity ?? 0);
+              return (
+                <HStack key={item.id} spacing={3} py={2} borderBottom="1px solid" borderColor="cork.100">
+                  <Text flex={1} color="ink.800">
+                    {item.title}
+                  </Text>
+                  {item.assignee_first_name && (
+                    <Badge colorScheme="cork" fontSize="xs">
+                      Driver: {item.assignee_first_name}
+                    </Badge>
+                  )}
+                  <Text fontSize="xs" color="ink.500">
+                    {item.claim_count}/{item.capacity} seats claimed
+                    {item.claimant_first_names.length > 0 && ` — ${item.claimant_first_names.join(', ')}`}
+                  </Text>
+                  <Button size="sm" variant="outline" isDisabled={isFull} onClick={() => requestLogin?.()}>
+                    {isFull ? 'Seats full' : 'Log in to claim a seat'}
+                  </Button>
+                </HStack>
+              );
+            })}
+          </VStack>
+        </Box>
+      </Box>
     );
   }
 

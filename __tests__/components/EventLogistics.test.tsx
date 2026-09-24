@@ -3,7 +3,7 @@ import { render, screen, waitFor, fireEvent, act, within } from '@testing-librar
 import { ChakraProvider } from '@chakra-ui/react';
 import { format, addDays, subDays } from 'date-fns';
 import { EventLogistics } from '@/components/groups/EventLogistics';
-import { AuthProvider } from '@/lib/contexts/AuthContext';
+import { AuthProvider, useAuth } from '@/lib/contexts/AuthContext';
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: jest.fn() }),
@@ -408,6 +408,79 @@ describe('EventLogistics Component', () => {
         expect(screen.queryByRole('heading', { level: 3, name: /^today$/i })).not.toBeInTheDocument();
         expect(screen.getByText('Rollover snacks')).toBeInTheDocument();
       });
+    });
+  });
+
+  describe('guest (no-login) mode', () => {
+    const guestLogistics = [
+      { id: 'log-1', category: 'bring', title: 'Tents', capacity: null, assignee_first_name: 'Jamie', claim_count: 0, claimant_first_names: [] },
+      { id: 'log-2', category: 'bring', title: 'Marshmallows', capacity: null, assignee_first_name: null, claim_count: 0, claimant_first_names: [] },
+      { id: 'log-3', category: 'carpool', title: 'Ride from the city', capacity: 4, assignee_first_name: 'Andrew', claim_count: 2, claimant_first_names: ['Jamie', 'Someone'] },
+      { id: 'log-4', category: 'carpool', title: 'Full van', capacity: 2, assignee_first_name: 'Jamie', claim_count: 2, claimant_first_names: ['Andrew', 'Someone'] },
+    ];
+
+    beforeEach(() => {
+      (useAuth as jest.Mock).mockReturnValue({
+        userId: null,
+        accessToken: null,
+        isAuthenticated: false,
+        isLoading: false,
+      });
+      global.fetch = jest.fn((url: string) => {
+        if (typeof url === 'string' && url.includes('/planning')) {
+          return Promise.resolve({ ok: true, json: async () => ({ success: true, data: { logistics: guestLogistics } }) });
+        }
+        return Promise.resolve({ ok: true, json: async () => ({ success: true, data: [] }) });
+      }) as unknown as typeof fetch;
+    });
+
+    afterEach(() => {
+      (useAuth as jest.Mock).mockReturnValue({
+        userId: 'user-1',
+        accessToken: 'test-token',
+        isAuthenticated: true,
+        isLoading: false,
+      });
+    });
+
+    it('renders read-only Bring/Carpool rows from the public endpoint', async () => {
+      renderWithProviders(<EventLogistics eventId="event-1" publicToken={'a'.repeat(64)} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Tents')).toBeInTheDocument();
+        expect(screen.getByText('Ride from the city')).toBeInTheDocument();
+      });
+    });
+
+    it('clicking a claim button calls requestLogin instead of claiming', async () => {
+      const requestLogin = jest.fn();
+      renderWithProviders(
+        <EventLogistics eventId="event-1" publicToken={'a'.repeat(64)} requestLogin={requestLogin} />
+      );
+
+      await waitFor(() => expect(screen.getByText('Marshmallows')).toBeInTheDocument());
+
+      fireEvent.click(screen.getByRole('button', { name: /log in to bring this/i }));
+
+      expect(requestLogin).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not show a claim button for a bring item that already has an assignee', async () => {
+      renderWithProviders(<EventLogistics eventId="event-1" publicToken={'a'.repeat(64)} />);
+
+      await waitFor(() => expect(screen.getByText('Tents')).toBeInTheDocument());
+
+      // Only the unclaimed "Marshmallows" row should offer the claim button.
+      expect(screen.getAllByRole('button', { name: /log in to bring this/i })).toHaveLength(1);
+    });
+
+    it('disables the claim button and shows "Seats full" for a full carpool', async () => {
+      renderWithProviders(<EventLogistics eventId="event-1" publicToken={'a'.repeat(64)} />);
+
+      await waitFor(() => expect(screen.getByText('Full van')).toBeInTheDocument());
+
+      expect(screen.getByRole('button', { name: /seats full/i })).toBeDisabled();
+      expect(screen.getByRole('button', { name: /log in to claim a seat/i })).toBeEnabled();
     });
   });
 });

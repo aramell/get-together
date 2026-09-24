@@ -14,10 +14,12 @@ import {
   AlertDescription,
   Spinner,
   Center,
+  useDisclosure,
 } from '@chakra-ui/react';
 import { PublicEventHeader } from '@/components/groups/PublicEventHeader';
 import { PublicRsvpForm } from '@/components/groups/PublicRsvpForm';
 import { PublicEventPlanning } from '@/components/groups/PublicEventPlanning';
+import { LoginInPlaceModal } from '@/components/auth/LoginInPlaceModal';
 
 interface EventData {
   id: string;
@@ -42,6 +44,12 @@ export default function PublicEventPage() {
   const [event, setEvent] = useState<EventData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<ErrorType>(null);
+
+  // Login-in-place modal (Story 13.5): opened by a guest's first attempted
+  // interactive action on any dashboard widget below. On success it closes
+  // itself -- same URL, no navigation -- and the widget that triggered it
+  // upgrades to interactive on its own next render/poll.
+  const { isOpen: isLoginModalOpen, onOpen: openLoginModal, onClose: closeLoginModal } = useDisclosure();
 
   // Fetch event details
   useEffect(() => {
@@ -229,10 +237,12 @@ export default function PublicEventPage() {
             />
           </Box>
 
-          {/* Trip Planning (checklist / logistics / timeline) */}
-          <PublicEventPlanning publicToken={publicToken} />
+          {/* Trip Planning (photos / checklist / timeline / logistics / polls) */}
+          <PublicEventPlanning publicToken={publicToken} eventId={event.id} requestLogin={openLoginModal} />
         </VStack>
       </main>
+
+      <LoginInPlaceModal isOpen={isLoginModalOpen} onClose={closeLoginModal} />
     </Container>
   );
 }

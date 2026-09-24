@@ -36,10 +36,40 @@ export interface PublicTimelineItem {
   description: string | null;
 }
 
+export interface PublicPhotoItem {
+  id: string;
+  url: string;
+  caption: string | null;
+}
+
+export interface PublicPollOption {
+  id: string;
+  label: string;
+  vote_count: number;
+}
+
+export interface PublicPollItem {
+  id: string;
+  question: string;
+  options: PublicPollOption[];
+  total_votes: number;
+}
+
 export interface PublicPlanningData {
   checklist: PublicChecklistItem[];
   logistics: PublicLogisticsItem[];
   timeline: PublicTimelineItem[];
+  photos: PublicPhotoItem[];
+  polls: PublicPollItem[];
+  // Present only when the caller is authenticated (a verified Bearer token
+  // was resolved to a user by the route handler) -- lets a guest who just
+  // logged in via the public page's in-place login modal (Story 13.5)
+  // discover the real group_id so their next interactive action can go
+  // through the existing per-group member endpoints, which apply the
+  // existing any-member auth check (403 if they aren't actually a member).
+  // Never present for an anonymous request -- see Story 7.3's
+  // no-group-leakage stance.
+  group_id?: string;
 }
 
 function firstNameOf(displayName: string | null): string | null {
@@ -48,7 +78,16 @@ function firstNameOf(displayName: string | null): string | null {
   return first || null;
 }
 
-export async function getPublicEventPlanning(publicToken: string): Promise<{
+/**
+ * @param requestingUserId - the verified user ID from an Authorization
+ * Bearer header, if the caller is authenticated. Undefined/null for an
+ * anonymous request. Only changes whether `group_id` is included in the
+ * response -- membership itself is not checked here (see `group_id` above).
+ */
+export async function getPublicEventPlanning(
+  publicToken: string,
+  requestingUserId?: string | null
+): Promise<{
   success: boolean;
   message?: string;
   data?: PublicPlanningData;
@@ -64,7 +103,7 @@ export async function getPublicEventPlanning(publicToken: string): Promise<{
       return { success: false, message: 'This event is no longer available' };
     }
 
-    const [members, checklistRows, logisticsRows, timelineRows] = await Promise.all([
+    const [members, checklistRows, logisticsRows, timelineRows, photoRows, pollRows] = await Promise.all([
       getGroupMemberNames(event.group_id),
       query<{ id: string; assigned_to: string | null; title: string; is_checked: boolean }>(
         `SELECT id, assigned_to, title, is_checked
@@ -98,9 +137,52 @@ export async function getPublicEventPlanning(publicToken: string): Promise<{
          ORDER BY item_time ASC`,
         [event.id]
       ),
+      query<{ id: string; url: string; caption: string | null }>(
+        `SELECT id, url, caption
+         FROM event_photos
+         WHERE event_id = $1
+         ORDER BY created_at ASC`,
+        [event.id]
+      ),
+      query<{
+        poll_id: string;
+        question: string;
+        option_id: string;
+        label: string;
+        display_order: number;
+        vote_count: string;
+      }>(
+        `SELECT
+           p.id AS poll_id, p.question,
+           o.id AS option_id, o.label, o.display_order,
+           COALESCE(vc.count, 0) AS vote_count
+         FROM event_polls p
+         JOIN event_poll_options o ON o.poll_id = p.id
+         LEFT JOIN (
+           SELECT option_id, COUNT(*) AS count FROM event_poll_votes GROUP BY option_id
+         ) vc ON vc.option_id = o.id
+         WHERE p.event_id = $1
+         ORDER BY p.created_at ASC, o.display_order ASC`,
+        [event.id]
+      ),
     ]);
 
     const nameById = new Map(members.map((m) => [m.id, firstNameOf(m.displayName)]));
+
+    // Group the flat poll/option rows back into one entry per poll, options
+    // in display order -- mirrors eventPollService.ts's mapRow shape, minus
+    // the authenticated-only user_vote field (a guest hasn't voted).
+    const pollsById = new Map<string, PublicPollItem>();
+    for (const row of pollRows) {
+      let poll = pollsById.get(row.poll_id);
+      if (!poll) {
+        poll = { id: row.poll_id, question: row.question, options: [], total_votes: 0 };
+        pollsById.set(row.poll_id, poll);
+      }
+      const voteCount = parseInt(row.vote_count, 10) || 0;
+      poll.options.push({ id: row.option_id, label: row.label, vote_count: voteCount });
+      poll.total_votes += voteCount;
+    }
 
     return {
       success: true,
@@ -129,6 +211,13 @@ export async function getPublicEventPlanning(publicToken: string): Promise<{
           title: row.title,
           description: row.description,
         })),
+        photos: photoRows.map((row) => ({
+          id: row.id,
+          url: row.url,
+          caption: row.caption,
+        })),
+        polls: Array.from(pollsById.values()),
+        ...(requestingUserId ? { group_id: event.group_id } : {}),
       },
     };
   } catch (error: any) {

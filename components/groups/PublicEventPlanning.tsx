@@ -1,83 +1,103 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Box, VStack, HStack, Spinner, Text } from '@chakra-ui/react';
+import { EventChecklist } from './EventChecklist';
+import { EventPhotoGrid } from './EventPhotoGrid';
+import { EventTimeline } from './EventTimeline';
+import { EventLogistics } from './EventLogistics';
+import { EventPolls } from './EventPolls';
 import {
-  Box,
-  VStack,
-  HStack,
-  Heading,
-  Text,
-  Badge,
-  Checkbox,
-  Divider,
-  Spinner,
-} from '@chakra-ui/react';
-
-interface PublicChecklistItem {
-  id: string;
-  title: string;
-  is_checked: boolean;
-  assignee_first_name: string | null;
-}
-
-interface PublicLogisticsItem {
-  id: string;
-  category: 'bring' | 'carpool';
-  title: string;
-  capacity: number | null;
-  assignee_first_name: string | null;
-  claim_count: number;
-  claimant_first_names: string[];
-}
-
-interface PublicTimelineItem {
-  id: string;
-  item_time: string;
-  title: string;
-  description: string | null;
-}
-
-interface PublicPlanningData {
-  checklist: PublicChecklistItem[];
-  logistics: PublicLogisticsItem[];
-  timeline: PublicTimelineItem[];
-}
+  WidgetKey,
+  WidgetLayoutItem,
+  defaultWidgetLayout,
+  isValidWidgetLayoutResponse,
+} from '@/lib/utils/dashboardWidgets';
 
 interface PublicEventPlanningProps {
   publicToken: string;
+  eventId: string;
+  // Opens the public page's login-in-place modal -- passed down to every
+  // widget's disabled-control handlers (Story 13.5).
+  requestLogin: () => void;
 }
 
+interface GuestWidgetProps {
+  eventId: string;
+  publicToken: string;
+  requestLogin: () => void;
+}
+
+// Maps each fixed widget_key to the component that renders it, mirroring
+// EventPlanningTab.tsx's WIDGET_COMPONENTS -- the same 5 real widget
+// components render for guests too (each has its own guest-mode branch),
+// so guest and member rendering stay identical by construction.
+const WIDGET_COMPONENTS: Record<WidgetKey, React.ComponentType<GuestWidgetProps>> = {
+  photos: EventPhotoGrid,
+  checklist: EventChecklist,
+  timeline: EventTimeline,
+  logistics: EventLogistics,
+  polls: EventPolls,
+};
+
 /**
- * Read-only view of an event's checklist/logistics/timeline for guests on
- * the public link — no login, no editing. Gated server-side by the same
- * public_token as the rest of the page (see Story 7.3 follow-up).
+ * Read-only, layout-driven view of an event's dashboard widgets for a
+ * logged-out visitor on the public link (Story 13.5). Renders the same 5
+ * widgets, in the same order/visibility, that the group's configured
+ * Dashboard layout produces for authenticated members -- gated by
+ * public_token instead of accessToken. A guest's first attempted
+ * interactive action opens the login modal via requestLogin; on success the
+ * relevant widget upgrades to interactive in place (see each widget's
+ * resolvedGroupId logic).
  */
-export const PublicEventPlanning: React.FC<PublicEventPlanningProps> = ({ publicToken }) => {
-  const [data, setData] = useState<PublicPlanningData | null>(null);
+export const PublicEventPlanning: React.FC<PublicEventPlanningProps> = ({
+  publicToken,
+  eventId,
+  requestLogin,
+}) => {
+  const [layout, setLayout] = useState<WidgetLayoutItem[]>(defaultWidgetLayout());
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let cancelled = false;
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isFetchingRef = useRef(false);
 
-    const fetchPlanning = async () => {
-      try {
-        const response = await fetch(`/api/events/public/${publicToken}/planning`);
-        if (!response.ok) return;
-        const result = await response.json();
-        if (!cancelled && result.success) {
-          setData(result.data);
-        }
-      } catch (err) {
-        console.error('Failed to load public planning data:', err);
-      } finally {
-        if (!cancelled) setLoading(false);
+  const fetchLayout = useCallback(async () => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
+    try {
+      const response = await fetch(`/api/events/public/${publicToken}/dashboard-widgets`);
+      if (!response.ok) return;
+      const data = await response.json();
+      // Same defensive shape check EventPlanningTab.tsx uses -- a
+      // malformed/truncated response can't blank out or corrupt the page.
+      if (data.success && isValidWidgetLayoutResponse(data.data)) {
+        setLayout(data.data);
+      }
+    } catch (err) {
+      console.error('Error fetching public dashboard widget layout:', err);
+      // Fall back to the default order already in state; no toast for a
+      // background polling failure (matches every other widget).
+    } finally {
+      isFetchingRef.current = false;
+    }
+  }, [publicToken]);
+
+  useEffect(() => {
+    setLoading(true);
+    fetchLayout().finally(() => setLoading(false));
+
+    // Other members' hide/reorder changes (Story 13.4) reach this guest via
+    // the same ~5s poll every widget uses (Story 13.2).
+    pollingIntervalRef.current = setInterval(() => {
+      fetchLayout();
+    }, 5000);
+
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
       }
     };
-
-    fetchPlanning();
-    return () => {
-      cancelled = true;
-    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [publicToken]);
 
   if (loading) {
@@ -91,105 +111,22 @@ export const PublicEventPlanning: React.FC<PublicEventPlanningProps> = ({ public
     );
   }
 
-  if (!data) return null;
+  const orderedVisibleWidgets = [...layout]
+    .filter((w) => w.visible)
+    .sort((a, b) => a.position - b.position);
 
-  const hasAnything =
-    data.checklist.length > 0 || data.logistics.length > 0 || data.timeline.length > 0;
-
-  if (!hasAnything) return null;
+  if (orderedVisibleWidgets.length === 0) return null;
 
   return (
-    <VStack spacing={6} align="stretch" bg="white" borderRadius="lg" boxShadow="sm" p={{ base: 4, md: 6 }}>
-      {data.timeline.length > 0 && (
-        <Box>
-          <Heading as="h2" size="sm" mb={3}>
-            Schedule
-          </Heading>
-          <VStack spacing={2} align="stretch">
-            {data.timeline.map((item) => (
-              <HStack key={item.id} spacing={3} align="baseline">
-                <Text fontSize="sm" fontWeight="semibold" color="gray.600" minW="90px">
-                  {new Date(item.item_time).toLocaleTimeString('en-US', {
-                    hour: 'numeric',
-                    minute: '2-digit',
-                  })}
-                </Text>
-                <Box>
-                  <Text fontWeight="medium">{item.title}</Text>
-                  {item.description && (
-                    <Text fontSize="sm" color="gray.600">
-                      {item.description}
-                    </Text>
-                  )}
-                </Box>
-              </HStack>
-            ))}
-          </VStack>
-        </Box>
-      )}
-
-      {data.timeline.length > 0 && (data.checklist.length > 0 || data.logistics.length > 0) && (
-        <Divider />
-      )}
-
-      {data.checklist.length > 0 && (
-        <Box>
-          <Heading as="h2" size="sm" mb={3}>
-            Checklist
-          </Heading>
-          <VStack spacing={2} align="stretch">
-            {data.checklist.map((item) => (
-              <HStack key={item.id} spacing={3}>
-                <Checkbox isChecked={item.is_checked} isDisabled aria-label={item.title} />
-                <Text
-                  flex={1}
-                  textDecoration={item.is_checked ? 'line-through' : 'none'}
-                  color={item.is_checked ? 'gray.400' : 'gray.800'}
-                >
-                  {item.title}
-                </Text>
-                {item.assignee_first_name && (
-                  <Badge colorScheme="cyan" fontSize="xs">
-                    {item.assignee_first_name}
-                  </Badge>
-                )}
-              </HStack>
-            ))}
-          </VStack>
-        </Box>
-      )}
-
-      {data.checklist.length > 0 && data.logistics.length > 0 && <Divider />}
-
-      {data.logistics.length > 0 && (
-        <Box>
-          <Heading as="h2" size="sm" mb={3}>
-            Who&apos;s Bringing What
-          </Heading>
-          <VStack spacing={2} align="stretch">
-            {data.logistics.map((item) => (
-              <HStack key={item.id} spacing={3}>
-                <Badge colorScheme={item.category === 'carpool' ? 'purple' : 'orange'} fontSize="xs">
-                  {item.category === 'carpool' ? 'Ride' : 'Bring'}
-                </Badge>
-                <Text flex={1}>{item.title}</Text>
-                {item.category === 'bring' && item.assignee_first_name && (
-                  <Text fontSize="sm" color="gray.600">
-                    {item.assignee_first_name}
-                  </Text>
-                )}
-                {item.category === 'carpool' && (
-                  <Text fontSize="sm" color="gray.600">
-                    {item.claim_count}/{item.capacity} seats
-                    {item.claimant_first_names.length > 0 &&
-                      ` — ${item.claimant_first_names.join(', ')}`}
-                  </Text>
-                )}
-              </HStack>
-            ))}
-          </VStack>
-        </Box>
-      )}
+    <VStack spacing={8} align="stretch" bg="white" borderRadius="lg" boxShadow="sm" p={{ base: 4, md: 6 }}>
+      {orderedVisibleWidgets.map((widget) => {
+        const WidgetComponent = WIDGET_COMPONENTS[widget.widget_key];
+        return (
+          <Box key={widget.widget_key}>
+            <WidgetComponent eventId={eventId} publicToken={publicToken} requestLogin={requestLogin} />
+          </Box>
+        );
+      })}
     </VStack>
   );
 };
