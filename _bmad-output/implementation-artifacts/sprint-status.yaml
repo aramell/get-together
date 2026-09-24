@@ -41,7 +41,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: "2026-08-31"
-last_updated: "09-24-2026 11:30"
+last_updated: "09-24-2026 12:00"
 project: get-together
 project_key: NOKEY
 tracking_system: file-system
