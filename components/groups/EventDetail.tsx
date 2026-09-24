@@ -22,8 +22,15 @@ import {
   AlertDialogContent,
   AlertDialogOverlay,
   useToast,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalCloseButton,
+  ModalBody,
+  IconButton,
 } from '@chakra-ui/react';
-import { FiMapPin } from 'react-icons/fi';
+import { FiMapPin, FiMessageSquare } from 'react-icons/fi';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { EventWithMomentum } from './EventList';
 import { EventCommentSection } from './EventCommentSection';
@@ -46,6 +53,7 @@ export const EventDetail: React.FC<EventDetailProps> = ({ groupId, eventId }) =>
   const [planningStyle, setPlanningStyle] = useState<'availability-first' | 'proposals-first'>('proposals-first');
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { isOpen: isShareOpen, onOpen: onShareOpen, onClose: onShareClose } = useDisclosure();
+  const { isOpen: isCommentsOpen, onOpen: onCommentsOpen, onClose: onCommentsClose } = useDisclosure();
   const cancelRef = React.useRef(null);
   const toast = useToast();
 
@@ -186,25 +194,37 @@ export const EventDetail: React.FC<EventDetailProps> = ({ groupId, eventId }) =>
     <VStack spacing={6} align="stretch">
       <Card>
         <CardHeader pb={2}>
-          <VStack align="flex-start" spacing={2}>
-            <Heading as="h1" size="lg">
-              {event.title}
-            </Heading>
-            <Text fontSize="md" color="gray.600">
-              {formattedDate} at {formattedTime}
-            </Text>
-            {event.location && (
-              <HStack spacing={2} color="gray.600" fontSize="md">
-                <FiMapPin size={16} aria-hidden="true" />
-                <Text>{event.location}</Text>
-              </HStack>
-            )}
-            {isDeemphasized && (
-              <Text fontSize="xs" color="gray.400" data-testid="momentum-deemphasized">
-                {momentumText}
+          <HStack justify="space-between" align="flex-start" spacing={4}>
+            <VStack align="flex-start" spacing={2} flex={1}>
+              <Heading as="h1" size="lg">
+                {event.title}
+              </Heading>
+              <Text fontSize="md" color="gray.600">
+                {formattedDate} at {formattedTime}
               </Text>
+              {event.location && (
+                <HStack spacing={2} color="gray.600" fontSize="md">
+                  <FiMapPin size={16} aria-hidden="true" />
+                  <Text>{event.location}</Text>
+                </HStack>
+              )}
+              {isDeemphasized && (
+                <Text fontSize="xs" color="gray.400" data-testid="momentum-deemphasized">
+                  {momentumText}
+                </Text>
+              )}
+            </VStack>
+            {userId && (
+              <IconButton
+                aria-label="Comments"
+                icon={<FiMessageSquare />}
+                onClick={onCommentsOpen}
+                variant="ghost"
+                colorScheme="blue"
+                data-testid="comments-button"
+              />
             )}
-          </VStack>
+          </HStack>
         </CardHeader>
 
         <CardBody>
@@ -244,16 +264,21 @@ export const EventDetail: React.FC<EventDetailProps> = ({ groupId, eventId }) =>
         </CardBody>
       </Card>
 
-      {/* Comments Section */}
-      <Card>
-        <CardBody>
-          <EventCommentSection
-            eventId={eventId}
-            groupId={groupId}
-            userRole={userRole}
-          />
-        </CardBody>
-      </Card>
+      {/* Comments Modal */}
+      <Modal isOpen={isCommentsOpen} onClose={onCommentsClose} size="lg">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Comments</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody pb={6}>
+            <EventCommentSection
+              eventId={eventId}
+              groupId={groupId}
+              userRole={userRole}
+            />
+          </ModalBody>
+        </ModalContent>
+      </Modal>
 
       {/* Share Event Modal */}
       <PublicLinkModal

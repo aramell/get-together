@@ -403,4 +403,94 @@ describe('EventDetail Component', () => {
       expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     });
   });
+
+  describe('Comments Button and Modal (Story 13.6)', () => {
+    test('displays comments button in header for logged-in member', async () => {
+      mockFetchWith(mockEvent);
+
+      renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
+
+      await waitFor(() => {
+        const commentsButton = screen.getByTestId('comments-button');
+        expect(commentsButton).toBeInTheDocument();
+        expect(commentsButton).toHaveAccessibleName('Comments');
+      });
+    });
+
+    test('hides comments button when user is not logged in', async () => {
+      // Mock useAuth to return no userId (not authenticated)
+      const { useAuth } = require('@/lib/contexts/AuthContext');
+      useAuth.mockReturnValueOnce({
+        userId: null,
+        isAuthenticated: false,
+        isLoading: false,
+        accessToken: null,
+        idToken: null,
+        logout: jest.fn(),
+        checkTokenExpiration: jest.fn(),
+        isTokenExpired: jest.fn(),
+      });
+
+      mockFetchWith(mockEvent);
+
+      renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
+
+      await waitFor(() => {
+        const commentsButton = screen.queryByTestId('comments-button');
+        expect(commentsButton).not.toBeInTheDocument();
+      });
+    });
+
+    test('opens comments modal when comments button clicked', async () => {
+      mockFetchWith(mockEvent);
+
+      renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
+
+      await waitFor(() => {
+        const commentsButton = screen.getByTestId('comments-button');
+        fireEvent.click(commentsButton);
+      });
+
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { name: /comments/i })).toBeInTheDocument();
+      });
+    });
+
+    test('renders EventCommentSection inside the comments modal', async () => {
+      mockFetchWith(mockEvent);
+
+      renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
+
+      await waitFor(() => {
+        fireEvent.click(screen.getByTestId('comments-button'));
+      });
+
+      await waitFor(() => {
+        // EventCommentSection renders a heading with comment count (e.g., "0 Comments")
+        expect(screen.getByText(/^\d+ Comments?$/)).toBeInTheDocument();
+      });
+    });
+
+    test('closes modal when close button clicked', async () => {
+      mockFetchWith(mockEvent);
+
+      renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
+
+      await waitFor(() => {
+        fireEvent.click(screen.getByTestId('comments-button'));
+      });
+
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { name: /comments/i })).toBeInTheDocument();
+      });
+
+      // Find and click the close button
+      const closeButton = screen.getByRole('button', { name: /close/i });
+      fireEvent.click(closeButton);
+
+      await waitFor(() => {
+        expect(screen.queryByRole('heading', { name: /comments/i })).not.toBeInTheDocument();
+      });
+    });
+  });
 });
