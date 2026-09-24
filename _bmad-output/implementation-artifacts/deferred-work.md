@@ -33,3 +33,11 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-13-5-no-login-quick-access-dashboard-link.md`
   summary: No test renders the real `app/events/public/[publicToken]/page.tsx` to confirm `requestLogin`/`useDisclosure`/`LoginInPlaceModal` are actually wired together end-to-end — each half (the click trigger in `PublicEventPlanning.test.tsx`, the modal's own success/failure behavior in `LoginInPlaceModal.test.tsx`) is only tested in isolation.
   evidence: Verification-gap review confirmed no test imports/renders this page component (consistent with the repo's existing convention of no `app/**/page.tsx` tests, per Story 13.1's own Verification section). A wiring mistake here is a thin two-line `useDisclosure` regression, not deep logic, so deferred rather than introducing a new page-test pattern for this story alone.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-13-6-general-trip-comment-access.md`
+  summary: No tests cover exception/error paths for EventCommentSection rendering or polling failures (comment API unavailable, malformed response).
+  evidence: Blind-hunter review flagged missing error/exception scenario testing. Dev-only impact — no user-facing risk, because existing EventCommentSection component's error handling (existing `if (!response.ok) return;` pattern, silent fall-through) is already tested in EventCommentSection's own test suite. Deferred as cosmetic hardening, not unique to modal presentation.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-13-6-general-trip-comment-access.md`
+  summary: No explicit test for modal focus management (Escape key, backdrop focus restoration) — relies on Chakra UI's built-in Modal behavior.
+  evidence: Blind-hunter review noted Escape key close and focus restoration not explicitly tested. Chakra's Modal component provides and tests this behavior; this story only moved EventCommentSection into a Modal wrapper (no new focus-related code). Deferred as cosmetic coverage gap — the actual focus/Escape behavior is guaranteed by Chakra's own test suite, not this story's responsibility.
