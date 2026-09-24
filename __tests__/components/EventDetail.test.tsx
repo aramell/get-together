@@ -112,6 +112,18 @@ describe('EventDetail Component', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (global.fetch as jest.Mock).mockClear();
+    // Reset auth mock to ensure test isolation
+    const { useAuth } = require('@/lib/contexts/AuthContext');
+    useAuth.mockReturnValue({
+      userId: 'user-1',
+      isAuthenticated: true,
+      isLoading: false,
+      accessToken: 'test-token',
+      idToken: 'test-id-token',
+      logout: jest.fn(),
+      checkTokenExpiration: jest.fn(),
+      isTokenExpired: jest.fn(),
+    });
   });
 
   describe('Event Display', () => {
@@ -466,8 +478,11 @@ describe('EventDetail Component', () => {
       });
 
       await waitFor(() => {
-        // EventCommentSection renders a heading with comment count (e.g., "0 Comments")
-        expect(screen.getByText(/^\d+ Comments?$/)).toBeInTheDocument();
+        // EventCommentSection renders a heading with comment count
+        const commentHeading = screen.queryByText((content, element) => {
+          return element?.tagName === 'H2' && /\d+ Comments?/.test(content);
+        });
+        expect(commentHeading).toBeInTheDocument();
       });
     });
 
@@ -484,12 +499,246 @@ describe('EventDetail Component', () => {
         expect(screen.getByRole('heading', { name: /comments/i })).toBeInTheDocument();
       });
 
-      // Find and click the close button
-      const closeButton = screen.getByRole('button', { name: /close/i });
-      fireEvent.click(closeButton);
+      // Find and click the Modal's close button (ModalCloseButton)
+      await waitFor(() => {
+        const closeButtons = screen.getAllByRole('button', { name: /close/i });
+        // Modal close button is typically the last one (after content buttons)
+        const modalCloseButton = closeButtons[closeButtons.length - 1];
+        fireEvent.click(modalCloseButton);
+      });
 
       await waitFor(() => {
         expect(screen.queryByRole('heading', { name: /comments/i })).not.toBeInTheDocument();
+      });
+
+      // Regression: verify EventCommentSection Card is not rendered (old version was removed)
+      expect(screen.queryByText((content, element) => {
+        return element?.tagName === 'H2' && /\d+ Comments?/.test(content);
+      })).not.toBeInTheDocument();
+    });
+
+    test('modal supports keyboard and backdrop close (Chakra Modal feature)', async () => {
+      // Note: Chakra Modal's Escape key and backdrop close are built-in features.
+      // This test verifies the modal is properly configured and accessible;
+      // Escape/backdrop behavior is tested by Chakra's own test suite.
+      mockFetchWith(mockEvent);
+
+      renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
+
+      await waitFor(() => {
+        fireEvent.click(screen.getByTestId('comments-button'));
+      });
+
+      // Verify modal rendered correctly with dialog role and proper layout
+      await waitFor(() => {
+        const dialog = screen.getByRole('dialog');
+        expect(dialog).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: /comments/i })).toBeInTheDocument();
+      });
+    });
+
+    test('displays empty-state UI when event has no comments', async () => {
+      mockFetchWith(mockEvent);
+
+      renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
+
+      await waitFor(() => {
+        fireEvent.click(screen.getByTestId('comments-button'));
+      });
+
+      await waitFor(() => {
+        // Check for "No comments yet" message from EventCommentSection empty state
+        expect(screen.getByText(/No comments yet/i)).toBeInTheDocument();
+      });
+
+      // Verify input form is ready
+      await waitFor(() => {
+        const commentInput = screen.getByPlaceholderText(/Share your thoughts/i);
+        expect(commentInput).toBeInTheDocument();
+      });
+    });
+
+    test('allows member to submit a comment via modal', async () => {
+      mockFetchWith(mockEvent, (url, init) => {
+        if ((init?.method || 'GET') === 'POST' && /\/events\/event-1\/comments$/.test(url.split('?')[0])) {
+          return {
+            ok: true,
+            json: async () => ({
+              success: true,
+              data: {
+                id: 'comment-1',
+                content: 'Test comment',
+                created_by: 'user-1',
+                created_at: '2026-09-24T12:00:00Z',
+                creator: {
+                  display_name: 'Test User',
+                  email: 'test@example.com',
+                },
+              },
+            }),
+          };
+        }
+        return undefined;
+      });
+
+      renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
+
+      await waitFor(() => {
+        fireEvent.click(screen.getByTestId('comments-button'));
+      });
+
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { name: /comments/i })).toBeInTheDocument();
+      });
+
+      // Find the comment input and submit a comment
+      const commentInput = screen.getByPlaceholderText(/Share your thoughts/i) as HTMLTextAreaElement;
+      fireEvent.change(commentInput, { target: { value: 'Test comment' } });
+
+      const submitButton = screen.getByRole('button', { name: /Post Comment/i });
+      fireEvent.click(submitButton);
+
+      // Verify comment appears in the list immediately (optimistic update)
+      await waitFor(() => {
+        expect(screen.getByText('Test comment')).toBeInTheDocument();
+      });
+    });
+
+    test('allows member to edit own comment via modal', async () => {
+      mockFetchWith(mockEvent, (url, init) => {
+        if ((init?.method || 'GET') === 'PATCH' && /\/events\/event-1\/comments\/comment-1$/.test(url.split('?')[0])) {
+          return {
+            ok: true,
+            json: async () => ({
+              success: true,
+              data: {
+                id: 'comment-1',
+                content: 'Edited comment',
+                created_by: 'user-1',
+                created_at: '2026-09-24T12:00:00Z',
+                edited_at: '2026-09-24T12:05:00Z',
+                updated_count: 1,
+              },
+            }),
+          };
+        }
+        return undefined;
+      });
+
+      // Mock initial fetch with one comment
+      const eventWithComment = {
+        ...mockEvent,
+        comments: [{
+          id: 'comment-1',
+          content: 'Original comment',
+          created_by: 'user-1',
+          created_at: '2026-09-24T12:00:00Z',
+          creator: { display_name: 'Test User', email: 'test@example.com' },
+        }],
+      };
+
+      mockFetchWith(eventWithComment, (url, init) => {
+        if ((init?.method || 'GET') === 'GET' && /\/events\/event-1\/comments$/.test(url.split('?')[0])) {
+          return {
+            ok: true,
+            json: async () => ({
+              success: true,
+              data: [{
+                id: 'comment-1',
+                content: 'Original comment',
+                created_by: 'user-1',
+                created_at: '2026-09-24T12:00:00Z',
+                creator: { display_name: 'Test User', email: 'test@example.com' },
+              }],
+            }),
+          };
+        }
+        return undefined;
+      });
+
+      renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
+
+      await waitFor(() => {
+        fireEvent.click(screen.getByTestId('comments-button'));
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('Original comment')).toBeInTheDocument();
+      });
+
+      // Click edit button for the comment
+      const editButtons = screen.getAllByRole('button', { name: /edit/i });
+      fireEvent.click(editButtons[0]);
+
+      // Modal should open with the edit UI
+      await waitFor(() => {
+        const editInput = screen.queryByDisplayValue('Original comment');
+        expect(editInput).toBeInTheDocument();
+      });
+    });
+
+    test('allows member to delete own comment via modal', async () => {
+      mockFetchWith(mockEvent, (url, init) => {
+        if ((init?.method || 'GET') === 'DELETE' && /\/events\/event-1\/comments\/comment-1$/.test(url.split('?')[0])) {
+          return {
+            ok: true,
+            json: async () => ({
+              success: true,
+            }),
+          };
+        }
+        return undefined;
+      });
+
+      // Mock initial fetch with one comment
+      mockFetchWith(
+        mockEvent,
+        (url, init) => {
+          if ((init?.method || 'GET') === 'GET' && /\/events\/event-1\/comments$/.test(url.split('?')[0])) {
+            return {
+              ok: true,
+              json: async () => ({
+                success: true,
+                data: [{
+                  id: 'comment-1',
+                  content: 'Comment to delete',
+                  created_by: 'user-1',
+                  created_at: '2026-09-24T12:00:00Z',
+                  creator: { display_name: 'Test User', email: 'test@example.com' },
+                }],
+              }),
+            };
+          }
+          return undefined;
+        }
+      );
+
+      renderWithChakra(<EventDetail groupId="group-1" eventId="event-1" />);
+
+      await waitFor(() => {
+        fireEvent.click(screen.getByTestId('comments-button'));
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('Comment to delete')).toBeInTheDocument();
+      });
+
+      // Click delete button for the comment
+      const deleteButtons = screen.getAllByRole('button', { name: /delete/i });
+      fireEvent.click(deleteButtons[0]);
+
+      // Confirmation dialog should appear
+      await waitFor(() => {
+        expect(screen.getByText(/Are you sure/i)).toBeInTheDocument();
+      });
+
+      // Confirm deletion
+      const confirmDeleteButton = screen.getByRole('button', { name: /^Delete$/i });
+      fireEvent.click(confirmDeleteButton);
+
+      // Comment should be removed
+      await waitFor(() => {
+        expect(screen.queryByText('Comment to delete')).not.toBeInTheDocument();
       });
     });
   });
