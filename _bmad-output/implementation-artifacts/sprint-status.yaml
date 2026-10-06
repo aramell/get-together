@@ -41,7 +41,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: "2026-08-31"
-last_updated: "10-06-2026 09:00"
+last_updated: "10-06-2026 15:00"
 project: get-together
 project_key: NOKEY
 tracking_system: file-system
@@ -177,7 +177,7 @@ development_status:
   13-5-no-login-quick-access-dashboard-link: review
   13-6-general-trip-comment-access: review
   13-7-comments-on-checklist-items: review
-  13-8-comments-on-logistics-items: backlog
+  13-8-comments-on-logistics-items: review
   13-9-comments-on-timeline-items: backlog
   13-10-comments-on-polls: backlog
   epic-13-retrospective: optional
