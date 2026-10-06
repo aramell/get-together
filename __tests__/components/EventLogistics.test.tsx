@@ -314,6 +314,105 @@ describe('EventLogistics Component', () => {
     expect(logisticsCallCount).toBe(3);
   });
 
+  describe('item comments (Story 13.8)', () => {
+    const commentItems = [
+      { id: 'c-bring', created_by: 'user-1', category: 'bring', title: 'Cooler', assigned_to: null, capacity: null, claims: [], claim_count: 0, comment_count: 3 },
+      { id: 'c-bring-0', created_by: 'user-1', category: 'bring', title: 'Ice', assigned_to: null, capacity: null, claims: [], claim_count: 0, comment_count: 0 },
+      { id: 'c-pool', created_by: 'user-1', category: 'carpool', title: 'Van ride', assigned_to: 'other-user', capacity: 3, claims: [], claim_count: 0, comment_count: 1 },
+      { id: 'c-today', created_by: 'user-1', category: 'bring', title: 'Today grill', assigned_to: null, capacity: null, item_date: todayStr, claims: [], claim_count: 0, comment_count: 2 },
+    ];
+
+    it('shows a comment icon on every bring and carpool row, with a badge only when count > 0', async () => {
+      mockFetchSequence(commentItems as any);
+      renderWithProviders(<EventLogistics eventId="event-1" groupId="group-1" />);
+
+      await waitFor(() => expect(screen.getByText('Cooler')).toBeInTheDocument());
+      for (const id of ['c-bring', 'c-bring-0', 'c-pool', 'c-today']) {
+        expect(screen.getByTestId(`logistics-comment-trigger-${id}`)).toBeInTheDocument();
+      }
+      expect(screen.getByTestId('logistics-comment-count-c-bring')).toHaveTextContent('3');
+      expect(screen.getByTestId('logistics-comment-count-c-pool')).toHaveTextContent('1');
+      expect(screen.getByTestId('logistics-comment-count-c-today')).toHaveTextContent('2');
+      expect(screen.queryByTestId('logistics-comment-count-c-bring-0')).not.toBeInTheDocument();
+    });
+
+    it('opens an empty-state preview for an item with 0 comments', async () => {
+      mockFetchSequence(commentItems as any);
+      renderWithProviders(<EventLogistics eventId="event-1" groupId="group-1" />);
+
+      await waitFor(() => expect(screen.getByText('Ice')).toBeInTheDocument());
+      (global.fetch as jest.Mock).mockImplementation((url: string) => {
+        if (url.includes('/logistics/c-bring-0/comments')) {
+          return Promise.resolve({ ok: true, json: async () => ({ success: true, data: [] }) });
+        }
+        return Promise.resolve({ ok: true, json: async () => ({ success: true, data: commentItems }) });
+      });
+      fireEvent.click(screen.getByTestId('logistics-comment-trigger-c-bring-0'));
+
+      expect(await screen.findByText('No comments yet.')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /add a comment/i })).toBeInTheDocument();
+    });
+
+    it('requests comments from the group-scoped logistics endpoint', async () => {
+      mockFetchSequence(commentItems as any);
+      renderWithProviders(<EventLogistics eventId="event-1" groupId="group-1" />);
+
+      await waitFor(() => expect(screen.getByText('Van ride')).toBeInTheDocument());
+      (global.fetch as jest.Mock).mockImplementation((url: string) =>
+        Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: url.includes('/comments')
+              ? [{ id: 'cm-1', content: 'Meet at 5', created_at: '2026-10-01T00:00:00Z', creator: { display_name: 'Bob' } }]
+              : commentItems,
+          }),
+        })
+      );
+      fireEvent.click(screen.getByTestId('logistics-comment-trigger-c-pool'));
+
+      await waitFor(() =>
+        expect(global.fetch).toHaveBeenCalledWith(
+          '/api/groups/group-1/events/event-1/logistics/c-pool/comments'
+        )
+      );
+    });
+
+    it('preserves the comment badge after a claim PATCH whose response has no comment_count', async () => {
+      mockFetchSequence(commentItems as any);
+      renderWithProviders(<EventLogistics eventId="event-1" groupId="group-1" />);
+
+      await waitFor(() => expect(screen.getByText('Cooler')).toBeInTheDocument());
+      (global.fetch as jest.Mock).mockImplementationOnce(() =>
+        Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: { ...commentItems[0], assigned_to: 'user-1', comment_count: 0 },
+          }),
+        })
+      );
+
+      const coolerRow = screen.getByText('Cooler').closest('.chakra-stack') as HTMLElement;
+      fireEvent.click(within(coolerRow).getByRole('button', { name: /i'll bring this/i }));
+
+      await waitFor(() => expect(within(coolerRow).getByRole('button', { name: /never mind/i })).toBeInTheDocument());
+      expect(screen.getByTestId('logistics-comment-count-c-bring')).toHaveTextContent('3');
+    });
+
+    it('hides the comment icon while a row is being edited', async () => {
+      mockFetchSequence(commentItems as any);
+      renderWithProviders(<EventLogistics eventId="event-1" groupId="group-1" />);
+
+      await waitFor(() => expect(screen.getByText('Ice')).toBeInTheDocument());
+      const iceRow = screen.getByText('Ice').closest('.chakra-stack') as HTMLElement;
+      fireEvent.click(within(iceRow).getByLabelText('Edit item'));
+
+      expect(screen.queryByTestId('logistics-comment-trigger-c-bring-0')).not.toBeInTheDocument();
+      expect(screen.getByTestId('logistics-comment-trigger-c-bring')).toBeInTheDocument();
+    });
+  });
+
   describe('Today/date grouping', () => {
     const groupedItems = [
       { id: 'today-bring', created_by: 'user-1', category: 'bring', title: 'Today snacks', assigned_to: null, capacity: null, item_date: todayStr, claims: [], claim_count: 0 },
@@ -481,6 +580,45 @@ describe('EventLogistics Component', () => {
 
       expect(screen.getByRole('button', { name: /seats full/i })).toBeDisabled();
       expect(screen.getByRole('button', { name: /log in to claim a seat/i })).toBeEnabled();
+    });
+
+    it('shows the comment icon on every guest bring and carpool row (badge only when count > 0)', async () => {
+      const withCounts = guestLogistics.map((g, i) => ({ ...g, comment_count: i === 0 ? 4 : 0 }));
+      (global.fetch as jest.Mock).mockImplementation((url: string) => {
+        if (typeof url === 'string' && url.includes('/planning')) {
+          return Promise.resolve({ ok: true, json: async () => ({ success: true, data: { logistics: withCounts } }) });
+        }
+        return Promise.resolve({ ok: true, json: async () => ({ success: true, data: [] }) });
+      });
+      renderWithProviders(<EventLogistics eventId="event-1" publicToken={'a'.repeat(64)} />);
+
+      await waitFor(() => expect(screen.getByText('Tents')).toBeInTheDocument());
+      for (const id of ['log-1', 'log-2', 'log-3', 'log-4']) {
+        expect(screen.getByTestId(`logistics-comment-trigger-${id}`)).toBeInTheDocument();
+      }
+      expect(screen.getByTestId('logistics-comment-count-log-1')).toHaveTextContent('4');
+      expect(screen.queryByTestId('logistics-comment-count-log-2')).not.toBeInTheDocument();
+    });
+
+    it('opens a read-only thread from the public-token endpoint without prompting login', async () => {
+      const requestLogin = jest.fn();
+      (global.fetch as jest.Mock).mockImplementation((url: string) => {
+        if (typeof url === 'string' && url.includes('/planning')) {
+          return Promise.resolve({ ok: true, json: async () => ({ success: true, data: { logistics: guestLogistics } }) });
+        }
+        return Promise.resolve({ ok: true, json: async () => ({ success: true, data: [] }) });
+      });
+      const token = 'a'.repeat(64);
+      renderWithProviders(<EventLogistics eventId="event-1" publicToken={token} requestLogin={requestLogin} />);
+
+      await waitFor(() => expect(screen.getByText('Tents')).toBeInTheDocument());
+      fireEvent.click(screen.getByTestId('logistics-comment-trigger-log-1'));
+
+      await waitFor(() =>
+        expect(global.fetch).toHaveBeenCalledWith(`/api/events/public/${token}/logistics/log-1/comments`)
+      );
+      expect(await screen.findByRole('button', { name: /view comments/i })).toBeInTheDocument();
+      expect(requestLogin).not.toHaveBeenCalled();
     });
   });
 });
