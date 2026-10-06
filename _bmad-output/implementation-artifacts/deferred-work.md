@@ -51,3 +51,7 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-14-2-generic-item-comments.md`
   summary: Migration 037 (copy 034/035 into item_comments, then drop them) has only text-level tests and has never run against Postgres.
   evidence: Repo has no DB test harness; unverified severity is high (data loss if the copy is wrong). Settle by running it on a copy with seeded 034/035 rows and checking ids, deleted_at, event_id and that the old tables are gone.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-14-3-comments-on-timeline-items.md`
+  summary: Item comment routes (checklist, logistics, timeline, member and public) may return 500 instead of 404 when `itemId` is not a valid UUID.
+  evidence: Edge review of 14.3 flagged it; the lookup query runs with the raw id and Postgres rejects invalid UUIDs. Pre-existing across all item comment routes. Unverified; settle with a route test passing a non-UUID id.

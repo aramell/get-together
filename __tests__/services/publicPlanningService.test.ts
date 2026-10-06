@@ -71,7 +71,7 @@ describe('getPublicEventPlanning', () => {
         },
       ])
       .mockResolvedValueOnce([
-        { id: 'tl-1', item_time: '2026-09-20T14:00:00Z', title: 'Scavenger hunt', description: null },
+        { id: 'tl-1', item_time: '2026-09-20T14:00:00Z', title: 'Scavenger hunt', description: null, comment_count: '2' },
       ])
       .mockResolvedValueOnce([
         { id: 'photo-1', url: 'https://cdn.example.com/photo-1.jpg', caption: 'Campfire' },
@@ -111,6 +111,7 @@ describe('getPublicEventPlanning', () => {
         assignee_first_name: 'Jamie',
         claim_count: 0,
         claimant_first_names: [],
+        comment_count: 0,
       },
       {
         id: 'log-2',
@@ -120,11 +121,15 @@ describe('getPublicEventPlanning', () => {
         assignee_first_name: 'Andrew',
         claim_count: 2,
         claimant_first_names: ['Jamie', 'Someone'],
+        comment_count: 0,
       },
     ]);
     expect(result.data?.timeline).toEqual([
-      { id: 'tl-1', item_time: '2026-09-20T14:00:00Z', title: 'Scavenger hunt', description: null },
+      { id: 'tl-1', item_time: '2026-09-20T14:00:00Z', title: 'Scavenger hunt', description: null, comment_count: 2 },
     ]);
+    const timelineSql = query.mock.calls.map((c: any[]) => String(c[0])).find((q: string) => q.includes('FROM event_timeline_items'));
+    expect(timelineSql).toContain('FROM item_comments');
+    expect(timelineSql).toContain("item_type = 'timeline'");
     expect(result.data?.photos).toEqual([
       { id: 'photo-1', url: 'https://cdn.example.com/photo-1.jpg', caption: 'Campfire' },
     ]);

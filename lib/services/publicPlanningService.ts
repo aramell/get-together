@@ -42,6 +42,7 @@ export interface PublicTimelineItem {
   item_time: string;
   title: string;
   description: string | null;
+  comment_count: number;
 }
 
 export interface PublicPhotoItem {
@@ -149,8 +150,16 @@ export async function getPublicEventPlanning(
          ORDER BY eli.created_at ASC`,
         [event.id]
       ),
-      query<{ id: string; item_time: string; title: string; description: string | null }>(
-        `SELECT id, item_time, title, description
+      query<{
+        id: string;
+        item_time: string;
+        title: string;
+        description: string | null;
+        comment_count: string | number;
+      }>(
+        `SELECT id, item_time, title, description,
+           (SELECT COUNT(*) FROM item_comments tc
+             WHERE tc.item_type = 'timeline' AND tc.item_id = event_timeline_items.id AND tc.deleted_at IS NULL) AS comment_count
          FROM event_timeline_items
          WHERE event_id = $1
          ORDER BY item_time ASC`,
@@ -231,6 +240,7 @@ export async function getPublicEventPlanning(
           item_time: row.item_time,
           title: row.title,
           description: row.description,
+          comment_count: Number(row.comment_count) || 0,
         })),
         photos: photoRows.map((row) => ({
           id: row.id,
@@ -260,6 +270,7 @@ export interface PublicItemComment {
 const ITEM_TYPE_LABELS: Partial<Record<CommentItemType, string>> = {
   checklist: 'Checklist',
   logistics: 'Logistics',
+  timeline: 'Timeline',
 };
 
 /**

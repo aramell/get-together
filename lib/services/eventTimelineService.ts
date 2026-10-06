@@ -11,6 +11,8 @@ export interface TimelineItem {
   description: string | null;
   created_at: string;
   updated_at: string;
+  // Present on list reads only (non-deleted item_comments count).
+  comment_count?: number;
 }
 
 interface ServiceResult<T> {
@@ -134,7 +136,9 @@ export async function getTimelineItems(
     }
 
     const result = await client.query(
-      `SELECT id, event_id, group_id, created_by, item_time, title, description, created_at, updated_at
+      `SELECT id, event_id, group_id, created_by, item_time, title, description, created_at, updated_at,
+         (SELECT COUNT(*)::int FROM item_comments tc
+           WHERE tc.item_type = 'timeline' AND tc.item_id = event_timeline_items.id AND tc.deleted_at IS NULL) AS comment_count
        FROM event_timeline_items
        WHERE event_id = $1
        ORDER BY item_time ASC, created_at ASC`,
@@ -310,7 +314,20 @@ export async function deleteTimelineItem(
       };
     }
 
-    await client.query('DELETE FROM event_timeline_items WHERE id = $1', [itemId]);
+    // item_comments has no per-item FK, so remove the item's comments in the
+    // same transaction as the item itself.
+    await client.query('BEGIN');
+    try {
+      await client.query(
+        `DELETE FROM item_comments WHERE item_type = 'timeline' AND item_id = $1`,
+        [itemId]
+      );
+      await client.query('DELETE FROM event_timeline_items WHERE id = $1', [itemId]);
+      await client.query('COMMIT');
+    } catch (txError) {
+      await client.query('ROLLBACK');
+      throw txError;
+    }
 
     return {
       success: true,

@@ -17,6 +17,7 @@ import {
 } from '@chakra-ui/react';
 import { EditIcon, DeleteIcon } from '@chakra-ui/icons';
 import { useAuth } from '@/lib/contexts/AuthContext';
+import { ItemCommentPopover } from './ItemCommentPopover';
 
 interface TimelineItem {
   id: string;
@@ -24,6 +25,7 @@ interface TimelineItem {
   item_time: string;
   title: string;
   description: string | null;
+  comment_count?: number;
 }
 
 // Guest (no-login) shape from publicPlanningService (Story 13.5).
@@ -32,6 +34,7 @@ interface GuestTimelineItem {
   item_time: string;
   title: string;
   description: string | null;
+  comment_count?: number;
 }
 
 interface EventTimelineProps {
@@ -44,9 +47,8 @@ interface EventTimelineProps {
   // authenticated Dashboard.
   publicToken?: string;
   // Opens the public page's login-in-place modal; only relevant in guest
-  // context (publicToken set). Timeline has no guest-triggerable action
-  // today (no checkbox/claim/vote/upload), but the prop is accepted for a
-  // consistent widget signature.
+  // context (publicToken set). Used by the comment popover to prompt login
+  // when a guest tries to add a comment.
   requestLogin?: () => void;
 }
 
@@ -66,7 +68,6 @@ function formatItemTime(itemTime: string): string {
 export function EventTimeline({ eventId, groupId, publicToken, requestLogin }: EventTimelineProps) {
   const { userId, accessToken } = useAuth();
   const toast = useToast();
-  void requestLogin; // no guest-triggerable action in this widget yet -- see prop doc above
 
   const [items, setItems] = useState<TimelineItem[]>([]);
   const [guestItems, setGuestItems] = useState<GuestTimelineItem[]>([]);
@@ -82,6 +83,7 @@ export function EventTimeline({ eventId, groupId, publicToken, requestLogin }: E
   const canAttemptAuthenticated = Boolean(accessToken && effectiveGroupId);
   const interactive =
     Boolean(accessToken && groupId) || Boolean(accessToken && resolvedGroupId && membershipConfirmed);
+  const [userRole, setUserRole] = useState<'admin' | 'member' | null>(null);
   const [loading, setLoading] = useState(true);
   const [newItemTime, setNewItemTime] = useState('');
   const [newTitle, setNewTitle] = useState('');
@@ -123,6 +125,22 @@ export function EventTimeline({ eventId, groupId, publicToken, requestLogin }: E
     }
   }, [eventId, effectiveGroupId, authHeaders]);
 
+  // The comment popover needs the real group role (admins may moderate any
+  // comment). Same lookup EventLogistics uses.
+  const fetchRole = useCallback(async () => {
+    if (!effectiveGroupId) return;
+    try {
+      const response = await fetch(`/api/groups/${effectiveGroupId}`, { headers: authHeaders() });
+      if (!response.ok) return;
+      const data = await response.json();
+      if (data.success && data.data?.currentUserRole) {
+        setUserRole(data.data.currentUserRole);
+      }
+    } catch (err) {
+      console.error('Error fetching group role:', err);
+    }
+  }, [effectiveGroupId, authHeaders]);
+
   // Guest (no-login) read-only fetch -- see EventChecklist.tsx for the
   // shared pattern this mirrors.
   const fetchGuestPlanning = useCallback(async () => {
@@ -148,7 +166,7 @@ export function EventTimeline({ eventId, groupId, publicToken, requestLogin }: E
   useEffect(() => {
     if (!canAttemptAuthenticated) return;
     setLoading(true);
-    fetchItems().finally(() => setLoading(false));
+    Promise.all([fetchItems(), fetchRole()]).finally(() => setLoading(false));
 
     pollingIntervalRef.current = setInterval(() => {
       fetchItems();
@@ -254,6 +272,11 @@ export function EventTimeline({ eventId, groupId, publicToken, requestLogin }: E
     }
   };
 
+  const handleCommentCountChange = useCallback((itemId: string, count: number) => {
+    setItems((prev) => prev.map((i) => (i.id === itemId ? { ...i, comment_count: count } : i)));
+    setGuestItems((prev) => prev.map((i) => (i.id === itemId ? { ...i, comment_count: count } : i)));
+  }, []);
+
   // Neither an authenticated group nor a public token to read from -- there
   // is nothing this widget can render, and without one of them neither
   // fetch effect above ever resolves `loading`.
@@ -287,17 +310,37 @@ export function EventTimeline({ eventId, groupId, publicToken, requestLogin }: E
             </Text>
           )}
           {guestItems.map((item) => (
-            <Box key={item.id} py={2} borderBottom="1px solid" borderColor="cork.100">
-              <Text fontWeight="semibold" fontSize="sm" color="ink.600">
-                {formatItemTime(item.item_time)}
-              </Text>
-              <Text color="ink.800">{item.title}</Text>
-              {item.description && (
-                <Text fontSize="sm" color="ink.500">
-                  {item.description}
+            <HStack
+              key={item.id}
+              spacing={3}
+              align="start"
+              py={2}
+              borderBottom="1px solid"
+              borderColor="cork.100"
+            >
+              <Box flex={1}>
+                <Text fontWeight="semibold" fontSize="sm" color="ink.600">
+                  {formatItemTime(item.item_time)}
                 </Text>
-              )}
-            </Box>
+                <Text color="ink.800">{item.title}</Text>
+                {item.description && (
+                  <Text fontSize="sm" color="ink.500">
+                    {item.description}
+                  </Text>
+                )}
+              </Box>
+              <ItemCommentPopover
+                itemId={item.id}
+                itemType="timeline"
+                itemLabel={item.title}
+                fetchCommentsUrl={`/api/events/public/${publicToken}/timeline/${item.id}/comments`}
+                addCommentUrl={`/api/events/public/${publicToken}/timeline/${item.id}/comments`}
+                commentCount={item.comment_count ?? 0}
+                isGuest
+                onRequestLogin={requestLogin}
+                onCountChange={handleCommentCountChange}
+              />
+            </HStack>
           ))}
         </VStack>
       </Box>
@@ -361,6 +404,16 @@ export function EventTimeline({ eventId, groupId, publicToken, requestLogin }: E
                     </Text>
                   )}
                 </Box>
+                <ItemCommentPopover
+                  itemId={item.id}
+                  itemType="timeline"
+                  itemLabel={item.title}
+                  fetchCommentsUrl={`/api/groups/${effectiveGroupId}/events/${eventId}/timeline/${item.id}/comments`}
+                  addCommentUrl={`/api/groups/${effectiveGroupId}/events/${eventId}/timeline/${item.id}/comments`}
+                  commentCount={item.comment_count ?? 0}
+                  userRole={userRole}
+                  onCountChange={handleCommentCountChange}
+                />
                 {item.created_by === userId && (
                   <HStack spacing={1}>
                     <IconButton

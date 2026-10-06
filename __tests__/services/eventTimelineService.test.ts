@@ -87,6 +87,9 @@ describe('eventTimelineService', () => {
 
       expect(result.success).toBe(true);
       expect(result.data).toHaveLength(1);
+      const listSql = mockClient.query.mock.calls.map((c: any[]) => String(c[0])).find((q: string) => q.includes('comment_count'));
+      expect(listSql).toContain('FROM item_comments');
+      expect(listSql).toContain("item_type = 'timeline'");
     });
 
     it('rejects a non-member', async () => {
@@ -161,6 +164,44 @@ describe('eventTimelineService', () => {
   });
 
   describe('deleteTimelineItem', () => {
+    it('removes the item and its item_comments in one transaction', async () => {
+      mockClient.query.mockResolvedValueOnce({ rows: [{ created_by: 'creator-1' }] });
+      (getUserGroupRole as jest.Mock).mockResolvedValueOnce('member');
+      mockClient.query.mockResolvedValue({ rows: [] });
+
+      const result = await deleteTimelineItem('event-1', 'group-1', 'item-1', 'creator-1');
+
+      expect(result.success).toBe(true);
+      const sqls = mockClient.query.mock.calls.map((c) => String(c[0]));
+      const begin = sqls.indexOf('BEGIN');
+      const delComments = sqls.findIndex((q) => q.includes('DELETE FROM item_comments'));
+      const delItem = sqls.findIndex((q) => q.includes('DELETE FROM event_timeline_items'));
+      const commit = sqls.indexOf('COMMIT');
+      expect(begin).toBeGreaterThan(-1);
+      expect(delComments).toBeGreaterThan(begin);
+      expect(delItem).toBeGreaterThan(delComments);
+      expect(commit).toBeGreaterThan(delItem);
+      expect(mockClient.query.mock.calls[delComments][0]).toContain("item_type = 'timeline'");
+      expect(mockClient.query.mock.calls[delComments][1]).toEqual(['item-1']);
+    });
+
+    it('rolls back when the item delete fails', async () => {
+      mockClient.query.mockResolvedValueOnce({ rows: [{ created_by: 'creator-1' }] });
+      (getUserGroupRole as jest.Mock).mockResolvedValueOnce('member');
+      mockClient.query.mockImplementation(async (sql: string) => {
+        if (String(sql).includes('DELETE FROM event_timeline_items')) throw new Error('boom');
+        return { rows: [] };
+      });
+      jest.spyOn(console, 'error').mockImplementation(() => {});
+
+      const result = await deleteTimelineItem('event-1', 'group-1', 'item-1', 'creator-1');
+
+      expect(result.success).toBe(false);
+      const sqls = mockClient.query.mock.calls.map((c) => String(c[0]));
+      expect(sqls).toContain('ROLLBACK');
+      expect(sqls).not.toContain('COMMIT');
+    });
+
     it('allows the creator to delete', async () => {
       mockClient.query.mockResolvedValueOnce({ rows: [{ created_by: 'creator-1' }] });
       (getUserGroupRole as jest.Mock).mockResolvedValueOnce('member');

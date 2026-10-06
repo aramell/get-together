@@ -198,6 +198,86 @@ describe('EventTimeline Component', () => {
     expect(timelineCallCount).toBe(3);
   });
 
+  describe('item comments (Story 14.3)', () => {
+    const commentItems = [
+      { ...mockItems[0], comment_count: 3 },
+      { ...mockItems[1], comment_count: 0 },
+    ];
+
+    it('shows a comment icon on every row (including non-creator rows), with a badge only when count > 0', async () => {
+      mockFetchSequence(commentItems as any);
+      renderWithProviders(<EventTimeline eventId="event-1" groupId="group-1" />);
+
+      await waitFor(() => expect(screen.getByText('Arrive')).toBeInTheDocument());
+      expect(screen.getByTestId('timeline-comment-trigger-item-1')).toBeInTheDocument();
+      expect(screen.getByTestId('timeline-comment-trigger-item-2')).toBeInTheDocument();
+      expect(screen.getByTestId('timeline-comment-count-item-1')).toHaveTextContent('3');
+      expect(screen.queryByTestId('timeline-comment-count-item-2')).not.toBeInTheDocument();
+      // Non-creator still sees no edit/delete item controls.
+      expect(screen.getAllByLabelText('Edit item')).toHaveLength(1);
+    });
+
+    it('requests comments from the group-scoped timeline endpoint', async () => {
+      mockFetchSequence(commentItems as any);
+      renderWithProviders(<EventTimeline eventId="event-1" groupId="group-1" />);
+
+      await waitFor(() => expect(screen.getByText('Dinner')).toBeInTheDocument());
+      (global.fetch as jest.Mock).mockImplementation((url: string) =>
+        Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: url.includes('/comments') ? [] : commentItems,
+          }),
+        })
+      );
+      fireEvent.click(screen.getByTestId('timeline-comment-trigger-item-2'));
+
+      await waitFor(() =>
+        expect(global.fetch).toHaveBeenCalledWith(
+          '/api/groups/group-1/events/event-1/timeline/item-2/comments'
+        )
+      );
+    });
+
+    it('passes the group admin role to the comment thread so admins can moderate others\' comments', async () => {
+      const otherComment = {
+        id: 'cm-1',
+        content: 'See you there',
+        created_by: 'other-user',
+        created_at: '2026-10-01T00:00:00Z',
+        creator: { display_name: 'Bob' },
+      };
+      const mockWithRole = (role: 'admin' | 'member') => {
+        global.fetch = jest.fn((url: string) => {
+          let data: unknown = commentItems;
+          if (url.includes('/comments')) data = [otherComment];
+          else if (url === '/api/groups/group-1') data = { currentUserRole: role };
+          return Promise.resolve({ ok: true, json: async () => ({ success: true, data }) });
+        }) as unknown as typeof fetch;
+      };
+      const openThread = async () => {
+        await waitFor(() => expect(screen.getByText('Dinner')).toBeInTheDocument());
+        fireEvent.click(screen.getByTestId('timeline-comment-trigger-item-2'));
+        await screen.findByText('See you there');
+      };
+
+      mockWithRole('admin');
+      const admin = renderWithProviders(<EventTimeline eventId="event-1" groupId="group-1" />);
+      await openThread();
+      fireEvent.click(screen.getByRole('button', { name: /view all|add a comment/i }));
+      await waitFor(() => expect(screen.getAllByLabelText(/delete this comment/i).length).toBeGreaterThan(0));
+      admin.unmount();
+
+      mockWithRole('member');
+      renderWithProviders(<EventTimeline eventId="event-1" groupId="group-1" />);
+      await openThread();
+      fireEvent.click(screen.getByRole('button', { name: /view all|add a comment/i }));
+      await screen.findAllByText('See you there');
+      expect(screen.queryAllByLabelText(/delete this comment/i)).toHaveLength(0);
+    });
+  });
+
   describe('guest (no-login) mode', () => {
     const guestTimeline = [
       { id: 'tl-1', item_time: '2026-09-20T14:00:00Z', title: 'Scavenger hunt', description: 'Bring a flashlight' },
@@ -236,6 +316,29 @@ describe('EventTimeline Component', () => {
       });
 
       expect(screen.queryByLabelText(/new timeline item title/i)).not.toBeInTheDocument();
+    });
+    it('shows a read-only comment icon per row that reads from the public comments endpoint', async () => {
+      global.fetch = jest.fn((url: string) => {
+        if (typeof url === 'string' && url.includes('/planning')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              success: true,
+              data: { timeline: [{ ...guestTimeline[0], comment_count: 2 }] },
+            }),
+          });
+        }
+        return Promise.resolve({ ok: true, json: async () => ({ success: true, data: [] }) });
+      }) as unknown as typeof fetch;
+      renderWithProviders(<EventTimeline eventId="event-1" publicToken={'a'.repeat(64)} />);
+
+      await waitFor(() => expect(screen.getByText('Scavenger hunt')).toBeInTheDocument());
+      expect(screen.getByTestId('timeline-comment-count-tl-1')).toHaveTextContent('2');
+
+      fireEvent.click(screen.getByTestId('timeline-comment-trigger-tl-1'));
+      await waitFor(() =>
+        expect(global.fetch).toHaveBeenCalledWith(`/api/events/public/${'a'.repeat(64)}/timeline/tl-1/comments`)
+      );
     });
   });
 });
