@@ -246,6 +246,22 @@ describe('EventChecklist Component', () => {
     expect(checklistCallCount).toBe(3);
   });
 
+  describe('item comments (Story 13.7)', () => {
+    it('shows a comment icon on every item, with a badge only when comment_count > 0', async () => {
+      mockFetchSequence([
+        { ...mockItems[0], comment_count: 3 },
+        { ...mockItems[1], comment_count: 0 },
+      ] as any);
+      renderWithProviders(<EventChecklist eventId="event-1" groupId="group-1" />);
+
+      await waitFor(() => expect(screen.getByText('Book venue')).toBeInTheDocument());
+      expect(screen.getByTestId('checklist-comment-trigger-item-1')).toBeInTheDocument();
+      expect(screen.getByTestId('checklist-comment-trigger-item-2')).toBeInTheDocument();
+      expect(screen.getByTestId('checklist-comment-count-item-1')).toHaveTextContent('3');
+      expect(screen.queryByTestId('checklist-comment-count-item-2')).not.toBeInTheDocument();
+    });
+  });
+
   describe('Today/date grouping', () => {
     const groupedItems = [
       { id: 'today-item', created_by: 'user-1', assigned_to: null, title: 'Today task', is_checked: false, item_date: todayStr },
@@ -360,6 +376,33 @@ describe('EventChecklist Component', () => {
         isAuthenticated: true,
         isLoading: false,
       });
+    });
+
+    it('shows the comment icon for guests (badge only when count > 0)', async () => {
+      global.fetch = jest.fn((url: string) => {
+        if (typeof url === 'string' && url.includes('/planning')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              success: true,
+              data: {
+                checklist: [
+                  { id: 'chk-1', title: 'Bring firewood', is_checked: false, assignee_first_name: null, comment_count: 2 },
+                  { id: 'chk-2', title: 'Bring tent', is_checked: false, assignee_first_name: null, comment_count: 0 },
+                ],
+              },
+            }),
+          });
+        }
+        return Promise.resolve({ ok: true, json: async () => ({ success: true, data: [] }) });
+      }) as unknown as typeof fetch;
+      renderWithProviders(<EventChecklist eventId="event-1" publicToken={'a'.repeat(64)} />);
+
+      await waitFor(() => expect(screen.getByText('Bring firewood')).toBeInTheDocument());
+      expect(screen.getByTestId('checklist-comment-trigger-chk-1')).toBeInTheDocument();
+      expect(screen.getByTestId('checklist-comment-trigger-chk-2')).toBeInTheDocument();
+      expect(screen.getByTestId('checklist-comment-count-chk-1')).toHaveTextContent('2');
+      expect(screen.queryByTestId('checklist-comment-count-chk-2')).not.toBeInTheDocument();
     });
 
     it('renders read-only items from the public endpoint, with no add-item form', async () => {

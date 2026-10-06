@@ -99,8 +99,8 @@ describe('getPublicEventPlanning', () => {
 
     expect(result.success).toBe(true);
     expect(result.data?.checklist).toEqual([
-      { id: 'chk-1', title: 'Bring firewood', is_checked: false, assignee_first_name: 'Andrew' },
-      { id: 'chk-2', title: 'Bring marshmallows', is_checked: true, assignee_first_name: null },
+      { id: 'chk-1', title: 'Bring firewood', is_checked: false, assignee_first_name: 'Andrew', comment_count: 0 },
+      { id: 'chk-2', title: 'Bring marshmallows', is_checked: true, assignee_first_name: null, comment_count: 0 },
     ]);
     expect(result.data?.logistics).toEqual([
       {
