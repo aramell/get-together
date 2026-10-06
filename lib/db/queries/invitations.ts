@@ -9,7 +9,7 @@ export interface Invitation {
   invited_at: string;
   responded_at: string | null;
   expires_at: string;
-  invitedByDisplayName?: string;
+  invitedByDisplayName?: string | null;
 }
 
 /**

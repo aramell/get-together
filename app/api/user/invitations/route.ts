@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
           groupName: inv.groupName,
           groupDescription: inv.groupDescription,
           memberCount: inv.memberCount,
-          invitedBy: inv.invitedByUsername,
+          invitedBy: inv.invitedByDisplayName,
           status: inv.status,
           invitedAt: inv.invited_at,
           expiresAt: inv.expires_at,

@@ -46,7 +46,7 @@ const InviteUserModal: React.FC<InviteUserModalProps> = ({
   const [searchResults, setSearchResults] = useState<Array<{
     id: string;
     email: string;
-    username: string;
+    displayName: string | null;
     alreadyMember: boolean;
     hasPendingInvite: boolean;
   }> | null>(null);

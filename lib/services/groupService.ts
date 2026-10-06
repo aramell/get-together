@@ -583,7 +583,7 @@ export async function searchUsersForInvite(
   users?: Array<{
     id: string;
     email: string;
-    username: string;
+    displayName: string | null;
     alreadyMember: boolean;
     hasPendingInvite: boolean;
   }>;
