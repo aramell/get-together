@@ -41,7 +41,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: "2026-08-31"
-last_updated: "10-06-2026 15:00"
+last_updated: "10-06-2026 16:00"
 project: get-together
 project_key: NOKEY
 tracking_system: file-system
@@ -178,9 +178,23 @@ development_status:
   13-6-general-trip-comment-access: review
   13-7-comments-on-checklist-items: review
   13-8-comments-on-logistics-items: review
-  13-9-comments-on-timeline-items: backlog
-  13-10-comments-on-polls: backlog
+  # 13-9 and 13-10 moved to Epic 14 as 14-3 and 14-4 (sprint change proposal 2026-10-06).
   epic-13-retrospective: optional
+
+  # EPIC 14: Flexible Event Dashboard (added by sprint change proposal 2026-10-06, see
+  # epics.md and planning-artifacts/sprint-change-proposal-2026-10-06.md. Blocked on the
+  # Epic 14 architecture addendum; supersedes Decisions 13a and 13b.)
+  epic-14: backlog
+  14-1-widget-registry: backlog
+  14-2-generic-item-comments: backlog
+  14-3-comments-on-timeline-items: backlog
+  14-4-comments-on-polls: backlog
+  14-5-per-event-layout: backlog
+  14-6-configurable-logistics-categories-labels: backlog
+  14-7-event-types-and-presets: backlog
+  14-8-terminology-copy-neutralization: backlog
+  14-9-notes-and-links-widget: backlog
+  epic-14-retrospective: optional
 
 summary:
   total_epics: 13

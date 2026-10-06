@@ -316,8 +316,39 @@ The Planning tab (Epic 12) becomes the actual one-stop, customizable dashboard t
 6. **13.6 — General Trip Comment Access from Dashboard Header** (surface the existing event-level comment thread now that Details is gone)
 7. **13.7 — Comments on Checklist Items** (hover popover + click-to-open modal; new commentable entity type; builds the reusable comment popover/modal component)
 8. **13.8 — Comments on Logistics Items** (same pattern, Bring List/Carpool items)
-9. **13.9 — Comments on Timeline Items** (same pattern)
-10. **13.10 — Comments on Polls** (same pattern)
+9. ~~**13.9 — Comments on Timeline Items**~~ — moved to Epic 14 as **14.3** (sprint change proposal 2026-10-06)
+10. ~~**13.10 — Comments on Polls**~~ — moved to Epic 14 as **14.4** (sprint change proposal 2026-10-06)
+
+### Epic 14: Flexible Event Dashboard
+
+> **Note:** Added by the 2026-10-06 sprint change proposal (`sprint-change-proposal-2026-10-06.md`), same ad hoc pattern as Epics 11-13. Requirements FR79-FR84 are specified in that proposal and pending addition to the PRD. Supersedes Architecture Decisions 13a (per-type comment tables) and 13b's fixed widget set; the Epic 14 architecture addendum is pending the architect.
+
+Any group can run any kind of event on the same dashboard, whether a trip, a dinner, a game night or a team practice. Widgets, wording and logistics categories fit the event without a code change per kind of event. Flexibility comes from a code registry plus presets that admins choose from and arrange, not fully user-defined sections.
+
+**User Outcome:** A group admin picks an event type, gets a dashboard that fits it, and can adjust widgets, order, logistics categories and wording for that event or as the group default.
+
+**Technical Considerations:**
+- Widget types come from a code registry; the `widget_key`/`position` CHECK constraints are dropped and validated in application code
+- Layout resolves event override, then group default, then event-type preset, then system default
+- One generic item-comments table replaces the per-type tables from 13.7/13.8; new widget types never need a new comments table
+- Event types are a code registry of presets applied by copying values at event creation
+- Logistics categories are admin-editable per group, each with one of two fixed behaviors (single claimant or seats)
+- 14.1 and 14.2 are behavior-preserving refactors and must ship with no visible change
+
+**Candidate stories:**
+1. **14.1 — Widget Registry** (behavior-preserving; drop CHECKs, registry-driven dashboard, customizer, public view and layout service)
+2. **14.2 — Generic Item Comments** (one table by item type and ID; migrate checklist/logistics comments; rename Checklist-prefixed comment components)
+3. **14.3 — Comments on Timeline Items** (moved from 13.9, built on 14.2)
+4. **14.4 — Comments on Polls** (moved from 13.10, built on 14.2)
+5. **14.5 — Per-Event Layout** (event override with group-default fallback; customize asks "this event" or "group default")
+6. **14.6 — Configurable Logistics Categories and Labels** (admin-editable categories, single-claimant or seats)
+7. **14.7 — Event Types and Presets** (event type on events; presets set widgets, categories, labels, starter items; optional group default type; depends on 14.5 and 14.6)
+8. **14.8 — Terminology and Copy Neutralization** (trip-flavored wording comes from the preset's labels)
+9. **14.9 — Notes and Links Widget** (candidate; a new widget added through the registry only, to prove no schema change is needed)
+
+**Sequence:** 14.1, 14.2, then 14.3 and 14.4 in parallel with 14.5 and 14.6, then 14.7, 14.8, 14.9.
+
+---
 
 ---
 
