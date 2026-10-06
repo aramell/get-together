@@ -2,13 +2,8 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Box, VStack, HStack, Spinner, Text } from '@chakra-ui/react';
-import { EventChecklist } from './EventChecklist';
-import { EventPhotoGrid } from './EventPhotoGrid';
-import { EventTimeline } from './EventTimeline';
-import { EventLogistics } from './EventLogistics';
-import { EventPolls } from './EventPolls';
+import { WIDGET_RENDERERS } from './widgetRenderers';
 import {
-  WidgetKey,
   WidgetLayoutItem,
   defaultWidgetLayout,
   isValidWidgetLayoutResponse,
@@ -22,27 +17,9 @@ interface PublicEventPlanningProps {
   requestLogin: () => void;
 }
 
-interface GuestWidgetProps {
-  eventId: string;
-  publicToken: string;
-  requestLogin: () => void;
-}
-
-// Maps each fixed widget_key to the component that renders it, mirroring
-// EventPlanningTab.tsx's WIDGET_COMPONENTS -- the same 5 real widget
-// components render for guests too (each has its own guest-mode branch),
-// so guest and member rendering stay identical by construction.
-const WIDGET_COMPONENTS: Record<WidgetKey, React.ComponentType<GuestWidgetProps>> = {
-  photos: EventPhotoGrid,
-  checklist: EventChecklist,
-  timeline: EventTimeline,
-  logistics: EventLogistics,
-  polls: EventPolls,
-};
-
 /**
  * Read-only, layout-driven view of an event's dashboard widgets for a
- * logged-out visitor on the public link (Story 13.5). Renders the same 5
+ * logged-out visitor on the public link (Story 13.5). Renders the same
  * widgets, in the same order/visibility, that the group's configured
  * Dashboard layout produces for authenticated members -- gated by
  * public_token instead of accessToken. A guest's first attempted
@@ -120,7 +97,7 @@ export const PublicEventPlanning: React.FC<PublicEventPlanningProps> = ({
   return (
     <VStack spacing={8} align="stretch" bg="white" borderRadius="lg" boxShadow="sm" p={{ base: 4, md: 6 }}>
       {orderedVisibleWidgets.map((widget) => {
-        const WidgetComponent = WIDGET_COMPONENTS[widget.widget_key];
+        const WidgetComponent = WIDGET_RENDERERS[widget.widget_key];
         return (
           <Box key={widget.widget_key}>
             <WidgetComponent eventId={eventId} publicToken={publicToken} requestLogin={requestLogin} />

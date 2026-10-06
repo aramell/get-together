@@ -2,6 +2,7 @@ import { getWidgetLayout, updateWidgetLayout } from '@/lib/services/dashboardWid
 import { getClient } from '@/lib/db/client';
 import { getUserGroupRole } from '@/lib/db/queries';
 import { defaultWidgetLayout } from '@/lib/utils/dashboardWidgets';
+import { validateWidgetLayout } from '@/lib/dashboard/widgetRegistry';
 
 jest.mock('@/lib/db/client');
 jest.mock('@/lib/db/queries');
@@ -26,10 +27,41 @@ describe('dashboardWidgetsService', () => {
       expect(mockClient.release).toHaveBeenCalled();
     });
 
+    it('drops unknown keys, appends missing registry widgets and renumbers positions', async () => {
+      const rows = [
+        { widget_key: 'retired-widget', position: 1, visible: true },
+        { widget_key: 'checklist', position: 4, visible: false },
+        { widget_key: 'photos', position: 5, visible: true },
+      ];
+      mockClient.query.mockResolvedValueOnce({ rows });
+
+      const result = await getWidgetLayout('group-1');
+
+      expect(result.data).toEqual([
+        { widget_key: 'checklist', position: 1, visible: false },
+        { widget_key: 'photos', position: 2, visible: true },
+        { widget_key: 'timeline', position: 3, visible: true },
+        { widget_key: 'logistics', position: 4, visible: true },
+        { widget_key: 'polls', position: 5, visible: true },
+      ]);
+      expect(validateWidgetLayout(result.data)).toBeNull();
+    });
+
+    it('falls back to the default layout when every stored key is unknown', async () => {
+      mockClient.query.mockResolvedValueOnce({ rows: [{ widget_key: 'gone', position: 1, visible: false }] });
+
+      const result = await getWidgetLayout('group-1');
+
+      expect(result.data).toEqual(defaultWidgetLayout());
+    });
+
     it('returns the stored layout when rows exist', async () => {
       const rows = [
         { widget_key: 'checklist', position: 1, visible: true },
         { widget_key: 'photos', position: 2, visible: false },
+        { widget_key: 'timeline', position: 3, visible: true },
+        { widget_key: 'logistics', position: 4, visible: true },
+        { widget_key: 'polls', position: 5, visible: true },
       ];
       mockClient.query.mockResolvedValueOnce({ rows });
 

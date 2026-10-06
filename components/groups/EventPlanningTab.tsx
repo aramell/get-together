@@ -3,30 +3,15 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Box, VStack, HStack, IconButton, Spinner, Text } from '@chakra-ui/react';
 import { EditIcon, CheckIcon } from '@chakra-ui/icons';
-import { EventChecklist } from './EventChecklist';
-import { EventPhotoGrid } from './EventPhotoGrid';
-import { EventTimeline } from './EventTimeline';
-import { EventLogistics } from './EventLogistics';
-import { EventPolls } from './EventPolls';
 import { DashboardWidgetCustomizer } from './DashboardWidgetCustomizer';
+import { WIDGET_RENDERERS } from './widgetRenderers';
 import { useAuth } from '@/lib/contexts/AuthContext';
-import { WidgetKey, WidgetLayoutItem, defaultWidgetLayout, isValidWidgetLayoutResponse } from '@/lib/utils/dashboardWidgets';
+import { WidgetLayoutItem, defaultWidgetLayout, isValidWidgetLayoutResponse } from '@/lib/utils/dashboardWidgets';
 
 interface EventPlanningTabProps {
   eventId: string;
   groupId: string;
 }
-
-// Maps each fixed widget_key to the component that renders it. Order here
-// is irrelevant -- render order comes from the group's configured layout,
-// not this object's key order.
-const WIDGET_COMPONENTS: Record<WidgetKey, React.ComponentType<{ eventId: string; groupId: string }>> = {
-  photos: EventPhotoGrid,
-  checklist: EventChecklist,
-  timeline: EventTimeline,
-  logistics: EventLogistics,
-  polls: EventPolls,
-};
 
 export function EventPlanningTab({ eventId, groupId }: EventPlanningTabProps) {
   const { accessToken } = useAuth();
@@ -137,7 +122,7 @@ export function EventPlanningTab({ eventId, groupId }: EventPlanningTabProps) {
       ) : (
         <VStack spacing={8} align="stretch">
           {orderedVisibleWidgets.map((widget) => {
-            const WidgetComponent = WIDGET_COMPONENTS[widget.widget_key];
+            const WidgetComponent = WIDGET_RENDERERS[widget.widget_key];
             return <WidgetComponent key={widget.widget_key} eventId={eventId} groupId={groupId} />;
           })}
         </VStack>

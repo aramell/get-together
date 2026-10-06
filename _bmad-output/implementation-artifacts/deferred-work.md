@@ -41,3 +41,9 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-13-6-general-trip-comment-access.md`
   summary: No explicit test for modal focus management (Escape key, backdrop focus restoration) — relies on Chakra UI's built-in Modal behavior.
   evidence: Blind-hunter review noted Escape key close and focus restoration not explicitly tested. Chakra's Modal component provides and tests this behavior; this story only moved EventCommentSection into a Modal wrapper (no new focus-related code). Deferred as cosmetic coverage gap — the actual focus/Escape behavior is guaranteed by Chakra's own test suite, not this story's responsibility.
+- source_spec: `_bmad-output/implementation-artifacts/spec-14-1-widget-registry.md`
+  summary: Enforce the registry's `publicView` flag in the public dashboard view and type member vs guest widget props as a discriminated union.
+  evidence: Review found `publicView` is declared but read by no code, and `WidgetRendererProps` is all-optional; harmless while all widgets are public, but a non-public widget would leak to guests.
+- source_spec: `_bmad-output/implementation-artifacts/spec-14-1-widget-registry.md`
+  summary: Run migration 036 against a real Postgres (with 033 applied) to confirm both CHECKs drop and widget_key widens.
+  evidence: Unverified: the migration was written but never executed, since no database was available or authorized in the build.

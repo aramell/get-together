@@ -4,7 +4,7 @@ import React, { useCallback, useRef } from 'react';
 import { Box, VStack, HStack, Heading, Text, IconButton, Badge, useToast } from '@chakra-ui/react';
 import { ArrowUpIcon, ArrowDownIcon, ViewIcon, ViewOffIcon } from '@chakra-ui/icons';
 import { useAuth } from '@/lib/contexts/AuthContext';
-import { WIDGET_LABELS, WidgetKey, WidgetLayoutItem } from '@/lib/utils/dashboardWidgets';
+import { WidgetKey, WidgetLayoutItem, getWidgetDefinition } from '@/lib/utils/dashboardWidgets';
 
 interface DashboardWidgetCustomizerProps {
   groupId: string;
@@ -112,7 +112,7 @@ export function DashboardWidgetCustomizer({ groupId, layout, onLayoutChange, onS
       </Heading>
       <VStack spacing={2} align="stretch">
         {sorted.map((widget, index) => {
-          const label = WIDGET_LABELS[widget.widget_key];
+          const label = getWidgetDefinition(widget.widget_key).label;
           return (
             <HStack key={widget.widget_key} justify="space-between" py={1}>
               <HStack spacing={3}>

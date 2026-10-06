@@ -1,12 +1,11 @@
 import { getClient } from '@/lib/db/client';
 import { getUserGroupRole } from '@/lib/db/queries';
 import {
-  WIDGET_KEYS,
-  WidgetKey,
   WidgetLayoutItem,
   defaultWidgetLayout,
   isWidgetKey,
-} from '@/lib/utils/dashboardWidgets';
+  validateWidgetLayout,
+} from '@/lib/dashboard/widgetRegistry';
 
 interface ServiceResult<T> {
   success: boolean;
@@ -17,7 +16,7 @@ interface ServiceResult<T> {
 }
 
 /**
- * Current widget layout for a group: all 5 widgets' position/visibility.
+ * Current widget layout for a group: every registry widget's position/visibility.
  * A group with no group_dashboard_widgets rows yet (new group, or one that
  * predates the backfill) falls back to the fixed default order, all visible
  * -- matches today's hardcoded EventPlanningTab render order.
@@ -34,16 +33,9 @@ export async function getWidgetLayout(groupId: string): Promise<ServiceResult<Wi
       [groupId]
     );
 
-    if (result.rows.length === 0) {
-      return {
-        success: true,
-        data: defaultWidgetLayout(),
-      };
-    }
-
     return {
       success: true,
-      data: result.rows,
+      data: reconcileWithRegistry(result.rows),
     };
   } catch (error: any) {
     console.error('Error getting widget layout:', error);
@@ -59,13 +51,35 @@ export async function getWidgetLayout(groupId: string): Promise<ServiceResult<Wi
 }
 
 /**
+ * Reconcile stored rows with the registry: drop rows whose key the registry
+ * no longer knows, append registry widgets the group has no row for (visible,
+ * at the end -- e.g. a widget added after the group's rows were stored), and
+ * renumber positions 1..N. The result always passes validateWidgetLayout, so
+ * the client accepts it and a PATCH built from it is valid. A group with no
+ * usable rows gets the default layout.
+ */
+function reconcileWithRegistry(rows: WidgetLayoutItem[]): WidgetLayoutItem[] {
+  const known = rows
+    .filter((row) => isWidgetKey(row.widget_key))
+    .sort((a, b) => a.position - b.position);
+  const present = new Set(known.map((row) => row.widget_key));
+  const missing = defaultWidgetLayout().filter((w) => !present.has(w.widget_key));
+
+  return [...known, ...missing].map((row, index) => ({
+    widget_key: row.widget_key,
+    position: index + 1,
+    visible: row.visible,
+  }));
+}
+
+/**
  * Replace a group's entire widget layout (reorder and/or hide). Any group
  * member may call this -- reuses the "any member" getUserGroupRole idiom
  * used by checklist/logistics, not Story 2.8's admin-only PATCH pattern.
  *
- * `changes` must be the complete 5-widget layout (the customize-mode UI
+ * `changes` must be the complete layout (the customize-mode UI
  * always sends the full desired state after a move/hide, mirroring
- * EventChecklist's optimistic-update shape): every fixed widget_key exactly
+ * EventChecklist's optimistic-update shape): every registry widget_key exactly
  * once, with a unique position and a visible flag.
  */
 export async function updateWidgetLayout(
@@ -86,7 +100,7 @@ export async function updateWidgetLayout(
       };
     }
 
-    const validationError = validateLayout(changes);
+    const validationError = validateWidgetLayout(changes);
     if (validationError) {
       return {
         success: false,
@@ -121,7 +135,7 @@ export async function updateWidgetLayout(
     return {
       success: true,
       message: 'Dashboard layout updated',
-      data: result.rows,
+      data: reconcileWithRegistry(result.rows),
     };
   } catch (error: any) {
     await client.query('ROLLBACK').catch(() => {});
@@ -135,47 +149,4 @@ export async function updateWidgetLayout(
   } finally {
     client.release();
   }
-}
-
-function validateLayout(changes: unknown): string | null {
-  if (!Array.isArray(changes) || changes.length !== WIDGET_KEYS.length) {
-    return `widgets must be an array of exactly ${WIDGET_KEYS.length} entries`;
-  }
-
-  const seenKeys = new Set<WidgetKey>();
-  const seenPositions = new Set<number>();
-
-  for (const item of changes) {
-    if (!item || typeof item !== 'object') {
-      return 'Each widget entry must be an object';
-    }
-
-    const { widget_key, position, visible } = item as Record<string, unknown>;
-
-    if (!isWidgetKey(widget_key)) {
-      return `Invalid widget_key: ${String(widget_key)}`;
-    }
-    if (seenKeys.has(widget_key)) {
-      return `Duplicate widget_key: ${widget_key}`;
-    }
-    seenKeys.add(widget_key);
-
-    if (!Number.isInteger(position) || (position as number) < 1 || (position as number) > WIDGET_KEYS.length) {
-      return `Invalid position for ${widget_key}`;
-    }
-    if (seenPositions.has(position as number)) {
-      return `Duplicate position: ${position}`;
-    }
-    seenPositions.add(position as number);
-
-    if (typeof visible !== 'boolean') {
-      return `Invalid visible flag for ${widget_key}`;
-    }
-  }
-
-  if (seenKeys.size !== WIDGET_KEYS.length) {
-    return 'All 5 widgets must be present';
-  }
-
-  return null;
 }
