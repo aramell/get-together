@@ -153,7 +153,9 @@ export async function getChecklistItems(
     }
 
     const result = await client.query(
-      `SELECT id, event_id, group_id, created_by, assigned_to, title, is_checked, checked_by, checked_at, item_date, created_at, updated_at
+      `SELECT id, event_id, group_id, created_by, assigned_to, title, is_checked, checked_by, checked_at, item_date, created_at, updated_at,
+         (SELECT COUNT(*)::int FROM checklist_comments cc
+           WHERE cc.checklist_item_id = event_checklist_items.id AND cc.deleted_at IS NULL) AS comment_count
        FROM event_checklist_items
        WHERE event_id = $1
        ORDER BY created_at ASC`,

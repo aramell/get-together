@@ -79,3 +79,40 @@ export function validateWishlistCommentInput(
 
   return { success: false, error: errorMessage };
 }
+
+/**
+ * Zod schema for validating checklist item comment input (Story 13.7)
+ * - content: text comment (1-2000 chars, no empty/whitespace-only)
+ * - checklist_item_id: UUID of the checklist item
+ * - group_id: UUID of the group
+ */
+export const checklistCommentSchema = z.object({
+  content: z
+    .string()
+    .min(1, 'Comment cannot be empty')
+    .max(2000, 'Comment must be 2000 characters or less')
+    .refine((val) => val.trim().length > 0, {
+      message: 'Comment cannot contain only whitespace',
+    }),
+  checklist_item_id: z.string().uuid('Invalid checklist item ID format'),
+  group_id: z.string().uuid('Invalid group ID format'),
+});
+
+export type ChecklistCommentInput = z.infer<typeof checklistCommentSchema>;
+
+/**
+ * Helper function to validate checklist comment input
+ * Returns { success, data?, error? }
+ */
+export function validateChecklistCommentInput(
+  data: unknown
+): { success: boolean; data?: ChecklistCommentInput; error?: string } {
+  const result = checklistCommentSchema.safeParse(data);
+
+  if (result.success) {
+    return { success: true, data: result.data };
+  }
+
+  const firstError = result.error.issues[0];
+  return { success: false, error: firstError?.message || 'Invalid comment data' };
+}

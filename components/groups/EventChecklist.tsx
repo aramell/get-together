@@ -24,6 +24,7 @@ import {
   formatItemDateLabel,
   compareByItemDateThenCreatedAt,
 } from '@/lib/utils/itemDateGrouping';
+import { ChecklistCommentPopover } from './ChecklistCommentPopover';
 
 interface ChecklistItem {
   id: string;
@@ -33,6 +34,7 @@ interface ChecklistItem {
   is_checked: boolean;
   item_date: string | null;
   created_at: string;
+  comment_count?: number;
 }
 
 interface GroupMember {
@@ -49,6 +51,7 @@ interface GuestChecklistItem {
   title: string;
   is_checked: boolean;
   assignee_first_name: string | null;
+  comment_count?: number;
 }
 
 interface EventChecklistProps {
@@ -281,7 +284,9 @@ export function EventChecklist({ eventId, groupId, publicToken, requestLogin }: 
         throw new Error(data.error || 'Failed to update item');
       }
 
-      setItems((prev) => prev.map((i) => (i.id === itemId ? data.data : i)));
+      setItems((prev) =>
+        prev.map((i) => (i.id === itemId ? { ...data.data, comment_count: i.comment_count } : i))
+      );
       setEditingId(null);
     } catch (err: any) {
       toast({ title: 'Error', description: err.message || 'Failed to update item', status: 'error', duration: 3000, isClosable: true });
@@ -312,6 +317,16 @@ export function EventChecklist({ eventId, groupId, publicToken, requestLogin }: 
     if (!id) return null;
     return members.find((m) => m.user_id === id)?.name || 'Unknown';
   };
+
+  // Real role of the acting user, from actual group membership -- never
+  // hardcoded (edit/delete on others' comments is admin-only).
+  const currentUserRole: 'admin' | 'member' | null =
+    (userId && members.find((m) => m.user_id === userId)?.role) || null;
+
+  const handleCommentCountChange = useCallback((itemId: string, count: number) => {
+    setItems((prev) => prev.map((i) => (i.id === itemId ? { ...i, comment_count: count } : i)));
+    setGuestItems((prev) => prev.map((i) => (i.id === itemId ? { ...i, comment_count: count } : i)));
+  }, []);
 
   const renderItemRow = (item: ChecklistItem) => (
     <HStack key={item.id} spacing={3} py={2} borderBottom="1px solid" borderColor="cork.100">
@@ -357,6 +372,16 @@ export function EventChecklist({ eventId, groupId, publicToken, requestLogin }: 
               {memberName(item.assigned_to)}
             </Badge>
           )}
+          <ChecklistCommentPopover
+            itemId={item.id}
+            itemType="checklist"
+            itemLabel={item.title}
+            fetchCommentsUrl={`/api/groups/${effectiveGroupId}/events/${eventId}/checklist/${item.id}/comments`}
+            addCommentUrl={`/api/groups/${effectiveGroupId}/events/${eventId}/checklist/${item.id}/comments`}
+            commentCount={item.comment_count ?? 0}
+            userRole={currentUserRole}
+            onCountChange={handleCommentCountChange}
+          />
           {item.created_by === userId && (
             <HStack spacing={1}>
               <IconButton
@@ -435,6 +460,17 @@ export function EventChecklist({ eventId, groupId, publicToken, requestLogin }: 
                   {item.assignee_first_name}
                 </Badge>
               )}
+              <ChecklistCommentPopover
+                itemId={item.id}
+                itemType="checklist"
+                itemLabel={item.title}
+                fetchCommentsUrl={`/api/events/public/${publicToken}/checklist/${item.id}/comments`}
+                addCommentUrl={`/api/events/public/${publicToken}/checklist/${item.id}/comments`}
+                commentCount={item.comment_count ?? 0}
+                isGuest
+                onRequestLogin={requestLogin}
+                onCountChange={handleCommentCountChange}
+              />
               <Button size="sm" variant="outline" onClick={() => requestLogin?.()}>
                 Log in to check off
               </Button>

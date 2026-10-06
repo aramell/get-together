@@ -1519,3 +1519,158 @@ export async function getPublicRsvpsByEventIdFull(eventId: string): Promise<
     [eventId]
   );
 }
+
+// ============================================================================
+// CHECKLIST ITEM COMMENTS (Story 13.7)
+// ============================================================================
+
+export interface ChecklistCommentRecord {
+  id: string;
+  content: string;
+  created_by: string;
+  created_at: string;
+  edited_at: string | null;
+  updated_count: number;
+  creator: {
+    display_name?: string | null;
+    email?: string | null;
+    avatar_url?: string | null;
+  };
+}
+
+/**
+ * Verify a checklist item exists and belongs to the given event + group.
+ * Returns the item's id, or null.
+ */
+export async function getChecklistItemInEvent(
+  itemId: string,
+  eventId: string,
+  groupId: string
+): Promise<{ id: string } | null> {
+  return queryOne(
+    `SELECT id FROM event_checklist_items WHERE id = $1 AND event_id = $2 AND group_id = $3`,
+    [itemId, eventId, groupId]
+  );
+}
+
+/**
+ * Get all non-deleted comments for a checklist item, oldest first, with the
+ * flat SQL columns shaped into a nested `creator` object (same shape as
+ * eventService.getEventComments).
+ */
+export async function getChecklistComments(
+  checklistItemId: string
+): Promise<{ comments: ChecklistCommentRecord[]; totalCount: number }> {
+  const rows = await query<any>(
+    `SELECT cc.id, cc.content, cc.created_by, cc.created_at, cc.edited_at, cc.updated_count,
+            u.display_name, u.email, u.avatar_url
+     FROM checklist_comments cc
+     LEFT JOIN users u ON cc.created_by = u.id
+     WHERE cc.checklist_item_id = $1 AND cc.deleted_at IS NULL
+     ORDER BY cc.created_at ASC`,
+    [checklistItemId]
+  );
+
+  const comments = rows.map((row: any) => ({
+    id: row.id,
+    content: row.content,
+    created_by: row.created_by,
+    created_at: row.created_at,
+    edited_at: row.edited_at,
+    updated_count: row.updated_count,
+    creator: {
+      display_name: row.display_name,
+      email: row.email,
+      avatar_url: row.avatar_url,
+    },
+  }));
+
+  return { comments, totalCount: comments.length };
+}
+
+/**
+ * Insert a checklist comment and return it with its nested creator.
+ * The creator is looked up by users.id (the PK -- there is no `sub` column).
+ */
+export async function addChecklistComment(
+  checklistItemId: string,
+  groupId: string,
+  userId: string,
+  content: string
+): Promise<ChecklistCommentRecord> {
+  const inserted = await queryOne<any>(
+    `INSERT INTO checklist_comments (checklist_item_id, group_id, created_by, content)
+     VALUES ($1, $2, $3, $4)
+     RETURNING id, content, created_by, created_at, edited_at, updated_count`,
+    [checklistItemId, groupId, userId, content]
+  );
+
+  if (!inserted) {
+    throw new Error('Failed to create comment');
+  }
+
+  const creator = await queryOne<any>(
+    `SELECT display_name, email, avatar_url FROM users WHERE id = $1`,
+    [userId]
+  );
+
+  return {
+    id: inserted.id,
+    content: inserted.content,
+    created_by: inserted.created_by,
+    created_at: inserted.created_at,
+    edited_at: inserted.edited_at,
+    updated_count: inserted.updated_count,
+    creator: {
+      display_name: creator?.display_name,
+      email: creator?.email,
+      avatar_url: creator?.avatar_url,
+    },
+  };
+}
+
+/**
+ * Get a single checklist comment by ID (excludes soft-deleted)
+ */
+export async function getChecklistCommentById(commentId: string): Promise<{
+  id: string;
+  checklist_item_id: string;
+  group_id: string;
+  created_by: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+  edited_at: string | null;
+  updated_count: number;
+  deleted_at: string | null;
+} | null> {
+  return queryOne(
+    `SELECT id, checklist_item_id, group_id, created_by, content, created_at, updated_at, edited_at, updated_count, deleted_at
+     FROM checklist_comments
+     WHERE id = $1 AND deleted_at IS NULL`,
+    [commentId]
+  );
+}
+
+/**
+ * Update a checklist comment with edit tracking. Returns null if not found.
+ */
+export async function updateChecklistComment(
+  commentId: string,
+  newContent: string
+): Promise<{ id: string; content: string; edited_at: string; updated_count: number } | null> {
+  return queryOne(
+    `UPDATE checklist_comments
+     SET content = $2, edited_at = CURRENT_TIMESTAMP, updated_count = updated_count + 1, updated_at = CURRENT_TIMESTAMP
+     WHERE id = $1 AND deleted_at IS NULL
+     RETURNING id, content, edited_at, updated_count`,
+    [commentId, newContent]
+  );
+}
+
+/**
+ * Soft delete a checklist comment
+ */
+export async function deleteChecklistComment(commentId: string): Promise<void> {
+  await query(`UPDATE checklist_comments SET deleted_at = NOW() WHERE id = $1`, [commentId]);
+}

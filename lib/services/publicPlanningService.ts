@@ -1,4 +1,8 @@
-import { getEventByPublicToken, getGroupMemberNames } from '@/lib/db/queries';
+import {
+  getEventByPublicToken,
+  getGroupMemberNames,
+  getChecklistComments,
+} from '@/lib/db/queries';
 import { query } from '@/lib/db/client';
 
 /**
@@ -17,6 +21,7 @@ export interface PublicChecklistItem {
   title: string;
   is_checked: boolean;
   assignee_first_name: string | null;
+  comment_count: number;
 }
 
 export interface PublicLogisticsItem {
@@ -105,8 +110,16 @@ export async function getPublicEventPlanning(
 
     const [members, checklistRows, logisticsRows, timelineRows, photoRows, pollRows] = await Promise.all([
       getGroupMemberNames(event.group_id),
-      query<{ id: string; assigned_to: string | null; title: string; is_checked: boolean }>(
-        `SELECT id, assigned_to, title, is_checked
+      query<{
+        id: string;
+        assigned_to: string | null;
+        title: string;
+        is_checked: boolean;
+        comment_count: string | number;
+      }>(
+        `SELECT id, assigned_to, title, is_checked,
+           (SELECT COUNT(*) FROM checklist_comments cc
+             WHERE cc.checklist_item_id = event_checklist_items.id AND cc.deleted_at IS NULL) AS comment_count
          FROM event_checklist_items
          WHERE event_id = $1
          ORDER BY created_at ASC`,
@@ -192,6 +205,7 @@ export async function getPublicEventPlanning(
           title: row.title,
           is_checked: row.is_checked,
           assignee_first_name: row.assigned_to ? nameById.get(row.assigned_to) ?? null : null,
+          comment_count: Number(row.comment_count) || 0,
         })),
         logistics: logisticsRows.map((row) => {
           const claimantIds = row.claimant_ids || [];
@@ -223,5 +237,63 @@ export async function getPublicEventPlanning(
   } catch (error: any) {
     console.error('Error fetching public event planning data:', error);
     return { success: false, message: 'Internal server error' };
+  }
+}
+
+export interface PublicChecklistComment {
+  id: string;
+  content: string;
+  created_at: string;
+  edited_at: string | null;
+  updated_count: number;
+  // First-name-only; no raw created_by / email / avatar for guests.
+  creator: { display_name: string | null };
+}
+
+/**
+ * Guest-readable comments for one checklist item, gated by public_token.
+ * Resolves the event server-side and verifies the item belongs to it.
+ */
+export async function getPublicChecklistComments(
+  publicToken: string,
+  itemId: string
+): Promise<{
+  success: boolean;
+  message?: string;
+  status?: number;
+  data?: PublicChecklistComment[];
+}> {
+  try {
+    const event = await getEventByPublicToken(publicToken);
+    if (!event) {
+      return { success: false, message: 'Event not found or link has expired', status: 404 };
+    }
+    if (event.status === 'cancelled') {
+      return { success: false, message: 'This event is no longer available', status: 410 };
+    }
+
+    const item = await query<{ id: string }>(
+      `SELECT id FROM event_checklist_items WHERE id = $1 AND event_id = $2`,
+      [itemId, event.id]
+    );
+    if (item.length === 0) {
+      return { success: false, message: 'Checklist item not found', status: 404 };
+    }
+
+    const { comments } = await getChecklistComments(itemId);
+    return {
+      success: true,
+      data: comments.map((c) => ({
+        id: c.id,
+        content: c.content,
+        created_at: c.created_at,
+        edited_at: c.edited_at,
+        updated_count: c.updated_count,
+        creator: { display_name: firstNameOf(c.creator.display_name ?? null) },
+      })),
+    };
+  } catch (error) {
+    console.error('Error fetching public checklist comments:', error);
+    return { success: false, message: 'Internal server error', status: 500 };
   }
 }
