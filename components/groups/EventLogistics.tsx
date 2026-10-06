@@ -27,6 +27,7 @@ import {
   formatItemDateLabel,
   compareByItemDateThenCreatedAt,
 } from '@/lib/utils/itemDateGrouping';
+import { ChecklistCommentPopover } from './ChecklistCommentPopover';
 
 interface LogisticsClaim {
   user_id: string;
@@ -44,6 +45,7 @@ interface LogisticsItem {
   created_at: string;
   claims: LogisticsClaim[];
   claim_count: number;
+  comment_count?: number;
 }
 
 interface GroupMember {
@@ -63,6 +65,7 @@ interface GuestLogisticsItem {
   assignee_first_name: string | null;
   claim_count: number;
   claimant_first_names: string[];
+  comment_count?: number;
 }
 
 interface EventLogisticsProps {
@@ -263,7 +266,9 @@ export function EventLogistics({ eventId, groupId, publicToken, requestLogin }: 
         throw new Error(data.error || 'Failed to update item');
       }
 
-      setItems((prev) => prev.map((i) => (i.id === itemId ? data.data : i)));
+      setItems((prev) =>
+        prev.map((i) => (i.id === itemId ? { ...data.data, comment_count: i.comment_count } : i))
+      );
       setEditingId(null);
     } catch (err: any) {
       toast({ title: 'Error', description: err.message || 'Failed to update item', status: 'error', duration: 3000, isClosable: true });
@@ -310,7 +315,9 @@ export function EventLogistics({ eventId, groupId, publicToken, requestLogin }: 
         throw new Error(data.error || 'Failed to update item');
       }
 
-      setItems((prev) => prev.map((i) => (i.id === item.id ? data.data : i)));
+      setItems((prev) =>
+        prev.map((i) => (i.id === item.id ? { ...data.data, comment_count: i.comment_count } : i))
+      );
     } catch (err: any) {
       setItems(previousItems);
       toast({ title: 'Error', description: err.message || 'Failed to update item', status: 'error', duration: 3000, isClosable: true });
@@ -345,6 +352,38 @@ export function EventLogistics({ eventId, groupId, publicToken, requestLogin }: 
     if (!id) return null;
     return members.find((m) => m.user_id === id)?.name || 'Unknown';
   };
+
+  const handleCommentCountChange = useCallback((itemId: string, count: number) => {
+    setItems((prev) => prev.map((i) => (i.id === itemId ? { ...i, comment_count: count } : i)));
+    setGuestItems((prev) => prev.map((i) => (i.id === itemId ? { ...i, comment_count: count } : i)));
+  }, []);
+
+  const renderCommentPopover = (item: LogisticsItem) => (
+    <ChecklistCommentPopover
+      itemId={item.id}
+      itemType="logistics"
+      itemLabel={item.title}
+      fetchCommentsUrl={`/api/groups/${effectiveGroupId}/events/${eventId}/logistics/${item.id}/comments`}
+      addCommentUrl={`/api/groups/${effectiveGroupId}/events/${eventId}/logistics/${item.id}/comments`}
+      commentCount={item.comment_count ?? 0}
+      userRole={userRole}
+      onCountChange={handleCommentCountChange}
+    />
+  );
+
+  const renderGuestCommentPopover = (item: GuestLogisticsItem) => (
+    <ChecklistCommentPopover
+      itemId={item.id}
+      itemType="logistics"
+      itemLabel={item.title}
+      fetchCommentsUrl={`/api/events/public/${publicToken}/logistics/${item.id}/comments`}
+      addCommentUrl={`/api/events/public/${publicToken}/logistics/${item.id}/comments`}
+      commentCount={item.comment_count ?? 0}
+      isGuest
+      onRequestLogin={requestLogin}
+      onCountChange={handleCommentCountChange}
+    />
+  );
 
   const canModify = (item: LogisticsItem) => item.created_by === userId || isAdmin;
 
@@ -434,6 +473,7 @@ export function EventLogistics({ eventId, groupId, publicToken, requestLogin }: 
                 {isSelf ? 'Never mind' : "I'll bring this"}
               </Button>
             )}
+            {renderCommentPopover(item)}
             {renderItemControls(item)}
           </>
         )}
@@ -469,6 +509,7 @@ export function EventLogistics({ eventId, groupId, publicToken, requestLogin }: 
             >
               {hasClaimed ? 'Unclaim seat' : 'Claim seat'}
             </Button>
+            {renderCommentPopover(item)}
             {renderItemControls(item)}
           </>
         )}
@@ -545,6 +586,7 @@ export function EventLogistics({ eventId, groupId, publicToken, requestLogin }: 
                     </Button>
                   </>
                 )}
+                {renderGuestCommentPopover(item)}
               </HStack>
             ))}
           </VStack>
@@ -579,6 +621,7 @@ export function EventLogistics({ eventId, groupId, publicToken, requestLogin }: 
                   <Button size="sm" variant="outline" isDisabled={isFull} onClick={() => requestLogin?.()}>
                     {isFull ? 'Seats full' : 'Log in to claim a seat'}
                   </Button>
+                  {renderGuestCommentPopover(item)}
                 </HStack>
               );
             })}

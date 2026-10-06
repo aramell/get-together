@@ -116,3 +116,40 @@ export function validateChecklistCommentInput(
   const firstError = result.error.issues[0];
   return { success: false, error: firstError?.message || 'Invalid comment data' };
 }
+
+/**
+ * Zod schema for validating logistics item comment input (Story 13.8)
+ * - content: text comment (1-2000 chars, no empty/whitespace-only)
+ * - logistics_item_id: UUID of the logistics item
+ * - group_id: UUID of the group
+ */
+export const logisticsCommentSchema = z.object({
+  content: z
+    .string()
+    .min(1, 'Comment cannot be empty')
+    .max(2000, 'Comment must be 2000 characters or less')
+    .refine((val) => val.trim().length > 0, {
+      message: 'Comment cannot contain only whitespace',
+    }),
+  logistics_item_id: z.string().uuid('Invalid logistics item ID format'),
+  group_id: z.string().uuid('Invalid group ID format'),
+});
+
+export type LogisticsCommentInput = z.infer<typeof logisticsCommentSchema>;
+
+/**
+ * Helper function to validate logistics comment input
+ * Returns { success, data?, error? }
+ */
+export function validateLogisticsCommentInput(
+  data: unknown
+): { success: boolean; data?: LogisticsCommentInput; error?: string } {
+  const result = logisticsCommentSchema.safeParse(data);
+
+  if (result.success) {
+    return { success: true, data: result.data };
+  }
+
+  const firstError = result.error.issues[0];
+  return { success: false, error: firstError?.message || 'Invalid comment data' };
+}

@@ -23,6 +23,9 @@ export interface LogisticsItem {
   updated_at: string;
   claims: LogisticsClaim[];
   claim_count: number;
+  // Non-deleted comment count (Story 13.8). Only getLogisticsItems computes
+  // it; mutation responses report 0, so clients must preserve existing counts.
+  comment_count: number;
 }
 
 interface ServiceResult<T> {
@@ -61,6 +64,7 @@ function mapRow(row: any): LogisticsItem {
     updated_at: row.updated_at,
     claims,
     claim_count: claims.length,
+    comment_count: Number(row.comment_count) || 0,
   };
 }
 
@@ -227,7 +231,9 @@ export async function getLogisticsItems(
              ORDER BY elc.claimed_at ASC
            ) FILTER (WHERE elc.id IS NOT NULL),
            '[]'
-         ) AS claims
+         ) AS claims,
+         (SELECT COUNT(*)::int FROM logistics_comments lc
+           WHERE lc.logistics_item_id = eli.id AND lc.deleted_at IS NULL) AS comment_count
        FROM event_logistics_items eli
        LEFT JOIN event_logistics_claims elc ON elc.logistics_item_id = eli.id
        WHERE eli.event_id = $1

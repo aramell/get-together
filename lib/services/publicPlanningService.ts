@@ -2,6 +2,7 @@ import {
   getEventByPublicToken,
   getGroupMemberNames,
   getChecklistComments,
+  getLogisticsComments,
 } from '@/lib/db/queries';
 import { query } from '@/lib/db/client';
 
@@ -32,6 +33,7 @@ export interface PublicLogisticsItem {
   assignee_first_name: string | null;
   claim_count: number;
   claimant_first_names: string[];
+  comment_count: number;
 }
 
 export interface PublicTimelineItem {
@@ -132,10 +134,13 @@ export async function getPublicEventPlanning(
         assigned_to: string | null;
         capacity: number | null;
         claimant_ids: string[];
+        comment_count: string | number;
       }>(
         `SELECT
            eli.id, eli.category, eli.title, eli.assigned_to, eli.capacity,
-           COALESCE(json_agg(elc.user_id) FILTER (WHERE elc.id IS NOT NULL), '[]') AS claimant_ids
+           COALESCE(json_agg(elc.user_id) FILTER (WHERE elc.id IS NOT NULL), '[]') AS claimant_ids,
+           (SELECT COUNT(*) FROM logistics_comments lc
+             WHERE lc.logistics_item_id = eli.id AND lc.deleted_at IS NULL) AS comment_count
          FROM event_logistics_items eli
          LEFT JOIN event_logistics_claims elc ON elc.logistics_item_id = eli.id
          WHERE eli.event_id = $1
@@ -217,6 +222,7 @@ export async function getPublicEventPlanning(
             assignee_first_name: row.assigned_to ? nameById.get(row.assigned_to) ?? null : null,
             claim_count: claimantIds.length,
             claimant_first_names: claimantIds.map((userId) => nameById.get(userId) ?? 'Someone'),
+            comment_count: Number(row.comment_count) || 0,
           };
         }),
         timeline: timelineRows.map((row) => ({
@@ -294,6 +300,64 @@ export async function getPublicChecklistComments(
     };
   } catch (error) {
     console.error('Error fetching public checklist comments:', error);
+    return { success: false, message: 'Internal server error', status: 500 };
+  }
+}
+
+export interface PublicLogisticsComment {
+  id: string;
+  content: string;
+  created_at: string;
+  edited_at: string | null;
+  updated_count: number;
+  // First-name-only; no raw created_by / email / avatar for guests.
+  creator: { display_name: string | null };
+}
+
+/**
+ * Guest-readable comments for one logistics item, gated by public_token.
+ * Resolves the event server-side and verifies the item belongs to it.
+ */
+export async function getPublicLogisticsComments(
+  publicToken: string,
+  itemId: string
+): Promise<{
+  success: boolean;
+  message?: string;
+  status?: number;
+  data?: PublicLogisticsComment[];
+}> {
+  try {
+    const event = await getEventByPublicToken(publicToken);
+    if (!event) {
+      return { success: false, message: 'Event not found or link has expired', status: 404 };
+    }
+    if (event.status === 'cancelled') {
+      return { success: false, message: 'This event is no longer available', status: 410 };
+    }
+
+    const item = await query<{ id: string }>(
+      `SELECT id FROM event_logistics_items WHERE id = $1 AND event_id = $2`,
+      [itemId, event.id]
+    );
+    if (item.length === 0) {
+      return { success: false, message: 'Logistics item not found', status: 404 };
+    }
+
+    const { comments } = await getLogisticsComments(itemId);
+    return {
+      success: true,
+      data: comments.map((c) => ({
+        id: c.id,
+        content: c.content,
+        created_at: c.created_at,
+        edited_at: c.edited_at,
+        updated_count: c.updated_count,
+        creator: { display_name: firstNameOf(c.creator.display_name ?? null) },
+      })),
+    };
+  } catch (error) {
+    console.error('Error fetching public logistics comments:', error);
     return { success: false, message: 'Internal server error', status: 500 };
   }
 }
