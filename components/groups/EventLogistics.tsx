@@ -27,7 +27,7 @@ import {
   formatItemDateLabel,
   compareByItemDateThenCreatedAt,
 } from '@/lib/utils/itemDateGrouping';
-import { ChecklistCommentPopover } from './ChecklistCommentPopover';
+import { ItemCommentPopover } from './ItemCommentPopover';
 
 interface LogisticsClaim {
   user_id: string;
@@ -359,7 +359,7 @@ export function EventLogistics({ eventId, groupId, publicToken, requestLogin }: 
   }, []);
 
   const renderCommentPopover = (item: LogisticsItem) => (
-    <ChecklistCommentPopover
+    <ItemCommentPopover
       itemId={item.id}
       itemType="logistics"
       itemLabel={item.title}
@@ -372,7 +372,7 @@ export function EventLogistics({ eventId, groupId, publicToken, requestLogin }: 
   );
 
   const renderGuestCommentPopover = (item: GuestLogisticsItem) => (
-    <ChecklistCommentPopover
+    <ItemCommentPopover
       itemId={item.id}
       itemType="logistics"
       itemLabel={item.title}

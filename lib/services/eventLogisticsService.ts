@@ -232,8 +232,8 @@ export async function getLogisticsItems(
            ) FILTER (WHERE elc.id IS NOT NULL),
            '[]'
          ) AS claims,
-         (SELECT COUNT(*)::int FROM logistics_comments lc
-           WHERE lc.logistics_item_id = eli.id AND lc.deleted_at IS NULL) AS comment_count
+         (SELECT COUNT(*)::int FROM item_comments lc
+           WHERE lc.item_type = 'logistics' AND lc.item_id = eli.id AND lc.deleted_at IS NULL) AS comment_count
        FROM event_logistics_items eli
        LEFT JOIN event_logistics_claims elc ON elc.logistics_item_id = eli.id
        WHERE eli.event_id = $1
@@ -507,7 +507,20 @@ export async function deleteLogisticsItem(
     }
 
     // ON DELETE CASCADE on event_logistics_claims.logistics_item_id handles claim cleanup.
-    await client.query('DELETE FROM event_logistics_items WHERE id = $1', [itemId]);
+    // item_comments has no per-item FK, so remove the item's comments in the
+    // same transaction as the item itself.
+    await client.query('BEGIN');
+    try {
+      await client.query(
+        `DELETE FROM item_comments WHERE item_type = 'logistics' AND item_id = $1`,
+        [itemId]
+      );
+      await client.query('DELETE FROM event_logistics_items WHERE id = $1', [itemId]);
+      await client.query('COMMIT');
+    } catch (txError) {
+      await client.query('ROLLBACK');
+      throw txError;
+    }
 
     return {
       success: true,

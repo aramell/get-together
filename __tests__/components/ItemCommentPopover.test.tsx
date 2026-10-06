@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { ChakraProvider } from '@chakra-ui/react';
-import { ChecklistCommentPopover } from '@/components/groups/ChecklistCommentPopover';
+import { ItemCommentPopover } from '@/components/groups/ItemCommentPopover';
 import { useAuth } from '@/lib/contexts/AuthContext';
 
 jest.mock('@/lib/contexts/AuthContext', () => ({
@@ -19,10 +19,10 @@ function mockComments(data: any[]) {
   global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ success: true, data }) })) as unknown as typeof fetch;
 }
 
-function renderPopover(props: Partial<React.ComponentProps<typeof ChecklistCommentPopover>> = {}) {
+function renderPopover(props: Partial<React.ComponentProps<typeof ItemCommentPopover>> = {}) {
   return render(
     <ChakraProvider>
-      <ChecklistCommentPopover
+      <ItemCommentPopover
         itemId="i1"
         itemType="checklist"
         itemLabel="Tent"
@@ -34,7 +34,7 @@ function renderPopover(props: Partial<React.ComponentProps<typeof ChecklistComme
   );
 }
 
-describe('ChecklistCommentPopover', () => {
+describe('ItemCommentPopover', () => {
   beforeEach(() => {
     (useAuth as jest.Mock).mockReturnValue({ userId: 'u1', accessToken: 'tok' });
   });

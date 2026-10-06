@@ -41,7 +41,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: "2026-08-31"
-last_updated: "10-06-2026 18:00"
+last_updated: "10-06-2026 16:12"
 project: get-together
 project_key: NOKEY
 tracking_system: file-system
@@ -186,7 +186,7 @@ development_status:
   # Epic 14 architecture addendum; supersedes Decisions 13a and 13b.)
   epic-14: in-progress
   14-1-widget-registry: review
-  14-2-generic-item-comments: backlog
+  14-2-generic-item-comments: review
   14-3-comments-on-timeline-items: backlog
   14-4-comments-on-polls: backlog
   14-5-per-event-layout: backlog

@@ -1,10 +1,11 @@
 import {
   getEventByPublicToken,
   getGroupMemberNames,
-  getChecklistComments,
-  getLogisticsComments,
+  getCommentableItemInEvent,
+  getItemComments,
 } from '@/lib/db/queries';
 import { query } from '@/lib/db/client';
+import { CommentItemType } from '@/lib/validation/commentSchema';
 
 /**
  * Read-only, non-authenticated view of an event's planning-tab data
@@ -120,8 +121,8 @@ export async function getPublicEventPlanning(
         comment_count: string | number;
       }>(
         `SELECT id, assigned_to, title, is_checked,
-           (SELECT COUNT(*) FROM checklist_comments cc
-             WHERE cc.checklist_item_id = event_checklist_items.id AND cc.deleted_at IS NULL) AS comment_count
+           (SELECT COUNT(*) FROM item_comments cc
+             WHERE cc.item_type = 'checklist' AND cc.item_id = event_checklist_items.id AND cc.deleted_at IS NULL) AS comment_count
          FROM event_checklist_items
          WHERE event_id = $1
          ORDER BY created_at ASC`,
@@ -139,8 +140,8 @@ export async function getPublicEventPlanning(
         `SELECT
            eli.id, eli.category, eli.title, eli.assigned_to, eli.capacity,
            COALESCE(json_agg(elc.user_id) FILTER (WHERE elc.id IS NOT NULL), '[]') AS claimant_ids,
-           (SELECT COUNT(*) FROM logistics_comments lc
-             WHERE lc.logistics_item_id = eli.id AND lc.deleted_at IS NULL) AS comment_count
+           (SELECT COUNT(*) FROM item_comments lc
+             WHERE lc.item_type = 'logistics' AND lc.item_id = eli.id AND lc.deleted_at IS NULL) AS comment_count
          FROM event_logistics_items eli
          LEFT JOIN event_logistics_claims elc ON elc.logistics_item_id = eli.id
          WHERE eli.event_id = $1
@@ -246,7 +247,7 @@ export async function getPublicEventPlanning(
   }
 }
 
-export interface PublicChecklistComment {
+export interface PublicItemComment {
   id: string;
   content: string;
   created_at: string;
@@ -256,18 +257,24 @@ export interface PublicChecklistComment {
   creator: { display_name: string | null };
 }
 
+const ITEM_TYPE_LABELS: Partial<Record<CommentItemType, string>> = {
+  checklist: 'Checklist',
+  logistics: 'Logistics',
+};
+
 /**
- * Guest-readable comments for one checklist item, gated by public_token.
+ * Guest-readable comments for one item, gated by public_token.
  * Resolves the event server-side and verifies the item belongs to it.
  */
-export async function getPublicChecklistComments(
+export async function getPublicItemComments(
   publicToken: string,
+  itemType: CommentItemType,
   itemId: string
 ): Promise<{
   success: boolean;
   message?: string;
   status?: number;
-  data?: PublicChecklistComment[];
+  data?: PublicItemComment[];
 }> {
   try {
     const event = await getEventByPublicToken(publicToken);
@@ -278,15 +285,16 @@ export async function getPublicChecklistComments(
       return { success: false, message: 'This event is no longer available', status: 410 };
     }
 
-    const item = await query<{ id: string }>(
-      `SELECT id FROM event_checklist_items WHERE id = $1 AND event_id = $2`,
-      [itemId, event.id]
-    );
-    if (item.length === 0) {
-      return { success: false, message: 'Checklist item not found', status: 404 };
+    const item = await getCommentableItemInEvent(itemType, itemId, event.id, event.group_id);
+    if (!item) {
+      return {
+        success: false,
+        message: `${ITEM_TYPE_LABELS[itemType] ?? 'Item'} item not found`,
+        status: 404,
+      };
     }
 
-    const { comments } = await getChecklistComments(itemId);
+    const { comments } = await getItemComments(itemType, itemId);
     return {
       success: true,
       data: comments.map((c) => ({
@@ -299,65 +307,7 @@ export async function getPublicChecklistComments(
       })),
     };
   } catch (error) {
-    console.error('Error fetching public checklist comments:', error);
-    return { success: false, message: 'Internal server error', status: 500 };
-  }
-}
-
-export interface PublicLogisticsComment {
-  id: string;
-  content: string;
-  created_at: string;
-  edited_at: string | null;
-  updated_count: number;
-  // First-name-only; no raw created_by / email / avatar for guests.
-  creator: { display_name: string | null };
-}
-
-/**
- * Guest-readable comments for one logistics item, gated by public_token.
- * Resolves the event server-side and verifies the item belongs to it.
- */
-export async function getPublicLogisticsComments(
-  publicToken: string,
-  itemId: string
-): Promise<{
-  success: boolean;
-  message?: string;
-  status?: number;
-  data?: PublicLogisticsComment[];
-}> {
-  try {
-    const event = await getEventByPublicToken(publicToken);
-    if (!event) {
-      return { success: false, message: 'Event not found or link has expired', status: 404 };
-    }
-    if (event.status === 'cancelled') {
-      return { success: false, message: 'This event is no longer available', status: 410 };
-    }
-
-    const item = await query<{ id: string }>(
-      `SELECT id FROM event_logistics_items WHERE id = $1 AND event_id = $2`,
-      [itemId, event.id]
-    );
-    if (item.length === 0) {
-      return { success: false, message: 'Logistics item not found', status: 404 };
-    }
-
-    const { comments } = await getLogisticsComments(itemId);
-    return {
-      success: true,
-      data: comments.map((c) => ({
-        id: c.id,
-        content: c.content,
-        created_at: c.created_at,
-        edited_at: c.edited_at,
-        updated_count: c.updated_count,
-        creator: { display_name: firstNameOf(c.creator.display_name ?? null) },
-      })),
-    };
-  } catch (error) {
-    console.error('Error fetching public logistics comments:', error);
+    console.error(`Error fetching public ${itemType} comments:`, error);
     return { success: false, message: 'Internal server error', status: 500 };
   }
 }

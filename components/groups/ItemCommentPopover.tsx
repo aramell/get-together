@@ -22,10 +22,10 @@ import {
 } from '@chakra-ui/react';
 import { FiMessageSquare } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
-import { ChecklistCommentSection, ItemComment } from './ChecklistCommentSection';
+import { ItemCommentSection, ItemComment } from './ItemCommentSection';
 
-export interface ChecklistCommentPopoverProps {
-  // Generic so Stories 13.8-13.10 can reuse this for Logistics/Timeline/Polls.
+export interface ItemCommentPopoverProps {
+  // Generic: one popover serves every commentable item type.
   itemId: string;
   itemType: 'checklist' | 'logistics' | 'timeline' | 'poll';
   // Human label used in accessible names, e.g. the checklist item title.
@@ -48,7 +48,7 @@ export interface ChecklistCommentPopoverProps {
  * comment" opens the full thread in a modal. Escape or an outside click closes
  * the preview (not hover alone, so it is keyboard- and touch-operable).
  */
-export const ChecklistCommentPopover: React.FC<ChecklistCommentPopoverProps> = ({
+export const ItemCommentPopover: React.FC<ItemCommentPopoverProps> = ({
   itemId,
   itemType,
   itemLabel,
@@ -245,7 +245,7 @@ export const ChecklistCommentPopover: React.FC<ChecklistCommentPopoverProps> = (
           <ModalHeader>Comments{itemLabel ? `: ${itemLabel}` : ''}</ModalHeader>
           <ModalCloseButton />
           <ModalBody pb={6}>
-            <ChecklistCommentSection
+            <ItemCommentSection
               fetchCommentsUrl={fetchCommentsUrl}
               addCommentUrl={addCommentUrl}
               userRole={userRole}
@@ -260,4 +260,4 @@ export const ChecklistCommentPopover: React.FC<ChecklistCommentPopoverProps> = (
   );
 };
 
-export default ChecklistCommentPopover;
+export default ItemCommentPopover;

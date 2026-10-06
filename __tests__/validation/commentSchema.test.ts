@@ -1,4 +1,9 @@
-import { commentSchema } from '@/lib/validation/commentSchema';
+import {
+  commentSchema,
+  itemCommentSchema,
+  COMMENT_ITEM_TYPES,
+  isCommentItemType,
+} from '@/lib/validation/commentSchema';
 
 describe('commentSchema', () => {
   describe('valid comments', () => {
@@ -177,5 +182,38 @@ describe('commentSchema', () => {
       const result = commentSchema.safeParse(data);
       expect(result.success).toBe(false);
     });
+  });
+});
+
+describe('itemCommentSchema', () => {
+  const base = {
+    content: 'hello',
+    item_id: '550e8400-e29b-41d4-a716-446655440000',
+    group_id: '550e8400-e29b-41d4-a716-446655440001',
+  };
+
+  it.each(COMMENT_ITEM_TYPES)('accepts item_type %s', (item_type) => {
+    expect(itemCommentSchema.safeParse({ ...base, item_type }).success).toBe(true);
+  });
+
+  it('rejects an unknown item_type', () => {
+    expect(itemCommentSchema.safeParse({ ...base, item_type: 'wishlist' }).success).toBe(false);
+  });
+
+  it('rejects empty, whitespace-only and over-long content', () => {
+    expect(itemCommentSchema.safeParse({ ...base, item_type: 'checklist', content: '' }).success).toBe(false);
+    expect(itemCommentSchema.safeParse({ ...base, item_type: 'checklist', content: '   ' }).success).toBe(false);
+    expect(itemCommentSchema.safeParse({ ...base, item_type: 'checklist', content: 'x'.repeat(2001) }).success).toBe(false);
+  });
+
+  it('rejects non-UUID ids', () => {
+    expect(itemCommentSchema.safeParse({ ...base, item_type: 'checklist', item_id: 'nope' }).success).toBe(false);
+    expect(itemCommentSchema.safeParse({ ...base, item_type: 'checklist', group_id: 'nope' }).success).toBe(false);
+  });
+
+  it('isCommentItemType guards the shared constant', () => {
+    expect(isCommentItemType('poll')).toBe(true);
+    expect(isCommentItemType('event')).toBe(false);
+    expect(isCommentItemType(undefined)).toBe(false);
   });
 });

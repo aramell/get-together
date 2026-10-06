@@ -24,7 +24,7 @@ import {
   formatItemDateLabel,
   compareByItemDateThenCreatedAt,
 } from '@/lib/utils/itemDateGrouping';
-import { ChecklistCommentPopover } from './ChecklistCommentPopover';
+import { ItemCommentPopover } from './ItemCommentPopover';
 
 interface ChecklistItem {
   id: string;
@@ -372,7 +372,7 @@ export function EventChecklist({ eventId, groupId, publicToken, requestLogin }: 
               {memberName(item.assigned_to)}
             </Badge>
           )}
-          <ChecklistCommentPopover
+          <ItemCommentPopover
             itemId={item.id}
             itemType="checklist"
             itemLabel={item.title}
@@ -460,7 +460,7 @@ export function EventChecklist({ eventId, groupId, publicToken, requestLogin }: 
                   {item.assignee_first_name}
                 </Badge>
               )}
-              <ChecklistCommentPopover
+              <ItemCommentPopover
                 itemId={item.id}
                 itemType="checklist"
                 itemLabel={item.title}

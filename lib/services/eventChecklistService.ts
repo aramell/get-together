@@ -154,8 +154,8 @@ export async function getChecklistItems(
 
     const result = await client.query(
       `SELECT id, event_id, group_id, created_by, assigned_to, title, is_checked, checked_by, checked_at, item_date, created_at, updated_at,
-         (SELECT COUNT(*)::int FROM checklist_comments cc
-           WHERE cc.checklist_item_id = event_checklist_items.id AND cc.deleted_at IS NULL) AS comment_count
+         (SELECT COUNT(*)::int FROM item_comments cc
+           WHERE cc.item_type = 'checklist' AND cc.item_id = event_checklist_items.id AND cc.deleted_at IS NULL) AS comment_count
        FROM event_checklist_items
        WHERE event_id = $1
        ORDER BY created_at ASC`,
@@ -370,7 +370,20 @@ export async function deleteChecklistItem(
       };
     }
 
-    await client.query('DELETE FROM event_checklist_items WHERE id = $1', [itemId]);
+    // item_comments has no per-item FK, so remove the item's comments in the
+    // same transaction as the item itself.
+    await client.query('BEGIN');
+    try {
+      await client.query(
+        `DELETE FROM item_comments WHERE item_type = 'checklist' AND item_id = $1`,
+        [itemId]
+      );
+      await client.query('DELETE FROM event_checklist_items WHERE id = $1', [itemId]);
+      await client.query('COMMIT');
+    } catch (txError) {
+      await client.query('ROLLBACK');
+      throw txError;
+    }
 
     return {
       success: true,

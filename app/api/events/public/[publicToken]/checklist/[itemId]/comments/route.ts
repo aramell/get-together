@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getPublicChecklistComments } from '@/lib/services/publicPlanningService';
+import { getPublicItemComments } from '@/lib/services/publicPlanningService';
 
 /**
  * GET /api/events/public/[publicToken]/checklist/[itemId]/comments
@@ -22,7 +22,7 @@ export async function GET(
       );
     }
 
-    const result = await getPublicChecklistComments(publicToken, itemId);
+    const result = await getPublicItemComments(publicToken, 'checklist', itemId);
     if (!result.success) {
       return NextResponse.json(
         { success: false, error: result.message, errorCode: result.status === 410 ? 'EVENT_CANCELLED' : result.status === 500 ? 'INTERNAL_ERROR' : 'NOT_FOUND' },

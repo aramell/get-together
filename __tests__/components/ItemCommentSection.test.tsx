@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import { ChakraProvider } from '@chakra-ui/react';
-import { ChecklistCommentSection } from '@/components/groups/ChecklistCommentSection';
+import { ItemCommentSection } from '@/components/groups/ItemCommentSection';
 import { useAuth } from '@/lib/contexts/AuthContext';
 
 jest.mock('@/lib/contexts/AuthContext', () => ({
@@ -25,10 +25,10 @@ const theirs = {
   creator: { display_name: 'Bob' },
 };
 
-function renderSection(props: Partial<React.ComponentProps<typeof ChecklistCommentSection>> = {}) {
+function renderSection(props: Partial<React.ComponentProps<typeof ItemCommentSection>> = {}) {
   return render(
     <ChakraProvider>
-      <ChecklistCommentSection fetchCommentsUrl={FETCH_URL} addCommentUrl={FETCH_URL} {...props} />
+      <ItemCommentSection fetchCommentsUrl={FETCH_URL} addCommentUrl={FETCH_URL} {...props} />
     </ChakraProvider>
   );
 }
@@ -40,7 +40,7 @@ function mockFetch(handler: (url: string, init?: RequestInit) => any) {
   }) as unknown as typeof fetch;
 }
 
-describe('ChecklistCommentSection', () => {
+describe('ItemCommentSection', () => {
   beforeEach(() => {
     (useAuth as jest.Mock).mockReturnValue({ userId: 'user-1', accessToken: 'tok' });
   });

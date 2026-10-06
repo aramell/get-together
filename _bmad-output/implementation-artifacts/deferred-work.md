@@ -47,3 +47,7 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-14-1-widget-registry.md`
   summary: Run migration 036 against a real Postgres (with 033 applied) to confirm both CHECKs drop and widget_key widens.
   evidence: Unverified: the migration was written but never executed, since no database was available or authorized in the build.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-14-2-generic-item-comments.md`
+  summary: Migration 037 (copy 034/035 into item_comments, then drop them) has only text-level tests and has never run against Postgres.
+  evidence: Repo has no DB test harness; unverified severity is high (data loss if the copy is wrong). Settle by running it on a copy with seeded 034/035 rows and checking ids, deleted_at, event_id and that the old tables are gone.

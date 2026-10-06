@@ -41,7 +41,7 @@ export interface ItemComment {
   };
 }
 
-export interface ChecklistCommentSectionProps {
+export interface ItemCommentSectionProps {
   // GET (list) URL. Guests pass the public-token-gated URL.
   fetchCommentsUrl: string;
   // POST URL; also the base for PATCH/DELETE (`${addCommentUrl}/${commentId}`).
@@ -59,9 +59,9 @@ export interface ChecklistCommentSectionProps {
 /**
  * Full read/write comment thread for one item, with 5s polling (Story 13.2
  * pattern). Mirrors EventCommentSection; URLs are props so the same component
- * serves Logistics/Timeline/Poll comments in Stories 13.8-13.10.
+ * serves every commentable item type.
  */
-export const ChecklistCommentSection: React.FC<ChecklistCommentSectionProps> = ({
+export const ItemCommentSection: React.FC<ItemCommentSectionProps> = ({
   fetchCommentsUrl,
   addCommentUrl,
   userRole = null,
@@ -354,4 +354,4 @@ export const ChecklistCommentSection: React.FC<ChecklistCommentSectionProps> = (
   );
 };
 
-export default ChecklistCommentSection;
+export default ItemCommentSection;

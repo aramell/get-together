@@ -1,5 +1,6 @@
 import { query, queryOne, getClient } from './client';
 import { mergeAvailability, MergedAvailabilitySegment } from '@/lib/availability/mergeAvailability';
+import { CommentItemType, isCommentItemType } from '@/lib/validation/commentSchema';
 
 /**
  * Create a new group and add creator as admin
@@ -1521,10 +1522,10 @@ export async function getPublicRsvpsByEventIdFull(eventId: string): Promise<
 }
 
 // ============================================================================
-// CHECKLIST ITEM COMMENTS (Story 13.7)
+// GENERIC ITEM COMMENTS (Story 14.2; supersedes 13.7 / 13.8 per-type tables)
 // ============================================================================
 
-export interface ChecklistCommentRecord {
+export interface ItemCommentRecord {
   id: string;
   content: string;
   created_by: string;
@@ -1539,36 +1540,61 @@ export interface ChecklistCommentRecord {
 }
 
 /**
- * Verify a checklist item exists and belongs to the given event + group.
- * Returns the item's id, or null.
+ * Item lookup per commentable type: fixed type-to-table map. Table names are
+ * never interpolated from input. Registering a new commentable type means
+ * adding it to COMMENT_ITEM_TYPES and to this map (no schema change).
+ * Types without an entry have no item lookup yet (timeline/poll: 14.3/14.4).
  */
-export async function getChecklistItemInEvent(
+const COMMENTABLE_ITEM_TABLES: Partial<Record<CommentItemType, string>> = {
+  checklist: 'event_checklist_items',
+  logistics: 'event_logistics_items',
+};
+
+/**
+ * Verify a commentable item exists and belongs to the given event + group.
+ * Returns the item's id, or null. Throws for an unsupported item type before
+ * any query runs.
+ */
+export async function getCommentableItemInEvent(
+  itemType: CommentItemType,
   itemId: string,
   eventId: string,
   groupId: string
 ): Promise<{ id: string } | null> {
+  const table = isCommentItemType(itemType) ? COMMENTABLE_ITEM_TABLES[itemType] : undefined;
+  if (!table) {
+    throw new Error(`Unsupported comment item type: ${String(itemType)}`);
+  }
   return queryOne(
-    `SELECT id FROM event_checklist_items WHERE id = $1 AND event_id = $2 AND group_id = $3`,
+    `SELECT id FROM ${table} WHERE id = $1 AND event_id = $2 AND group_id = $3`,
     [itemId, eventId, groupId]
   );
 }
 
+function assertItemType(itemType: unknown): asserts itemType is CommentItemType {
+  if (!isCommentItemType(itemType)) {
+    throw new Error(`Unsupported comment item type: ${String(itemType)}`);
+  }
+}
+
 /**
- * Get all non-deleted comments for a checklist item, oldest first, with the
- * flat SQL columns shaped into a nested `creator` object (same shape as
+ * Get all non-deleted comments for an item, oldest first, with the flat SQL
+ * columns shaped into a nested `creator` object (same shape as
  * eventService.getEventComments).
  */
-export async function getChecklistComments(
-  checklistItemId: string
-): Promise<{ comments: ChecklistCommentRecord[]; totalCount: number }> {
+export async function getItemComments(
+  itemType: CommentItemType,
+  itemId: string
+): Promise<{ comments: ItemCommentRecord[]; totalCount: number }> {
+  assertItemType(itemType);
   const rows = await query<any>(
     `SELECT cc.id, cc.content, cc.created_by, cc.created_at, cc.edited_at, cc.updated_count,
             u.display_name, u.email, u.avatar_url
-     FROM checklist_comments cc
+     FROM item_comments cc
      LEFT JOIN users u ON cc.created_by = u.id
-     WHERE cc.checklist_item_id = $1 AND cc.deleted_at IS NULL
+     WHERE cc.item_type = $1 AND cc.item_id = $2 AND cc.deleted_at IS NULL
      ORDER BY cc.created_at ASC`,
-    [checklistItemId]
+    [itemType, itemId]
   );
 
   const comments = rows.map((row: any) => ({
@@ -1589,20 +1615,23 @@ export async function getChecklistComments(
 }
 
 /**
- * Insert a checklist comment and return it with its nested creator.
+ * Insert an item comment and return it with its nested creator.
  * The creator is looked up by users.id (the PK -- there is no `sub` column).
  */
-export async function addChecklistComment(
-  checklistItemId: string,
+export async function addItemComment(
+  itemType: CommentItemType,
+  itemId: string,
+  eventId: string,
   groupId: string,
   userId: string,
   content: string
-): Promise<ChecklistCommentRecord> {
+): Promise<ItemCommentRecord> {
+  assertItemType(itemType);
   const inserted = await queryOne<any>(
-    `INSERT INTO checklist_comments (checklist_item_id, group_id, created_by, content)
-     VALUES ($1, $2, $3, $4)
+    `INSERT INTO item_comments (item_type, item_id, event_id, group_id, created_by, content)
+     VALUES ($1, $2, $3, $4, $5, $6)
      RETURNING id, content, created_by, created_at, edited_at, updated_count`,
-    [checklistItemId, groupId, userId, content]
+    [itemType, itemId, eventId, groupId, userId, content]
   );
 
   if (!inserted) {
@@ -1630,11 +1659,13 @@ export async function addChecklistComment(
 }
 
 /**
- * Get a single checklist comment by ID (excludes soft-deleted)
+ * Get a single item comment by ID (excludes soft-deleted)
  */
-export async function getChecklistCommentById(commentId: string): Promise<{
+export async function getItemCommentById(commentId: string): Promise<{
   id: string;
-  checklist_item_id: string;
+  item_type: string;
+  item_id: string;
+  event_id: string;
   group_id: string;
   created_by: string;
   content: string;
@@ -1645,22 +1676,22 @@ export async function getChecklistCommentById(commentId: string): Promise<{
   deleted_at: string | null;
 } | null> {
   return queryOne(
-    `SELECT id, checklist_item_id, group_id, created_by, content, created_at, updated_at, edited_at, updated_count, deleted_at
-     FROM checklist_comments
+    `SELECT id, item_type, item_id, event_id, group_id, created_by, content, created_at, updated_at, edited_at, updated_count, deleted_at
+     FROM item_comments
      WHERE id = $1 AND deleted_at IS NULL`,
     [commentId]
   );
 }
 
 /**
- * Update a checklist comment with edit tracking. Returns null if not found.
+ * Update an item comment with edit tracking. Returns null if not found.
  */
-export async function updateChecklistComment(
+export async function updateItemComment(
   commentId: string,
   newContent: string
 ): Promise<{ id: string; content: string; edited_at: string; updated_count: number } | null> {
   return queryOne(
-    `UPDATE checklist_comments
+    `UPDATE item_comments
      SET content = $2, edited_at = CURRENT_TIMESTAMP, updated_count = updated_count + 1, updated_at = CURRENT_TIMESTAMP
      WHERE id = $1 AND deleted_at IS NULL
      RETURNING id, content, edited_at, updated_count`,
@@ -1669,175 +1700,8 @@ export async function updateChecklistComment(
 }
 
 /**
- * Soft delete a checklist comment
+ * Soft delete an item comment
  */
-export async function deleteChecklistComment(commentId: string): Promise<void> {
-  await query(`UPDATE checklist_comments SET deleted_at = NOW() WHERE id = $1`, [commentId]);
-}
-
-// ============================================================================
-// LOGISTICS ITEM COMMENTS (Story 13.8)
-// ============================================================================
-
-interface LogisticsCommentRow {
-  id: string;
-  content: string;
-  created_by: string;
-  created_at: string;
-  edited_at: string | null;
-  updated_count: number;
-  display_name?: string | null;
-  email?: string | null;
-  avatar_url?: string | null;
-}
-
-export interface LogisticsCommentRecord {
-  id: string;
-  content: string;
-  created_by: string;
-  created_at: string;
-  edited_at: string | null;
-  updated_count: number;
-  creator: {
-    display_name?: string | null;
-    email?: string | null;
-    avatar_url?: string | null;
-  };
-}
-
-/**
- * Verify a logistics item exists and belongs to the given event + group.
- * Returns the item's id, or null.
- */
-export async function getLogisticsItemInEvent(
-  itemId: string,
-  eventId: string,
-  groupId: string
-): Promise<{ id: string } | null> {
-  return queryOne(
-    `SELECT id FROM event_logistics_items WHERE id = $1 AND event_id = $2 AND group_id = $3`,
-    [itemId, eventId, groupId]
-  );
-}
-
-/**
- * Get all non-deleted comments for a logistics item, oldest first, with the
- * flat SQL columns shaped into a nested `creator` object (same shape as
- * eventService.getEventComments).
- */
-export async function getLogisticsComments(
-  logisticsItemId: string
-): Promise<{ comments: LogisticsCommentRecord[]; totalCount: number }> {
-  const rows = await query<LogisticsCommentRow>(
-    `SELECT cc.id, cc.content, cc.created_by, cc.created_at, cc.edited_at, cc.updated_count,
-            u.display_name, u.email, u.avatar_url
-     FROM logistics_comments cc
-     LEFT JOIN users u ON cc.created_by = u.id
-     WHERE cc.logistics_item_id = $1 AND cc.deleted_at IS NULL
-     ORDER BY cc.created_at ASC`,
-    [logisticsItemId]
-  );
-
-  const comments = rows.map((row) => ({
-    id: row.id,
-    content: row.content,
-    created_by: row.created_by,
-    created_at: row.created_at,
-    edited_at: row.edited_at,
-    updated_count: row.updated_count,
-    creator: {
-      display_name: row.display_name,
-      email: row.email,
-      avatar_url: row.avatar_url,
-    },
-  }));
-
-  return { comments, totalCount: comments.length };
-}
-
-/**
- * Insert a logistics comment and return it with its nested creator.
- * The creator is looked up by users.id (the PK -- there is no `sub` column).
- */
-export async function addLogisticsComment(
-  logisticsItemId: string,
-  groupId: string,
-  userId: string,
-  content: string
-): Promise<LogisticsCommentRecord> {
-  const inserted = await queryOne<LogisticsCommentRow>(
-    `INSERT INTO logistics_comments (logistics_item_id, group_id, created_by, content)
-     VALUES ($1, $2, $3, $4)
-     RETURNING id, content, created_by, created_at, edited_at, updated_count`,
-    [logisticsItemId, groupId, userId, content]
-  );
-
-  if (!inserted) {
-    throw new Error('Failed to create comment');
-  }
-
-  const creator = await queryOne<{ display_name: string | null; email: string | null; avatar_url: string | null }>(
-    `SELECT display_name, email, avatar_url FROM users WHERE id = $1`,
-    [userId]
-  );
-
-  return {
-    id: inserted.id,
-    content: inserted.content,
-    created_by: inserted.created_by,
-    created_at: inserted.created_at,
-    edited_at: inserted.edited_at,
-    updated_count: inserted.updated_count,
-    creator: {
-      display_name: creator?.display_name,
-      email: creator?.email,
-      avatar_url: creator?.avatar_url,
-    },
-  };
-}
-
-/**
- * Get a single logistics comment by ID (excludes soft-deleted)
- */
-export async function getLogisticsCommentById(commentId: string): Promise<{
-  id: string;
-  logistics_item_id: string;
-  group_id: string;
-  created_by: string;
-  content: string;
-  created_at: string;
-  updated_at: string;
-  edited_at: string | null;
-  updated_count: number;
-  deleted_at: string | null;
-} | null> {
-  return queryOne(
-    `SELECT id, logistics_item_id, group_id, created_by, content, created_at, updated_at, edited_at, updated_count, deleted_at
-     FROM logistics_comments
-     WHERE id = $1 AND deleted_at IS NULL`,
-    [commentId]
-  );
-}
-
-/**
- * Update a logistics comment with edit tracking. Returns null if not found.
- */
-export async function updateLogisticsComment(
-  commentId: string,
-  newContent: string
-): Promise<{ id: string; content: string; edited_at: string; updated_count: number } | null> {
-  return queryOne(
-    `UPDATE logistics_comments
-     SET content = $2, edited_at = CURRENT_TIMESTAMP, updated_count = updated_count + 1, updated_at = CURRENT_TIMESTAMP
-     WHERE id = $1 AND deleted_at IS NULL
-     RETURNING id, content, edited_at, updated_count`,
-    [commentId, newContent]
-  );
-}
-
-/**
- * Soft delete a logistics comment
- */
-export async function deleteLogisticsComment(commentId: string): Promise<void> {
-  await query(`UPDATE logistics_comments SET deleted_at = NOW() WHERE id = $1`, [commentId]);
+export async function deleteItemComment(commentId: string): Promise<void> {
+  await query(`UPDATE item_comments SET deleted_at = NOW() WHERE id = $1`, [commentId]);
 }

@@ -105,7 +105,7 @@ describe('POST logistics comments', () => {
     mockQueryOne({
       'FROM group_memberships': { id: 'm-1' },
       'FROM event_logistics_items': { id: ITEM },
-      'INSERT INTO logistics_comments': {
+      'INSERT INTO item_comments': {
         id: COMMENT,
         content: 'hi',
         created_by: 'user-1',
@@ -131,7 +131,8 @@ describe('POST logistics comments', () => {
 describe('PATCH/DELETE logistics comment', () => {
   const comment = (createdBy: string) => ({
     id: COMMENT,
-    logistics_item_id: ITEM,
+    item_type: 'logistics',
+    item_id: ITEM,
     group_id: GROUP,
     created_by: createdBy,
   });
@@ -144,7 +145,7 @@ describe('PATCH/DELETE logistics comment', () => {
 
   it('forbids a non-creator, non-admin member', async () => {
     (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('user-2');
-    mockQueryOne({ 'SELECT role': { role: 'member' }, 'FROM logistics_comments': comment('user-1') });
+    mockQueryOne({ 'SELECT role': { role: 'member' }, 'FROM item_comments': comment('user-1') });
     expect((await PATCH(req({ content: 'x' }), { params: cParams })).status).toBe(403);
     expect((await DELETE(req(), { params: cParams })).status).toBe(403);
   });
@@ -153,8 +154,8 @@ describe('PATCH/DELETE logistics comment', () => {
     (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('user-1');
     mockQueryOne({
       'SELECT role': { role: 'member' },
-      'SELECT id, logistics_item_id': comment('user-1'),
-      'UPDATE logistics_comments': { id: COMMENT, content: 'new', edited_at: 'now', updated_count: 1 },
+      'SELECT id, item_type': comment('user-1'),
+      'UPDATE item_comments': { id: COMMENT, content: 'new', edited_at: 'now', updated_count: 1 },
     });
     const res = await PATCH(req({ content: 'new' }), { params: cParams });
     const body = await res.json();
@@ -164,7 +165,7 @@ describe('PATCH/DELETE logistics comment', () => {
 
   it('lets an admin delete another member\'s comment (soft delete)', async () => {
     (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('admin-1');
-    mockQueryOne({ 'SELECT role': { role: 'admin' }, 'SELECT id, logistics_item_id': comment('user-1') });
+    mockQueryOne({ 'SELECT role': { role: 'admin' }, 'SELECT id, item_type': comment('user-1') });
     query.mockResolvedValue([]);
     const res = await DELETE(req(), { params: cParams });
     expect(res.status).toBe(200);
@@ -175,14 +176,23 @@ describe('PATCH/DELETE logistics comment', () => {
     (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('user-1');
     mockQueryOne({
       'SELECT role': { role: 'admin' },
-      'SELECT id, logistics_item_id': { ...comment('user-1'), logistics_item_id: 'other-item' },
+      'SELECT id, item_type': { ...comment('user-1'), item_id: 'other-item' },
+    });
+    expect((await DELETE(req(), { params: cParams })).status).toBe(404);
+  });
+
+  it('returns 404 for a comment of a different item type', async () => {
+    (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('user-1');
+    mockQueryOne({
+      'SELECT role': { role: 'admin' },
+      'SELECT id, item_type': { ...comment('user-1'), item_type: 'checklist' },
     });
     expect((await DELETE(req(), { params: cParams })).status).toBe(404);
   });
 
   it('returns 400 when editing to empty content', async () => {
     (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('user-1');
-    mockQueryOne({ 'SELECT role': { role: 'member' }, 'SELECT id, logistics_item_id': comment('user-1') });
+    mockQueryOne({ 'SELECT role': { role: 'member' }, 'SELECT id, item_type': comment('user-1') });
     expect((await PATCH(req({ content: '  ' }), { params: cParams })).status).toBe(400);
   });
 });
@@ -208,9 +218,11 @@ describe('GET public logistics comments (guest)', () => {
   });
 
   it('returns first-name-only creators and no raw created_by, without auth', async () => {
-    mockQueryOne({ 'FROM event_proposals': { id: EVENT, group_id: GROUP, status: 'confirmed' } });
+    mockQueryOne({
+      'FROM event_proposals': { id: EVENT, group_id: GROUP, status: 'confirmed' },
+      'FROM event_logistics_items': { id: ITEM },
+    });
     query.mockImplementation(async (sql: string) => {
-      if (sql.includes('FROM event_logistics_items')) return [{ id: ITEM }];
       return [
         {
           id: COMMENT,
