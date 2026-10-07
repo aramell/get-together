@@ -20,6 +20,7 @@ describe('getCommentableItemInEvent', () => {
     ['checklist', 'event_checklist_items'],
     ['logistics', 'event_logistics_items'],
     ['timeline', 'event_timeline_items'],
+    ['poll', 'event_polls'],
   ] as const)('looks up %s items in %s from the fixed map', async (type, table) => {
     queryOne.mockResolvedValue({ id: 'i1' });
     const res = await getCommentableItemInEvent(type, 'i1', 'e1', 'g1');
@@ -33,11 +34,10 @@ describe('getCommentableItemInEvent', () => {
     expect(await getCommentableItemInEvent('checklist', 'i1', 'e1', 'g1')).toBeNull();
   });
 
-  it('rejects unsupported and unregistered types before any query', async () => {
+  it('rejects unsupported types before any query', async () => {
     await expect(getCommentableItemInEvent('events; DROP TABLE x' as any, 'i', 'e', 'g')).rejects.toThrow(
       /Unsupported/
     );
-    await expect(getCommentableItemInEvent('poll', 'i', 'e', 'g')).rejects.toThrow(/Unsupported/);
     expect(queryOne).not.toHaveBeenCalled();
   });
 });

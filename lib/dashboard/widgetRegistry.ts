@@ -21,9 +21,9 @@ export interface WidgetDefinition {
 export const WIDGET_DEFINITIONS = [
   { key: 'photos', label: 'Photos', commentable: false, publicView: true },
   { key: 'checklist', label: 'Checklist', commentable: true, publicView: true },
-  { key: 'timeline', label: 'Timeline', commentable: false, publicView: true },
+  { key: 'timeline', label: 'Timeline', commentable: true, publicView: true },
   { key: 'logistics', label: 'Logistics', commentable: true, publicView: true },
-  { key: 'polls', label: 'Polls', commentable: false, publicView: true },
+  { key: 'polls', label: 'Polls', commentable: true, publicView: true },
 ] as const satisfies readonly WidgetDefinition[];
 
 export type WidgetKey = (typeof WIDGET_DEFINITIONS)[number]['key'];

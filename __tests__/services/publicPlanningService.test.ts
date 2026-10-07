@@ -84,6 +84,7 @@ describe('getPublicEventPlanning', () => {
           label: 'Pizza',
           display_order: 0,
           vote_count: '3',
+          comment_count: '2',
         },
         {
           poll_id: 'poll-1',
@@ -92,6 +93,7 @@ describe('getPublicEventPlanning', () => {
           label: 'Tacos',
           display_order: 1,
           vote_count: '1',
+          comment_count: '2',
         },
       ]);
 
@@ -142,8 +144,12 @@ describe('getPublicEventPlanning', () => {
           { id: 'opt-2', label: 'Tacos', vote_count: 1 },
         ],
         total_votes: 4,
+        comment_count: 2,
       },
     ]);
+    const pollSql = query.mock.calls.map((c: any[]) => String(c[0])).find((q: string) => q.includes('FROM event_polls'));
+    expect(pollSql).toContain('FROM item_comments');
+    expect(pollSql).toContain("item_type = 'poll'");
     expect(result.data?.group_id).toBeUndefined();
 
     const serialized = JSON.stringify(result.data);

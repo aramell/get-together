@@ -1543,12 +1543,12 @@ export interface ItemCommentRecord {
  * Item lookup per commentable type: fixed type-to-table map. Table names are
  * never interpolated from input. Registering a new commentable type means
  * adding it to COMMENT_ITEM_TYPES and to this map (no schema change).
- * Types without an entry have no item lookup yet (poll: 14.4).
  */
 const COMMENTABLE_ITEM_TABLES: Partial<Record<CommentItemType, string>> = {
   checklist: 'event_checklist_items',
   logistics: 'event_logistics_items',
   timeline: 'event_timeline_items',
+  poll: 'event_polls',
 };
 
 /**

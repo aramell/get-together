@@ -62,6 +62,7 @@ export interface PublicPollItem {
   question: string;
   options: PublicPollOption[];
   total_votes: number;
+  comment_count: number;
 }
 
 export interface PublicPlanningData {
@@ -179,9 +180,12 @@ export async function getPublicEventPlanning(
         label: string;
         display_order: number;
         vote_count: string;
+        comment_count: string | number;
       }>(
         `SELECT
            p.id AS poll_id, p.question,
+           (SELECT COUNT(*) FROM item_comments pc
+             WHERE pc.item_type = 'poll' AND pc.item_id = p.id AND pc.deleted_at IS NULL) AS comment_count,
            o.id AS option_id, o.label, o.display_order,
            COALESCE(vc.count, 0) AS vote_count
          FROM event_polls p
@@ -204,7 +208,13 @@ export async function getPublicEventPlanning(
     for (const row of pollRows) {
       let poll = pollsById.get(row.poll_id);
       if (!poll) {
-        poll = { id: row.poll_id, question: row.question, options: [], total_votes: 0 };
+        poll = {
+          id: row.poll_id,
+          question: row.question,
+          options: [],
+          total_votes: 0,
+          comment_count: Number(row.comment_count) || 0,
+        };
         pollsById.set(row.poll_id, poll);
       }
       const voteCount = parseInt(row.vote_count, 10) || 0;
@@ -271,6 +281,12 @@ const ITEM_TYPE_LABELS: Partial<Record<CommentItemType, string>> = {
   checklist: 'Checklist',
   logistics: 'Logistics',
   timeline: 'Timeline',
+  poll: 'Poll',
+};
+
+// Types whose not-found message isn't "<label> item not found".
+const ITEM_NOT_FOUND_MESSAGES: Partial<Record<CommentItemType, string>> = {
+  poll: 'Poll not found',
 };
 
 /**
@@ -300,7 +316,7 @@ export async function getPublicItemComments(
     if (!item) {
       return {
         success: false,
-        message: `${ITEM_TYPE_LABELS[itemType] ?? 'Item'} item not found`,
+        message: ITEM_NOT_FOUND_MESSAGES[itemType] ?? `${ITEM_TYPE_LABELS[itemType] ?? 'Item'} item not found`,
         status: 404,
       };
     }

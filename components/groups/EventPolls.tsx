@@ -16,6 +16,7 @@ import {
 } from '@chakra-ui/react';
 import { AddIcon, CloseIcon, DeleteIcon } from '@chakra-ui/icons';
 import { useAuth } from '@/lib/contexts/AuthContext';
+import { ItemCommentPopover } from './ItemCommentPopover';
 
 interface PollOption {
   id: string;
@@ -31,6 +32,7 @@ interface Poll {
   options: PollOption[];
   total_votes: number;
   user_vote: string | null;
+  comment_count?: number;
 }
 
 // Guest (no-login) shape from publicPlanningService (Story 13.5). No
@@ -47,6 +49,7 @@ interface GuestPoll {
   question: string;
   options: GuestPollOption[];
   total_votes: number;
+  comment_count?: number;
 }
 
 interface EventPollsProps {
@@ -183,6 +186,11 @@ export function EventPolls({ eventId, groupId, publicToken, requestLogin }: Even
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId, publicToken, accessToken, effectiveGroupId]);
+
+  const handleCommentCountChange = useCallback((pollId: string, count: number) => {
+    setPolls((prev) => prev.map((p) => (p.id === pollId ? { ...p, comment_count: count } : p)));
+    setGuestPolls((prev) => prev.map((p) => (p.id === pollId ? { ...p, comment_count: count } : p)));
+  }, []);
 
   const handleOptionChange = (index: number, value: string) => {
     setNewOptions((prev) => prev.map((o, i) => (i === index ? value : o)));
@@ -354,9 +362,20 @@ export function EventPolls({ eventId, groupId, publicToken, requestLogin }: Even
           )}
           {guestPolls.map((poll) => (
             <Box key={poll.id} p={3} borderWidth="1px" borderColor="cork.100" borderRadius="md">
-              <Text fontWeight="semibold" mb={2}>
-                {poll.question}
-              </Text>
+              <HStack justify="space-between" mb={2}>
+                <Text fontWeight="semibold">{poll.question}</Text>
+                <ItemCommentPopover
+                  itemId={poll.id}
+                  itemType="poll"
+                  itemLabel={poll.question}
+                  fetchCommentsUrl={`/api/events/public/${publicToken}/polls/${poll.id}/comments`}
+                  addCommentUrl={`/api/events/public/${publicToken}/polls/${poll.id}/comments`}
+                  commentCount={poll.comment_count ?? 0}
+                  isGuest
+                  onRequestLogin={requestLogin}
+                  onCountChange={handleCommentCountChange}
+                />
+              </HStack>
               <VStack spacing={2} align="stretch">
                 {poll.options.map((option) => {
                   const pct = poll.total_votes > 0 ? Math.round((option.vote_count / poll.total_votes) * 100) : 0;
@@ -411,15 +430,27 @@ export function EventPolls({ eventId, groupId, publicToken, requestLogin }: Even
             <Box key={poll.id} p={3} borderWidth="1px" borderColor="cork.100" borderRadius="md">
               <HStack justify="space-between" mb={2}>
                 <Text fontWeight="semibold">{poll.question}</Text>
-                {canModify && (
-                  <IconButton
-                    aria-label="Delete poll"
-                    icon={<DeleteIcon />}
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleDeletePoll(poll.id)}
+                <HStack spacing={1}>
+                  <ItemCommentPopover
+                    itemId={poll.id}
+                    itemType="poll"
+                    itemLabel={poll.question}
+                    fetchCommentsUrl={`/api/groups/${effectiveGroupId}/events/${eventId}/polls/${poll.id}/comments`}
+                    addCommentUrl={`/api/groups/${effectiveGroupId}/events/${eventId}/polls/${poll.id}/comments`}
+                    commentCount={poll.comment_count ?? 0}
+                    userRole={userRole}
+                    onCountChange={handleCommentCountChange}
                   />
-                )}
+                  {canModify && (
+                    <IconButton
+                      aria-label="Delete poll"
+                      icon={<DeleteIcon />}
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleDeletePoll(poll.id)}
+                    />
+                  )}
+                </HStack>
               </HStack>
 
               <VStack spacing={2} align="stretch">

@@ -22,8 +22,8 @@ describe('widgetRegistry', () => {
     ]);
   });
 
-  it('flags only checklist and logistics as commentable for now; all show in the public view', () => {
-    expect(WIDGET_DEFINITIONS.filter((w) => w.commentable).map((w) => w.key)).toEqual(['checklist', 'logistics']);
+  it('flags every widget except photos as commentable; all show in the public view', () => {
+    expect(WIDGET_DEFINITIONS.filter((w) => w.commentable).map((w) => w.key)).toEqual(['checklist', 'timeline', 'logistics', 'polls']);
     expect(WIDGET_DEFINITIONS.every((w) => w.publicView)).toBe(true);
   });
 

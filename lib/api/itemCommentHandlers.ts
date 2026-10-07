@@ -29,6 +29,8 @@ export interface ItemCommentConfig {
   itemType: CommentItemType;
   /** Capitalised label used in "<label> item not found" */
   label: string;
+  /** Overrides the default "<label> item not found" message */
+  notFoundMessage?: string;
 }
 
 function fail(error: string, errorCode: string, status: number): NextResponse {
@@ -37,14 +39,14 @@ function fail(error: string, errorCode: string, status: number): NextResponse {
 
 /** GET comments -- no auth required (mirrors the event-comments GET). */
 export async function handleGetItemComments(
-  { itemType, label }: ItemCommentConfig,
+  { itemType, label, notFoundMessage }: ItemCommentConfig,
   { params }: ItemCommentListParams
 ): Promise<NextResponse> {
   try {
     const { groupId, eventId, itemId } = await params;
 
     const item = await getCommentableItemInEvent(itemType, itemId, eventId, groupId);
-    if (!item) return fail(`${label} item not found`, 'NOT_FOUND', 404);
+    if (!item) return fail(notFoundMessage ?? `${label} item not found`, 'NOT_FOUND', 404);
 
     const { comments, totalCount } = await getItemComments(itemType, itemId);
 
@@ -62,7 +64,7 @@ export async function handleGetItemComments(
 
 /** POST a comment. Requires authentication and group membership. */
 export async function handlePostItemComment(
-  { itemType, label }: ItemCommentConfig,
+  { itemType, label, notFoundMessage }: ItemCommentConfig,
   request: NextRequest,
   { params }: ItemCommentListParams
 ): Promise<NextResponse> {
@@ -88,7 +90,7 @@ export async function handlePostItemComment(
     }
 
     const item = await getCommentableItemInEvent(itemType, itemId, eventId, groupId);
-    if (!item) return fail(`${label} item not found`, 'NOT_FOUND', 404);
+    if (!item) return fail(notFoundMessage ?? `${label} item not found`, 'NOT_FOUND', 404);
 
     const comment = await addItemComment(
       itemType,

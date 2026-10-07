@@ -55,3 +55,7 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-14-3-comments-on-timeline-items.md`
   summary: Item comment routes (checklist, logistics, timeline, member and public) may return 500 instead of 404 when `itemId` is not a valid UUID.
   evidence: Edge review of 14.3 flagged it; the lookup query runs with the raw id and Postgres rejects invalid UUIDs. Pre-existing across all item comment routes. Unverified; settle with a route test passing a non-UUID id.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-14-4-comments-on-polls.md`
+  summary: Poll comment routes (member and public) may return 500 instead of 404 when `pollId` is not a valid UUID.
+  evidence: Same pre-existing behavior as the checklist/logistics/timeline comment routes (see the 14.3 entry above); the lookup runs with the raw id. Unverified; settle together with the 14.3 entry using a route test with a non-UUID id.

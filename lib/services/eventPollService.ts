@@ -18,6 +18,8 @@ export interface Poll {
   options: PollOption[];
   total_votes: number;
   user_vote: string | null;
+  // Non-deleted item_comments count (list reads; 0 on create).
+  comment_count: number;
 }
 
 interface ServiceResult<T> {
@@ -57,6 +59,7 @@ function mapRow(row: any, userVote: string | null): Poll {
     options,
     total_votes: options.reduce((sum, o) => sum + o.vote_count, 0),
     user_vote: userVote,
+    comment_count: Number(row.comment_count) || 0,
   };
 }
 
@@ -196,6 +199,8 @@ export async function getPolls(
     const pollsResult = await client.query(
       `SELECT
          p.id, p.event_id, p.group_id, p.created_by, p.question, p.created_at,
+         (SELECT COUNT(*)::int FROM item_comments pc
+           WHERE pc.item_type = 'poll' AND pc.item_id = p.id AND pc.deleted_at IS NULL) AS comment_count,
          json_agg(
            json_build_object(
              'id', o.id,
@@ -435,8 +440,19 @@ export async function deletePoll(
     }
 
     // ON DELETE CASCADE on event_poll_options.poll_id and event_poll_votes.poll_id
-    // handles option/vote cleanup.
-    await client.query('DELETE FROM event_polls WHERE id = $1', [pollId]);
+    // handles option/vote cleanup. item_comments has no per-item FK, so remove
+    // the poll's comments in the same transaction as the poll itself.
+    await client.query('BEGIN');
+    try {
+      await client.query(`DELETE FROM item_comments WHERE item_type = 'poll' AND item_id = $1`, [
+        pollId,
+      ]);
+      await client.query('DELETE FROM event_polls WHERE id = $1', [pollId]);
+      await client.query('COMMIT');
+    } catch (txError) {
+      await client.query('ROLLBACK');
+      throw txError;
+    }
 
     return {
       success: true,

@@ -348,4 +348,111 @@ describe('EventPolls Component', () => {
       expect(requestLogin).toHaveBeenCalledTimes(1);
     });
   });
+  describe('item comments (Story 14.4)', () => {
+    const commentPolls = [
+      { ...mockPolls[0], comment_count: 3 },
+      { ...mockPolls[0], id: 'poll-2', question: 'Beach or lake?', comment_count: 0 },
+    ];
+
+    it('shows a comment icon on every poll (including non-creator polls), badge only when count > 0', async () => {
+      mockFetchSequence(commentPolls as any, 'member');
+      renderWithProviders(<EventPolls eventId="event-1" groupId="group-1" />);
+
+      await waitFor(() => expect(screen.getByText('Beach or lake?')).toBeInTheDocument());
+      expect(screen.getByTestId('poll-comment-trigger-poll-1')).toBeInTheDocument();
+      expect(screen.getByTestId('poll-comment-trigger-poll-2')).toBeInTheDocument();
+      expect(screen.getByTestId('poll-comment-count-poll-1')).toHaveTextContent('3');
+      expect(screen.queryByTestId('poll-comment-count-poll-2')).not.toBeInTheDocument();
+      // Non-creator, non-admin sees no delete-poll control.
+      expect(screen.queryAllByLabelText('Delete poll')).toHaveLength(0);
+    });
+
+    it('requests comments from the group-scoped poll endpoint', async () => {
+      mockFetchSequence(commentPolls as any, 'member');
+      renderWithProviders(<EventPolls eventId="event-1" groupId="group-1" />);
+
+      await waitFor(() => expect(screen.getByText('Beach or lake?')).toBeInTheDocument());
+      (global.fetch as jest.Mock).mockImplementation(() =>
+        Promise.resolve({ ok: true, json: async () => ({ success: true, data: [] }) })
+      );
+      fireEvent.click(screen.getByTestId('poll-comment-trigger-poll-2'));
+
+      await waitFor(() =>
+        expect(global.fetch).toHaveBeenCalledWith('/api/groups/group-1/events/event-1/polls/poll-2/comments')
+      );
+    });
+
+    it('passes the group role to the thread so admins can moderate others\' comments', async () => {
+      const otherComment = {
+        id: 'cm-1',
+        content: 'Tacos all the way',
+        created_by: 'other-user',
+        created_at: '2026-10-01T00:00:00Z',
+        creator: { display_name: 'Bob' },
+      };
+      const mockWithRole = (role: 'admin' | 'member') => {
+        global.fetch = jest.fn((url: string) => {
+          let data: unknown = commentPolls;
+          if (url.includes('/comments')) data = [otherComment];
+          else if (url === '/api/groups/group-1') data = { currentUserRole: role };
+          return Promise.resolve({ ok: true, json: async () => ({ success: true, data }) });
+        }) as unknown as typeof fetch;
+      };
+      const openThread = async () => {
+        await waitFor(() => expect(screen.getByText('Beach or lake?')).toBeInTheDocument());
+        fireEvent.click(screen.getByTestId('poll-comment-trigger-poll-2'));
+        await screen.findByText('Tacos all the way');
+        fireEvent.click(screen.getByRole('button', { name: /view all|add a comment/i }));
+      };
+
+      mockWithRole('admin');
+      const admin = renderWithProviders(<EventPolls eventId="event-1" groupId="group-1" />);
+      await openThread();
+      await waitFor(() => expect(screen.getAllByLabelText(/delete this comment/i).length).toBeGreaterThan(0));
+      admin.unmount();
+
+      mockWithRole('member');
+      renderWithProviders(<EventPolls eventId="event-1" groupId="group-1" />);
+      await openThread();
+      await screen.findAllByText('Tacos all the way');
+      expect(screen.queryAllByLabelText(/delete this comment/i)).toHaveLength(0);
+    });
+  });
+
+  describe('guest comments', () => {
+    it('shows a read-only comment icon per poll that reads from the public comments endpoint', async () => {
+      const token = 'a'.repeat(64);
+      global.fetch = jest.fn((url: string) => {
+        if (typeof url === 'string' && url.includes('/planning')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              success: true,
+              data: {
+                polls: [
+                  {
+                    id: 'gp-1',
+                    question: 'Pizza or tacos?',
+                    options: [{ id: 'o1', label: 'Pizza', vote_count: 1 }],
+                    total_votes: 1,
+                    comment_count: 2,
+                  },
+                ],
+              },
+            }),
+          });
+        }
+        return Promise.resolve({ ok: true, json: async () => ({ success: true, data: [] }) });
+      }) as unknown as typeof fetch;
+      renderWithProviders(<EventPolls eventId="event-1" publicToken={token} />);
+
+      await waitFor(() => expect(screen.getByText('Pizza or tacos?')).toBeInTheDocument());
+      expect(screen.getByTestId('poll-comment-count-gp-1')).toHaveTextContent('2');
+
+      fireEvent.click(screen.getByTestId('poll-comment-trigger-gp-1'));
+      await waitFor(() =>
+        expect(global.fetch).toHaveBeenCalledWith(`/api/events/public/${token}/polls/gp-1/comments`)
+      );
+    });
+  });
 });

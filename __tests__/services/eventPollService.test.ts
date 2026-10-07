@@ -87,7 +87,7 @@ describe('eventPollService', () => {
       mockClient.query.mockResolvedValueOnce({
         rows: [{
           id: 'poll-1', event_id: 'event-1', group_id: 'group-1', created_by: 'user-1',
-          question: 'Pizza or tacos?', created_at: 'now',
+          question: 'Pizza or tacos?', created_at: 'now', comment_count: 5,
           options: [
             { id: 'opt-1', label: 'Pizza', display_order: 0, vote_count: 3 },
             { id: 'opt-2', label: 'Tacos', display_order: 1, vote_count: 1 },
@@ -102,6 +102,11 @@ describe('eventPollService', () => {
       expect(result.data).toHaveLength(1);
       expect(result.data?.[0].total_votes).toBe(4);
       expect(result.data?.[0].user_vote).toBe('opt-1');
+      expect(result.data?.[0].comment_count).toBe(5);
+      const listSql = mockClient.query.mock.calls[1][0] as string;
+      expect(listSql).toContain('FROM item_comments');
+      expect(listSql).toContain("item_type = 'poll'");
+      expect(listSql).toContain('deleted_at IS NULL');
     });
 
     it('returns user_vote null when the user has not voted', async () => {
@@ -260,6 +265,42 @@ describe('eventPollService', () => {
       const result = await deletePoll('event-1', 'group-1', 'poll-1', 'admin-user');
 
       expect(result.success).toBe(true);
+    });
+
+    it('removes the poll and its comments in one transaction', async () => {
+      mockClient.query.mockResolvedValueOnce({ rows: [{ created_by: 'creator-1' }] });
+      (getUserGroupRole as jest.Mock).mockResolvedValueOnce('member');
+      mockClient.query.mockResolvedValue({ rows: [] });
+
+      const result = await deletePoll('event-1', 'group-1', 'poll-1', 'creator-1');
+
+      expect(result.success).toBe(true);
+      const sql = mockClient.query.mock.calls.map((c) => c[0] as string);
+      expect(sql.slice(1)).toEqual([
+        'BEGIN',
+        `DELETE FROM item_comments WHERE item_type = 'poll' AND item_id = $1`,
+        'DELETE FROM event_polls WHERE id = $1',
+        'COMMIT',
+      ]);
+      expect(mockClient.query.mock.calls[2][1]).toEqual(['poll-1']);
+    });
+
+    it('rolls back when deleting the poll fails', async () => {
+      mockClient.query.mockResolvedValueOnce({ rows: [{ created_by: 'creator-1' }] });
+      (getUserGroupRole as jest.Mock).mockResolvedValueOnce('member');
+      mockClient.query.mockImplementation(async (sql: string) => {
+        if (sql.startsWith('DELETE FROM event_polls')) throw new Error('boom');
+        return { rows: [] };
+      });
+      jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+      const result = await deletePoll('event-1', 'group-1', 'poll-1', 'creator-1');
+
+      expect(result.success).toBe(false);
+      expect(result.errorCode).toBe('INTERNAL_ERROR');
+      const sql = mockClient.query.mock.calls.map((c) => c[0] as string);
+      expect(sql).toContain('ROLLBACK');
+      expect(sql).not.toContain('COMMIT');
     });
 
     it('rejects a non-creator, non-admin', async () => {
