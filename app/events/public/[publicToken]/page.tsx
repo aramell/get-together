@@ -237,7 +237,7 @@ export default function PublicEventPage() {
             />
           </Box>
 
-          {/* Trip Planning (photos / checklist / timeline / logistics / polls) */}
+          {/* Event Planning (photos / checklist / timeline / logistics / polls) */}
           <PublicEventPlanning publicToken={publicToken} eventId={event.id} requestLogin={openLoginModal} />
         </VStack>
       </main>

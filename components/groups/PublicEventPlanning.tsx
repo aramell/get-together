@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Box, VStack, HStack, Spinner, Text } from '@chakra-ui/react';
+import { EventLabelsProvider } from './EventLabelsContext';
 import { WIDGET_RENDERERS } from './widgetRenderers';
 import {
   WidgetLayoutItem,
@@ -34,6 +35,7 @@ export const PublicEventPlanning: React.FC<PublicEventPlanningProps> = ({
 }) => {
   const [layout, setLayout] = useState<WidgetLayoutItem[]>(defaultWidgetLayout());
   const [loading, setLoading] = useState(true);
+  const [eventType, setEventType] = useState<string | null>(null);
 
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isFetchingRef = useRef(false);
@@ -49,6 +51,7 @@ export const PublicEventPlanning: React.FC<PublicEventPlanningProps> = ({
       // malformed/truncated response can't blank out or corrupt the page.
       if (data.success && isValidWidgetLayoutResponse(data.data)) {
         setLayout(data.data);
+        setEventType(typeof data.event_type === 'string' ? data.event_type : null);
       }
     } catch (err) {
       console.error('Error fetching public dashboard widget layout:', err);
@@ -82,7 +85,7 @@ export const PublicEventPlanning: React.FC<PublicEventPlanningProps> = ({
       <HStack justify="center" py={4}>
         <Spinner size="sm" />
         <Text fontSize="sm" color="gray.500">
-          Loading trip details...
+          Loading details...
         </Text>
       </HStack>
     );
@@ -95,6 +98,7 @@ export const PublicEventPlanning: React.FC<PublicEventPlanningProps> = ({
   if (orderedVisibleWidgets.length === 0) return null;
 
   return (
+    <EventLabelsProvider eventType={eventType}>
     <VStack spacing={8} align="stretch" bg="white" borderRadius="lg" boxShadow="sm" p={{ base: 4, md: 6 }}>
       {orderedVisibleWidgets.map((widget) => {
         const WidgetComponent = WIDGET_RENDERERS[widget.widget_key];
@@ -105,6 +109,7 @@ export const PublicEventPlanning: React.FC<PublicEventPlanningProps> = ({
         );
       })}
     </VStack>
+    </EventLabelsProvider>
   );
 };
 

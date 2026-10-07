@@ -3,12 +3,13 @@
 //
 // A preset is plain data. Creating an event with a type copies these values
 // into that event (see lib/services/eventTypePresetService.ts); editing a
-// preset later never changes existing events. `labels` are stored here only
-// and are not rendered anywhere yet (Story 14.8).
+// preset later never changes existing events. `labels` are read live (never
+// copied) through getWidgetLabel (Story 14.8).
 
 import {
   DEFAULT_WIDGET_ORDER,
   WidgetKey,
+  getWidgetDefinition,
   WidgetLayoutItem,
 } from '@/lib/dashboard/widgetRegistry';
 import {
@@ -129,4 +130,14 @@ export function isEventTypeKey(value: unknown): value is string {
 export function getEventType(key: string | null | undefined): EventTypeDefinition | null {
   if (!key) return null;
   return EVENT_TYPES.find((t) => t.key === key) ?? null;
+}
+
+// Heading for a widget on an event of the given type: the preset's label,
+// else the widget registry label (null, unknown or retired type, or a key the
+// preset has no label for).
+export function getWidgetLabel(
+  eventType: string | null | undefined,
+  widgetKey: WidgetKey
+): string {
+  return getEventType(eventType)?.labels[widgetKey] ?? getWidgetDefinition(widgetKey).label;
 }

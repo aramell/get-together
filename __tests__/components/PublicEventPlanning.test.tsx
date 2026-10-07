@@ -30,7 +30,7 @@ const defaultPlanningData = {
   polls: [],
 };
 
-function mockFetchSequence(options?: { layout?: any[]; planningData?: any; onFetch?: (url: string, init?: any) => void }) {
+function mockFetchSequence(options?: { layout?: any[]; eventType?: string | null; planningData?: any; onFetch?: (url: string, init?: any) => void }) {
   const layout = options?.layout ?? [
     { widget_key: 'checklist', position: 1, visible: true },
     { widget_key: 'timeline', position: 2, visible: true },
@@ -43,7 +43,7 @@ function mockFetchSequence(options?: { layout?: any[]; planningData?: any; onFet
   global.fetch = jest.fn((url: string, init?: any) => {
     options?.onFetch?.(url, init);
     if (typeof url === 'string' && url.includes('/dashboard-widgets')) {
-      return Promise.resolve({ ok: true, json: async () => ({ success: true, data: layout }) });
+      return Promise.resolve({ ok: true, json: async () => ({ success: true, data: layout, event_type: options?.eventType ?? null }) });
     }
     if (typeof url === 'string' && url.includes('/planning')) {
       return Promise.resolve({ ok: true, json: async () => ({ success: true, data: planningData }) });
@@ -53,6 +53,28 @@ function mockFetchSequence(options?: { layout?: any[]; planningData?: any; onFet
 }
 
 describe('PublicEventPlanning Component', () => {
+  it('shows the Dinner labels for a Dinner event and never mentions trips', async () => {
+    mockFetchSequence({
+      eventType: 'dinner',
+      layout: [
+        { widget_key: 'checklist', position: 1, visible: true },
+        { widget_key: 'timeline', position: 2, visible: true },
+        { widget_key: 'logistics', position: 3, visible: true },
+        { widget_key: 'polls', position: 4, visible: false },
+        { widget_key: 'photos', position: 5, visible: false },
+      ],
+    });
+    renderWithProviders(<PublicEventPlanning publicToken={publicToken} eventId={eventId} requestLogin={jest.fn()} />);
+
+    expect(screen.getByText('Loading details...')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 2, name: 'To do' })).toBeInTheDocument();
+    });
+    expect(screen.getByRole('heading', { level: 2, name: 'Schedule' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Who brings what' })).toBeInTheDocument();
+    expect(screen.queryByText(/trip/i)).not.toBeInTheDocument();
+  });
+
   afterEach(() => {
     jest.clearAllMocks();
     jest.useRealTimers();

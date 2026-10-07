@@ -18,6 +18,7 @@ import {
 import { EditIcon, DeleteIcon } from '@chakra-ui/icons';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { ItemCommentPopover } from './ItemCommentPopover';
+import { useWidgetLabel } from './EventLabelsContext';
 
 interface TimelineItem {
   id: string;
@@ -66,6 +67,7 @@ function formatItemTime(itemTime: string): string {
 }
 
 export function EventTimeline({ eventId, groupId, publicToken, requestLogin }: EventTimelineProps) {
+  const widgetLabel = useWidgetLabel('timeline');
   const { userId, accessToken } = useAuth();
   const toast = useToast();
 
@@ -301,7 +303,7 @@ export function EventTimeline({ eventId, groupId, publicToken, requestLogin }: E
     return (
       <Box>
         <Heading as="h2" fontWeight="bold" fontSize="lg" mb={4}>
-          Timeline
+          {widgetLabel}
         </Heading>
         <VStack spacing={2} align="stretch">
           {guestItems.length === 0 && (
@@ -350,7 +352,7 @@ export function EventTimeline({ eventId, groupId, publicToken, requestLogin }: E
   return (
     <Box>
       <Heading as="h2" fontWeight="bold" fontSize="lg" mb={4}>
-        Timeline
+        {widgetLabel}
       </Heading>
 
       <VStack spacing={2} align="stretch" mb={6}>

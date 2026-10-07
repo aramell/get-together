@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Box, VStack, HStack, IconButton, Spinner, Text, Badge, Button, useToast } from '@chakra-ui/react';
 import { EditIcon, CheckIcon } from '@chakra-ui/icons';
+import { EventLabelsProvider } from './EventLabelsContext';
 import { DashboardWidgetCustomizer } from './DashboardWidgetCustomizer';
 import { WIDGET_RENDERERS } from './widgetRenderers';
 import { useAuth } from '@/lib/contexts/AuthContext';
@@ -19,6 +20,7 @@ export function EventPlanningTab({ eventId, groupId }: EventPlanningTabProps) {
   const [loading, setLoading] = useState(true);
   const [customizing, setCustomizing] = useState(false);
   const [customized, setCustomized] = useState(false);
+  const [eventType, setEventType] = useState<string | null>(null);
   const toast = useToast();
 
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -46,6 +48,7 @@ export function EventPlanningTab({ eventId, groupId }: EventPlanningTabProps) {
       if (data.success && isValidWidgetLayoutResponse(data.data) && !isSavingRef.current) {
         setLayout(data.data);
         setCustomized(data.customized === true);
+        setEventType(typeof data.event_type === 'string' ? data.event_type : null);
       }
     } catch (err) {
       console.error('Error fetching dashboard widget layout:', err);
@@ -122,6 +125,7 @@ export function EventPlanningTab({ eventId, groupId }: EventPlanningTabProps) {
     .sort((a, b) => a.position - b.position);
 
   return (
+    <EventLabelsProvider eventType={eventType}>
     <Box p={6}>
       <HStack justify="flex-end" mb={customizing ? 0 : 4} spacing={3}>
         {customized && (
@@ -145,6 +149,7 @@ export function EventPlanningTab({ eventId, groupId }: EventPlanningTabProps) {
         <DashboardWidgetCustomizer
           groupId={groupId}
           eventId={eventId}
+          eventType={eventType}
           customized={customized}
           layout={layout}
           onLayoutChange={setLayout}
@@ -168,6 +173,7 @@ export function EventPlanningTab({ eventId, groupId }: EventPlanningTabProps) {
         </VStack>
       )}
     </Box>
+    </EventLabelsProvider>
   );
 }
 

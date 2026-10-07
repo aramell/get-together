@@ -36,6 +36,7 @@ import {
   defaultLogisticsCategories,
   isLogisticsCategoryMode,
 } from '@/lib/logistics/defaultCategories';
+import { useWidgetLabel } from './EventLabelsContext';
 
 // Accept only well-formed category lists from the API; anything else falls
 // back to the built-in defaults so the widget always renders.
@@ -118,6 +119,7 @@ interface EventLogisticsProps {
 }
 
 export function EventLogistics({ eventId, groupId, publicToken, requestLogin }: EventLogisticsProps) {
+  const widgetLabel = useWidgetLabel('logistics');
   const { userId, accessToken } = useAuth();
   const toast = useToast();
 
@@ -637,7 +639,7 @@ export function EventLogistics({ eventId, groupId, publicToken, requestLogin }: 
     return (
       <Box>
         <Heading as="h2" fontWeight="bold" fontSize="lg" mb={4}>
-          Logistics
+          {widgetLabel}
         </Heading>
 
         {categories.map((category) => {
@@ -710,7 +712,7 @@ export function EventLogistics({ eventId, groupId, publicToken, requestLogin }: 
   return (
     <Box>
       <Heading as="h2" fontWeight="bold" fontSize="lg" mb={4}>
-        Logistics
+        {widgetLabel}
       </Heading>
 
       {/* Today — a single cross-cutting group above the Bring/Carpool split;

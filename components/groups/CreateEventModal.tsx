@@ -244,7 +244,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
                 <FormLabel htmlFor="event-location">Location (optional)</FormLabel>
                 <Input
                   id="event-location"
-                  placeholder="e.g., Campsite 14B, or 123 Main St"
+                  placeholder="e.g., Maple Park Pavilion, or 123 Main St"
                   value={formData.location}
                   onChange={(e) =>
                     setFormData({ ...formData, location: e.target.value })

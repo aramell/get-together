@@ -4,6 +4,7 @@ import { ChakraProvider } from '@chakra-ui/react';
 import { format, addDays, subDays } from 'date-fns';
 import { EventLogistics } from '@/components/groups/EventLogistics';
 import { AuthProvider, useAuth } from '@/lib/contexts/AuthContext';
+import { EventLabelsProvider } from '@/components/groups/EventLabelsContext';
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: jest.fn() }),
@@ -77,6 +78,16 @@ describe('EventLogistics Component', () => {
       expect(screen.getByText('Speaker')).toBeInTheDocument();
       expect(screen.getByText('Leaving downtown 5pm')).toBeInTheDocument();
     });
+  });
+
+  it('uses the Dinner label for the heading inside a provider', async () => {
+    mockFetchSequence();
+    renderWithProviders(
+      <EventLabelsProvider eventType="dinner">
+        <EventLogistics eventId="event-1" groupId="group-1" />
+      </EventLabelsProvider>
+    );
+    expect(await screen.findByRole('heading', { level: 2, name: 'Who brings what' })).toBeInTheDocument();
   });
 
   it('renders the "Logistics" title and its subsection titles as semantic headings', async () => {

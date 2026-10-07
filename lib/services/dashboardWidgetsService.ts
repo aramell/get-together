@@ -213,6 +213,29 @@ export async function getEventWidgetLayout(
   }
 }
 
+/**
+ * The event's type key (null for events created without one). Used so the
+ * dashboard can render the type's widget labels (Story 14.8). Call after
+ * getEventWidgetLayout has verified membership; returns null on any failure
+ * so headings fall back to registry labels.
+ */
+export async function getEventTypeKey(eventId: string): Promise<string | null> {
+  let client: Awaited<ReturnType<typeof getClient>> | null = null;
+  try {
+    client = await getClient();
+    const result = await client.query(
+      'SELECT event_type FROM event_proposals WHERE id = $1 AND deleted_at IS NULL',
+      [eventId]
+    );
+    return result.rows[0]?.event_type ?? null;
+  } catch (error: any) {
+    console.error('Error getting event type:', error);
+    return null;
+  } finally {
+    client?.release();
+  }
+}
+
 async function checkMemberAndEvent(
   client: { query: (sql: string, params?: any[]) => Promise<any> },
   groupId: string,

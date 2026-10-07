@@ -4,6 +4,7 @@ import { ChakraProvider } from '@chakra-ui/react';
 import { format, addDays, subDays } from 'date-fns';
 import { EventChecklist } from '@/components/groups/EventChecklist';
 import { AuthProvider, useAuth } from '@/lib/contexts/AuthContext';
+import { EventLabelsProvider } from '@/components/groups/EventLabelsContext';
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: jest.fn() }),
@@ -70,6 +71,19 @@ describe('EventChecklist Component', () => {
     // in the add-item assignee dropdown — assert at least one match rather
     // than requiring uniqueness.
     expect(screen.getAllByText('Alice').length).toBeGreaterThan(0);
+  });
+
+  it('uses the event type label for the heading inside a provider, registry label otherwise', async () => {
+    mockFetchSequence();
+    renderWithProviders(
+      <EventLabelsProvider eventType="dinner">
+        <EventChecklist eventId="event-1" groupId="group-1" />
+      </EventLabelsProvider>
+    );
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 2, name: 'To do' })).toBeInTheDocument();
+    });
+    expect(screen.queryByRole('heading', { level: 2, name: 'Checklist' })).not.toBeInTheDocument();
   });
 
   it('renders the "Checklist" section title as a semantic h2 heading', async () => {

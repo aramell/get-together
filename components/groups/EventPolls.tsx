@@ -17,6 +17,7 @@ import {
 import { AddIcon, CloseIcon, DeleteIcon } from '@chakra-ui/icons';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { ItemCommentPopover } from './ItemCommentPopover';
+import { useWidgetLabel } from './EventLabelsContext';
 
 interface PollOption {
   id: string;
@@ -67,6 +68,7 @@ interface EventPollsProps {
 }
 
 export function EventPolls({ eventId, groupId, publicToken, requestLogin }: EventPollsProps) {
+  const widgetLabel = useWidgetLabel('polls');
   const { userId, accessToken } = useAuth();
   const toast = useToast();
 
@@ -351,7 +353,7 @@ export function EventPolls({ eventId, groupId, publicToken, requestLogin }: Even
     return (
       <Box>
         <Heading as="h2" fontWeight="bold" fontSize="lg" mb={4}>
-          Polls
+          {widgetLabel}
         </Heading>
 
         <VStack spacing={4} align="stretch">
@@ -415,7 +417,7 @@ export function EventPolls({ eventId, groupId, publicToken, requestLogin }: Even
   return (
     <Box>
       <Heading as="h2" fontWeight="bold" fontSize="lg" mb={4}>
-        Polls
+        {widgetLabel}
       </Heading>
 
       <VStack spacing={4} align="stretch" mb={6}>

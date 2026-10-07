@@ -15,6 +15,7 @@ import {
 } from '@chakra-ui/react';
 import { DeleteIcon } from '@chakra-ui/icons';
 import { useAuth } from '@/lib/contexts/AuthContext';
+import { useWidgetLabel } from './EventLabelsContext';
 
 interface EventPhoto {
   id: string;
@@ -50,6 +51,7 @@ const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 
 export function EventPhotoGrid({ eventId, groupId, publicToken, requestLogin }: EventPhotoGridProps) {
+  const widgetLabel = useWidgetLabel('photos');
   const { userId, accessToken } = useAuth();
   const toast = useToast();
 
@@ -235,7 +237,7 @@ export function EventPhotoGrid({ eventId, groupId, publicToken, requestLogin }: 
     return (
       <Box>
         <Heading as="h2" fontWeight="bold" fontSize="lg" mb={4}>
-          Photos
+          {widgetLabel}
         </Heading>
 
         {guestPhotos.length === 0 && (
@@ -268,7 +270,7 @@ export function EventPhotoGrid({ eventId, groupId, publicToken, requestLogin }: 
   return (
     <Box>
       <Heading as="h2" fontWeight="bold" fontSize="lg" mb={4}>
-        Photos
+        {widgetLabel}
       </Heading>
 
       {photos.length === 0 && (

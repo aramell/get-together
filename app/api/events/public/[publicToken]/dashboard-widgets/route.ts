@@ -50,7 +50,7 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ success: true, data: result.data });
+    return NextResponse.json({ success: true, data: result.data, event_type: event.event_type ?? null });
   } catch (error) {
     console.error('Error fetching public dashboard widget layout:', error);
     return NextResponse.json(

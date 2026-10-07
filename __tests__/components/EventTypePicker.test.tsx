@@ -19,7 +19,7 @@ describe('EventTypePicker', () => {
     );
     expect(screen.getByRole('radio', { name: 'Dinner' })).toBeChecked();
     const preview = screen.getByTestId('event-type-preview');
-    expect(preview).toHaveTextContent('Widgets: Logistics, Checklist, Polls, Photos');
+    expect(preview).toHaveTextContent('Widgets: Who brings what, To do, Polls, Photos');
     expect(preview).toHaveTextContent('Dishes, Drinks');
     expect(preview).toHaveTextContent('Confirm dietary needs');
   });

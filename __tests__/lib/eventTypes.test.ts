@@ -1,4 +1,4 @@
-import { EVENT_TYPES, getEventType, isEventTypeKey } from '@/lib/events/eventTypes';
+import { EVENT_TYPES, getEventType, getWidgetLabel, isEventTypeKey } from '@/lib/events/eventTypes';
 import { defaultWidgetLayout, validateWidgetLayout } from '@/lib/dashboard/widgetRegistry';
 import { DEFAULT_LOGISTICS_CATEGORIES, isLogisticsCategoryMode } from '@/lib/logistics/defaultCategories';
 
@@ -33,5 +33,20 @@ describe('event type registry', () => {
     expect(isEventTypeKey(null)).toBe(false);
     expect(getEventType('rave')).toBeNull();
     expect(getEventType(null)).toBeNull();
+  });
+});
+
+describe('getWidgetLabel', () => {
+  it('uses the preset label for a known type', () => {
+    expect(getWidgetLabel('dinner', 'checklist')).toBe('To do');
+    expect(getWidgetLabel('dinner', 'timeline')).toBe('Schedule');
+    expect(getWidgetLabel('dinner', 'logistics')).toBe('Who brings what');
+  });
+
+  it('matches the registry for Trip, null, undefined and unknown types', () => {
+    for (const type of ['trip', null, undefined, 'retired_type']) {
+      expect(getWidgetLabel(type, 'checklist')).toBe('Checklist');
+      expect(getWidgetLabel(type, 'logistics')).toBe('Logistics');
+    }
   });
 });

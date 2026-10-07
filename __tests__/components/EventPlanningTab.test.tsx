@@ -34,11 +34,15 @@ jest.mock('@/components/groups/EventPhotoGrid', () => ({
   ),
 }));
 jest.mock('@/components/groups/EventChecklist', () => ({
-  EventChecklist: ({ eventId, groupId }: StubProps) => (
-    <div data-testid="widget-checklist" data-event-id={eventId} data-group-id={groupId}>
-      Checklist widget
-    </div>
-  ),
+  EventChecklist: ({ eventId, groupId }: StubProps) => {
+    const { useWidgetLabel } = require('@/components/groups/EventLabelsContext');
+    return (
+      <div data-testid="widget-checklist" data-event-id={eventId} data-group-id={groupId}>
+        Checklist widget
+        <h2>{useWidgetLabel('checklist')}</h2>
+      </div>
+    );
+  },
 }));
 jest.mock('@/components/groups/EventTimeline', () => ({
   EventTimeline: ({ eventId, groupId }: StubProps) => (
@@ -70,9 +74,9 @@ const renderWithProviders = (component: React.ReactElement) => {
   );
 };
 
-function mockLayoutFetch(data: any, customized = false) {
+function mockLayoutFetch(data: any, customized = false, event_type: string | null = null) {
   global.fetch = jest.fn(() =>
-    Promise.resolve({ ok: true, json: async () => ({ success: true, data, customized }) })
+    Promise.resolve({ ok: true, json: async () => ({ success: true, data, customized, event_type }) })
   ) as unknown as typeof fetch;
 }
 
@@ -80,6 +84,23 @@ describe('EventPlanningTab', () => {
   afterEach(() => {
     jest.clearAllMocks();
     jest.useRealTimers();
+  });
+
+  it('provides the event type labels to widgets', async () => {
+    mockLayoutFetch(defaultWidgetLayout(), false, 'dinner');
+    renderWithProviders(<EventPlanningTab eventId="event-1" groupId="group-1" />);
+    expect(await screen.findByRole('heading', { level: 2, name: 'To do' })).toBeInTheDocument();
+  });
+
+  it('names widgets in the customizer by the event type labels', async () => {
+    mockLayoutFetch(defaultWidgetLayout(), false, 'dinner');
+    renderWithProviders(<EventPlanningTab eventId="event-1" groupId="group-1" />);
+    await waitFor(() => expect(screen.getByTestId('widget-photos')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByLabelText('Customize dashboard layout'));
+    expect(screen.getByLabelText('Hide To do')).toBeInTheDocument();
+    expect(screen.getByLabelText('Hide Who brings what')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Hide Checklist')).not.toBeInTheDocument();
   });
 
   it('renders all 5 widgets in the default order when the group has no rows yet', async () => {

@@ -3,6 +3,7 @@ import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
 import { ChakraProvider } from '@chakra-ui/react';
 import { EventTimeline } from '@/components/groups/EventTimeline';
 import { AuthProvider, useAuth } from '@/lib/contexts/AuthContext';
+import { EventLabelsProvider } from '@/components/groups/EventLabelsContext';
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: jest.fn() }),
@@ -69,6 +70,16 @@ describe('EventTimeline Component', () => {
     });
 
     expect(screen.getByText('At the big table')).toBeInTheDocument();
+  });
+
+  it('uses the Dinner label for the heading inside a provider', async () => {
+    mockFetchSequence();
+    renderWithProviders(
+      <EventLabelsProvider eventType="dinner">
+        <EventTimeline eventId="event-1" groupId="group-1" />
+      </EventLabelsProvider>
+    );
+    expect(await screen.findByRole('heading', { level: 2, name: 'Schedule' })).toBeInTheDocument();
   });
 
   it('renders the "Timeline" section title as a semantic h2 heading', async () => {

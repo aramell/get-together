@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   getEventWidgetLayout,
+  getEventTypeKey,
   updateEventWidgetLayout,
   resetEventWidgetLayout,
 } from '@/lib/services/dashboardWidgetsService';
@@ -75,6 +76,7 @@ export async function GET(request: NextRequest, { params }: RouteParams): Promis
       success: true,
       data: result.data,
       customized: result.customized ?? false,
+      event_type: await getEventTypeKey(auth.eventId),
       message: 'Dashboard layout retrieved successfully',
     });
   } catch (error: any) {

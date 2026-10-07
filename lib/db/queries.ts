@@ -1487,10 +1487,11 @@ export async function getEventByPublicToken(publicToken: string): Promise<{
   date: string;
   threshold: number | null;
   status: string;
+  event_type: string | null;
   created_at: string;
 } | null> {
   return queryOne(
-    `SELECT id, group_id, title, description, location, date, threshold, status, created_at
+    `SELECT id, group_id, title, description, location, date, threshold, status, event_type, created_at
      FROM event_proposals
      WHERE public_token = $1 AND deleted_at IS NULL`,
     [publicToken]

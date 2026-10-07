@@ -4,13 +4,16 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Box, VStack, HStack, Heading, Text, IconButton, Badge, Radio, RadioGroup, Stack, useToast } from '@chakra-ui/react';
 import { ArrowUpIcon, ArrowDownIcon, ViewIcon, ViewOffIcon } from '@chakra-ui/icons';
 import { useAuth } from '@/lib/contexts/AuthContext';
-import { WidgetKey, WidgetLayoutItem, getWidgetDefinition, isValidWidgetLayoutResponse } from '@/lib/utils/dashboardWidgets';
+import { WidgetKey, WidgetLayoutItem, isValidWidgetLayoutResponse } from '@/lib/utils/dashboardWidgets';
+import { getWidgetLabel } from '@/lib/events/eventTypes';
 
 type CustomizeScope = 'event' | 'group';
 
 interface DashboardWidgetCustomizerProps {
   groupId: string;
   eventId: string;
+  // Event type whose labels name the widgets (Story 14.8); null = registry labels.
+  eventType?: string | null;
   // True when the event already has its own layout (Story 14.5).
   customized: boolean;
   // `layout` is the event's effective layout (event override, else group).
@@ -37,6 +40,7 @@ interface DashboardWidgetCustomizerProps {
 export function DashboardWidgetCustomizer({
   groupId,
   eventId,
+  eventType = null,
   customized,
   layout: eventLayout,
   onLayoutChange,
@@ -182,7 +186,7 @@ export function DashboardWidgetCustomizer({
       </RadioGroup>
       <VStack spacing={2} align="stretch">
         {sorted.map((widget, index) => {
-          const label = getWidgetDefinition(widget.widget_key).label;
+          const label = getWidgetLabel(eventType, widget.widget_key);
           return (
             <HStack key={widget.widget_key} justify="space-between" py={1}>
               <HStack spacing={3}>

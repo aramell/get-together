@@ -25,6 +25,7 @@ import {
   compareByItemDateThenCreatedAt,
 } from '@/lib/utils/itemDateGrouping';
 import { ItemCommentPopover } from './ItemCommentPopover';
+import { useWidgetLabel } from './EventLabelsContext';
 
 interface ChecklistItem {
   id: string;
@@ -69,6 +70,7 @@ interface EventChecklistProps {
 }
 
 export function EventChecklist({ eventId, groupId, publicToken, requestLogin }: EventChecklistProps) {
+  const widgetLabel = useWidgetLabel('checklist');
   const { userId, accessToken } = useAuth();
   const toast = useToast();
 
@@ -433,7 +435,7 @@ export function EventChecklist({ eventId, groupId, publicToken, requestLogin }: 
     return (
       <Box>
         <Heading as="h2" fontWeight="bold" fontSize="lg" mb={4}>
-          Checklist
+          {widgetLabel}
         </Heading>
         <VStack spacing={2} align="stretch">
           {guestItems.length === 0 && (
@@ -484,7 +486,7 @@ export function EventChecklist({ eventId, groupId, publicToken, requestLogin }: 
   return (
     <Box>
       <Heading as="h2" fontWeight="bold" fontSize="lg" mb={4}>
-        Checklist
+        {widgetLabel}
       </Heading>
 
       {todayItems.length > 0 && (

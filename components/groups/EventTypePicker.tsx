@@ -2,8 +2,7 @@
 
 import React from 'react';
 import { Box, FormControl, FormLabel, RadioGroup, Radio, SimpleGrid, Text, VStack } from '@chakra-ui/react';
-import { EVENT_TYPES, EventTypeDefinition } from '@/lib/events/eventTypes';
-import { getWidgetDefinition } from '@/lib/dashboard/widgetRegistry';
+import { EVENT_TYPES, EventTypeDefinition, getWidgetLabel } from '@/lib/events/eventTypes';
 
 interface EventTypePickerProps {
   value: string;
@@ -14,7 +13,7 @@ interface EventTypePickerProps {
 function widgetNames(type: EventTypeDefinition): string {
   return type.widgets
     .filter((w) => w.visible)
-    .map((w) => getWidgetDefinition(w.widget_key).label)
+    .map((w) => getWidgetLabel(type.key, w.widget_key))
     .join(', ');
 }
 
