@@ -22,6 +22,8 @@ import {
   useToast,
 } from '@chakra-ui/react';
 import { CircleSelector } from '@/components/circles/CircleSelector';
+import { EventTypePicker } from '@/components/groups/EventTypePicker';
+import { DEFAULT_EVENT_TYPE_KEY, isEventTypeKey } from '@/lib/events/eventTypes';
 // Removed: use API endpoint instead
 
 interface CreateEventModalProps {
@@ -32,6 +34,8 @@ interface CreateEventModalProps {
   // Story 3.7: pre-fills the date field when opened from the Availability grid's
   // onSlotTap, e.g. "2026-08-27" (date-only). Left blank by the standard entry point.
   prefilledDate?: string;
+  // Story 14.7: the group's default event type; preselects the picker.
+  defaultEventType?: string | null;
 }
 
 function toDateTimeLocalValue(prefilledDate?: string): string {
@@ -46,6 +50,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
   groupId,
   onSuccess,
   prefilledDate,
+  defaultEventType,
 }) => {
   const toast = useToast();
   const [isLoading, setIsLoading] = useState(false);
@@ -59,6 +64,9 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
     location: '',
   });
 
+  const initialEventType = isEventTypeKey(defaultEventType) ? defaultEventType : DEFAULT_EVENT_TYPE_KEY;
+  const [eventType, setEventType] = useState<string>(initialEventType);
+
   const [circleId, setCircleId] = useState<string | null>(null);
   const [excludedContactIds, setExcludedContactIds] = useState<string[]>([]);
 
@@ -66,8 +74,9 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setFormData((prev) => ({ ...prev, date: toDateTimeLocalValue(prefilledDate) }));
+      setEventType(initialEventType);
     }
-  }, [isOpen, prefilledDate]);
+  }, [isOpen, prefilledDate, initialEventType]);
 
   const handleClose = () => {
     if (!isLoading) {
@@ -75,6 +84,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
       setErrors({});
       setCircleId(null);
       setExcludedContactIds([]);
+      setEventType(initialEventType);
       onClose();
     }
   };
@@ -133,6 +143,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
           threshold: formData.threshold ? parseInt(formData.threshold) : undefined,
           description: formData.description || undefined,
           location: formData.location || undefined,
+          event_type: eventType,
           circleId: circleId || undefined,
           excludedContactIds: excludedContactIds.length > 0 ? excludedContactIds : undefined,
         }),
@@ -189,6 +200,9 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
         <form onSubmit={handleSubmit}>
           <ModalBody>
             <VStack spacing={4}>
+              {/* Event type (Story 14.7) */}
+              <EventTypePicker value={eventType} onChange={setEventType} isDisabled={isLoading} />
+
               {/* Title Field */}
               <FormControl isInvalid={!!errors.title}>
                 <FormLabel htmlFor="event-title">Event Title *</FormLabel>

@@ -3,6 +3,7 @@
 import { z, ZodError } from 'zod';
 import { getClient } from '@/lib/db/client';
 import { getUserGroupRole } from '@/lib/db/queries';
+import { applyEventTypePreset } from '@/lib/services/eventTypePresetService';
 import { eventCreateSchema, EventProposal, RsvpStatus } from '@/lib/validation/eventSchema';
 
 /**
@@ -19,6 +20,7 @@ export async function createEvent(
     threshold?: number;
     description?: string;
     location?: string;
+    event_type?: string | null;
   }
 ): Promise<{
   success: boolean;
@@ -37,6 +39,7 @@ export async function createEvent(
   errorCode?: string;
 }> {
   const client = await getClient();
+  let inTransaction = false;
 
   try {
     // Validate inputs
@@ -72,11 +75,14 @@ export async function createEvent(
       };
     }
 
-    // Create event proposal
+    // Event, RSVP and preset copy succeed or fail together.
+    await client.query('BEGIN');
+    inTransaction = true;
+
     const eventResult = await client.query(
-      `INSERT INTO event_proposals (group_id, created_by, title, description, location, date, threshold, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'proposal')
-       RETURNING id, group_id, created_by, title, description, location, date, threshold, status, created_at, updated_at`,
+      `INSERT INTO event_proposals (group_id, created_by, title, description, location, date, threshold, event_type, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'proposal')
+       RETURNING id, group_id, created_by, title, description, location, date, threshold, event_type, status, created_at, updated_at`,
       [
         groupId,
         userId,
@@ -85,10 +91,13 @@ export async function createEvent(
         validatedData.location || null,
         validatedData.date,
         validatedData.threshold || null,
+        validatedData.event_type || null,
       ]
     );
 
     if (eventResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      inTransaction = false;
       return {
         success: false,
         message: 'Failed to create event',
@@ -108,6 +117,8 @@ export async function createEvent(
     );
 
     if (rsvpResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      inTransaction = false;
       return {
         success: false,
         message: 'Created event but failed to create RSVP',
@@ -117,6 +128,11 @@ export async function createEvent(
     }
 
     const rsvp = rsvpResult.rows[0];
+
+    await applyEventTypePreset(client, event, userId);
+
+    await client.query('COMMIT');
+    inTransaction = false;
 
     return {
       success: true,
@@ -129,6 +145,7 @@ export async function createEvent(
           title: event.title,
           description: event.description,
           location: event.location,
+          event_type: event.event_type ?? null,
           date: event.date,
           threshold: event.threshold,
           status: event.status,
@@ -145,6 +162,7 @@ export async function createEvent(
       },
     };
   } catch (error: any) {
+    if (inTransaction) await client.query('ROLLBACK').catch(() => {});
     console.error('Error creating event:', error);
 
     // Handle Zod validation errors

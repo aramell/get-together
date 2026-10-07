@@ -11,7 +11,7 @@ export async function createGroupWithMembership(
   description: string | null,
   createdBy: string,
   inviteCode: string
-): Promise<{ id: string; name: string; description: string | null; created_by: string; invite_code: string; planning_style: 'availability-first' | 'proposals-first'; created_at: string; updated_at: string }> {
+): Promise<{ id: string; name: string; description: string | null; created_by: string; invite_code: string; planning_style: 'availability-first' | 'proposals-first'; default_event_type: string | null; created_at: string; updated_at: string }> {
   const client = await getClient();
   try {
     await client.query('BEGIN');
@@ -20,7 +20,7 @@ export async function createGroupWithMembership(
     const groupResult = await client.query(
       `INSERT INTO groups (name, description, created_by, invite_code)
        VALUES ($1, $2, $3, $4)
-       RETURNING id, name, description, created_by, invite_code, planning_style, created_at, updated_at`,
+       RETURNING id, name, description, created_by, invite_code, planning_style, default_event_type, created_at, updated_at`,
       [name, description, createdBy, inviteCode]
     );
 
@@ -54,11 +54,12 @@ export async function getGroupById(groupId: string): Promise<{
   created_by: string;
   invite_code: string;
   planning_style: 'availability-first' | 'proposals-first';
+  default_event_type: string | null;
   created_at: string;
   updated_at: string;
 } | null> {
   return queryOne(
-    `SELECT id, name, description, created_by, invite_code, planning_style, created_at, updated_at
+    `SELECT id, name, description, created_by, invite_code, planning_style, default_event_type, created_at, updated_at
      FROM groups
      WHERE id = $1 AND deleted_at IS NULL`,
     [groupId]
@@ -79,6 +80,7 @@ export async function getGroupDetailsWithMembers(
     created_by: string;
     invite_code: string;
     planning_style: 'availability-first' | 'proposals-first';
+    default_event_type: string | null;
     created_at: string;
     updated_at: string;
   };
@@ -95,7 +97,7 @@ export async function getGroupDetailsWithMembers(
   try {
     // Get group
     const groupResult = await client.query(
-      `SELECT id, name, description, created_by, invite_code, planning_style, created_at, updated_at
+      `SELECT id, name, description, created_by, invite_code, planning_style, default_event_type, created_at, updated_at
        FROM groups
        WHERE id = $1 AND deleted_at IS NULL`,
       [groupId]
@@ -247,6 +249,7 @@ export async function updateGroup(
     name?: string;
     description?: string | null;
     planning_style?: 'availability-first' | 'proposals-first';
+    default_event_type?: string | null;
   }
 ): Promise<{
   id: string;
@@ -255,6 +258,7 @@ export async function updateGroup(
   created_by: string;
   invite_code: string;
   planning_style: 'availability-first' | 'proposals-first';
+  default_event_type: string | null;
   created_at: string;
   updated_at: string;
 } | null> {
@@ -280,6 +284,12 @@ export async function updateGroup(
     paramIndex++;
   }
 
+  if (data.default_event_type !== undefined) {
+    updates.push(`default_event_type = $${paramIndex}`);
+    values.push(data.default_event_type);
+    paramIndex++;
+  }
+
   if (updates.length === 0) {
     return getGroupById(groupId);
   }
@@ -290,7 +300,7 @@ export async function updateGroup(
     `UPDATE groups
      SET ${updates.join(', ')}
      WHERE id = $1
-     RETURNING id, name, description, created_by, invite_code, planning_style, created_at, updated_at`,
+     RETURNING id, name, description, created_by, invite_code, planning_style, default_event_type, created_at, updated_at`,
     values
   );
 }

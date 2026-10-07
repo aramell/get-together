@@ -18,6 +18,8 @@ import {
   type WishlistListResponse,
 } from '@/lib/validation/wishlistSchema';
 import { ZodError } from 'zod';
+import { isEventTypeKey } from '@/lib/events/eventTypes';
+import { applyEventTypePreset } from '@/lib/services/eventTypePresetService';
 
 /**
  * Create a new wishlist item for a group
@@ -540,6 +542,7 @@ export async function convertItemToEvent(
       description: string | null;
       date: string;
       threshold: number | null;
+      event_type?: string | null;
       status: string;
       created_at: string;
       updated_at: string;
@@ -641,11 +644,19 @@ export async function convertItemToEvent(
       // Start transaction
       await client.query('BEGIN');
 
+      // Story 14.7: the group's default event type (if any) is applied
+      const groupTypeResult = await client.query(
+        `SELECT default_event_type FROM groups WHERE id = $1`,
+        [groupId]
+      );
+      const rawType = groupTypeResult?.rows?.[0]?.default_event_type;
+      const eventType = isEventTypeKey(rawType) ? rawType : null;
+
       // Create event proposal using item title and optionally modified description
       const eventResult = await client.query(
-        `INSERT INTO event_proposals (group_id, created_by, title, description, date, threshold, status)
-         VALUES ($1, $2, $3, $4, $5, $6, 'proposal')
-         RETURNING id, group_id, created_by, title, description, date, threshold, status, created_at, updated_at`,
+        `INSERT INTO event_proposals (group_id, created_by, title, description, date, threshold, event_type, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'proposal')
+         RETURNING id, group_id, created_by, title, description, date, threshold, event_type, status, created_at, updated_at`,
         [
           groupId,
           userId,
@@ -653,6 +664,7 @@ export async function convertItemToEvent(
           eventData.description || item.description || null,
           eventData.date,
           eventData.threshold || null,
+          eventType,
         ]
       );
 
@@ -694,6 +706,8 @@ export async function convertItemToEvent(
         [event.id, userId]
       );
 
+      await applyEventTypePreset(client, event, userId);
+
       // Commit transaction
       await client.query('COMMIT');
 
@@ -709,6 +723,7 @@ export async function convertItemToEvent(
             description: event.description,
             date: event.date,
             threshold: event.threshold,
+            event_type: event.event_type ?? null,
             status: event.status,
             created_at: event.created_at,
             updated_at: event.updated_at,

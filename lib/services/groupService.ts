@@ -1062,6 +1062,7 @@ export async function updateGroupSettings(
     name?: string;
     description?: string | null;
     planning_style?: 'availability-first' | 'proposals-first';
+    default_event_type?: string | null;
   }
 ): Promise<{
   success: boolean;

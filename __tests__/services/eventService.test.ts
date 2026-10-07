@@ -55,6 +55,7 @@ describe('Event Service - createEvent', () => {
 
       const now = new Date().toISOString();
       mockClient.query
+        .mockResolvedValueOnce({ rows: [] } as never) // BEGIN
         .mockResolvedValueOnce({
           rows: [{
             id: eventId,
@@ -103,6 +104,7 @@ describe('Event Service - createEvent', () => {
       const rsvpId = 'cc0e8400-e29b-41d4-a716-446655440007';
 
       mockClient.query
+        .mockResolvedValueOnce({ rows: [] } as never) // BEGIN
         .mockResolvedValueOnce({
           rows: [{
             id: eventId,
@@ -133,9 +135,9 @@ describe('Event Service - createEvent', () => {
       expect(result.success).toBe(true);
       expect(result.data?.event.location).toBe(eventData.location);
       expect(mockClient.query).toHaveBeenNthCalledWith(
-        1,
+        2,
         expect.stringContaining('INSERT INTO event_proposals'),
-        [validGroupId, validUserId, eventData.title, null, eventData.location, eventData.date, null]
+        [validGroupId, validUserId, eventData.title, null, eventData.location, eventData.date, null, null]
       );
     });
 
@@ -152,6 +154,7 @@ describe('Event Service - createEvent', () => {
       const rsvpId = 'aa0e8400-e29b-41d4-a716-446655440005';
 
       mockClient.query
+        .mockResolvedValueOnce({ rows: [] } as never) // BEGIN
         .mockResolvedValueOnce({
           rows: [{
             id: eventId,
@@ -181,6 +184,82 @@ describe('Event Service - createEvent', () => {
       expect(result.success).toBe(true);
       expect(result.data?.event.description).toBeNull();
       expect(result.data?.event.threshold).toBeNull();
+    });
+  });
+
+  describe('Event types (Story 14.7)', () => {
+    const eventId = '770e8400-e29b-41d4-a716-446655440002';
+    const baseRow = (event_type: string | null) => ({
+      id: eventId,
+      group_id: validGroupId,
+      created_by: validUserId,
+      title: 'Supper',
+      description: null,
+      location: null,
+      event_type,
+      date: getFutureDate(7),
+      threshold: null,
+      status: 'proposal',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+    const rsvpRow = { id: 'r1', event_id: eventId, user_id: validUserId, status: 'in', responded_at: '' };
+
+    it('rejects an unknown event type without touching the database', async () => {
+      getUserGroupRole.mockResolvedValue('member');
+      const result = await createEvent(validGroupId, validUserId, {
+        title: 'Rave',
+        date: getFutureDate(7),
+        event_type: 'rave',
+      });
+      expect(result.success).toBe(false);
+      expect(result.errorCode).toBe('VALIDATION_ERROR');
+      expect(mockClient.query).not.toHaveBeenCalled();
+    });
+
+    it('stores the type and applies the preset inside one transaction', async () => {
+      getUserGroupRole.mockResolvedValue('member');
+      mockClient.query.mockImplementation((async (sql: string) => {
+        if (sql.includes('INSERT INTO event_proposals')) return { rows: [baseRow('dinner')] };
+        if (sql.includes('INSERT INTO event_rsvps')) return { rows: [rsvpRow] };
+        return { rows: [] };
+      }) as never);
+
+      const result = await createEvent(validGroupId, validUserId, {
+        title: 'Supper',
+        date: getFutureDate(7),
+        event_type: 'dinner',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.data?.event.event_type).toBe('dinner');
+      const sqls = mockClient.query.mock.calls.map((c: any[]) => c[0] as string);
+      expect(sqls[0]).toBe('BEGIN');
+      expect(sqls[sqls.length - 1]).toBe('COMMIT');
+      expect(sqls.some((s: string) => s.includes('INSERT INTO event_dashboard_widgets'))).toBe(true);
+      expect(sqls.some((s: string) => s.includes('INSERT INTO event_checklist_items'))).toBe(true);
+    });
+
+    it('rolls the whole creation back when a preset step fails', async () => {
+      getUserGroupRole.mockResolvedValue('member');
+      mockClient.query.mockImplementation((async (sql: string) => {
+        if (sql.includes('INSERT INTO event_proposals')) return { rows: [baseRow('dinner')] };
+        if (sql.includes('INSERT INTO event_rsvps')) return { rows: [rsvpRow] };
+        if (sql.includes('INSERT INTO event_checklist_items')) throw new Error('boom');
+        return { rows: [] };
+      }) as never);
+
+      const result = await createEvent(validGroupId, validUserId, {
+        title: 'Supper',
+        date: getFutureDate(7),
+        event_type: 'dinner',
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.errorCode).toBe('INTERNAL_ERROR');
+      const sqls = mockClient.query.mock.calls.map((c: any[]) => c[0] as string);
+      expect(sqls).toContain('ROLLBACK');
+      expect(sqls).not.toContain('COMMIT');
     });
   });
 
@@ -362,13 +441,17 @@ describe('Event Service - createEvent', () => {
       };
 
       getUserGroupRole.mockResolvedValue('member');
-      mockClient.query.mockResolvedValueOnce({ rows: [] });
+      mockClient.query
+        .mockResolvedValueOnce({ rows: [] } as never) // BEGIN
+        .mockResolvedValueOnce({ rows: [] });
 
       const result = await createEvent(validGroupId, validUserId, eventData);
 
       expect(result.success).toBe(false);
       expect(result.errorCode).toBe('INTERNAL_ERROR');
       expect(result.message).toContain('Failed to create event');
+      expect(mockClient.query).toHaveBeenCalledWith('ROLLBACK');
+      expect(mockClient.query).not.toHaveBeenCalledWith('COMMIT');
     });
 
     it('should handle RSVP creation database failure', async () => {
@@ -381,6 +464,7 @@ describe('Event Service - createEvent', () => {
 
       getUserGroupRole.mockResolvedValue('member');
       mockClient.query
+        .mockResolvedValueOnce({ rows: [] } as never) // BEGIN
         .mockResolvedValueOnce({
           rows: [{
             id: eventId,
@@ -402,6 +486,8 @@ describe('Event Service - createEvent', () => {
       expect(result.success).toBe(false);
       expect(result.errorCode).toBe('INTERNAL_ERROR');
       expect(result.message).toContain('RSVP');
+      expect(mockClient.query).toHaveBeenCalledWith('ROLLBACK');
+      expect(mockClient.query).not.toHaveBeenCalledWith('COMMIT');
     });
 
     it('should handle duplicate event constraint violation', async () => {
@@ -467,6 +553,7 @@ describe('Event Service - createEvent', () => {
       const rsvpId = '880e8400-e29b-41d4-a716-446655440003';
 
       mockClient.query
+        .mockResolvedValueOnce({ rows: [] } as never) // BEGIN
         .mockResolvedValueOnce({
           rows: [{
             id: eventId,
@@ -514,6 +601,7 @@ describe('Event Service - createEvent', () => {
       const rsvpId = '880e8400-e29b-41d4-a716-446655440003';
 
       mockClient.query
+        .mockResolvedValueOnce({ rows: [] } as never) // BEGIN
         .mockResolvedValueOnce({
           rows: [{
             id: eventId,
@@ -556,6 +644,7 @@ describe('Event Service - createEvent', () => {
       const rsvpId = '880e8400-e29b-41d4-a716-446655440003';
 
       mockClient.query
+        .mockResolvedValueOnce({ rows: [] } as never) // BEGIN
         .mockResolvedValueOnce({
           rows: [{
             id: eventId,
@@ -598,6 +687,7 @@ describe('Event Service - createEvent', () => {
       const rsvpId = '880e8400-e29b-41d4-a716-446655440003';
 
       mockClient.query
+        .mockResolvedValueOnce({ rows: [] } as never) // BEGIN
         .mockResolvedValueOnce({
           rows: [{
             id: eventId,

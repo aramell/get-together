@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { copyInviteLink, regenerateInviteCode } from '@/lib/services/groupService';
+import { DefaultEventTypeSetting } from '@/components/groups/DefaultEventTypeSetting';
 import {
   Box,
   VStack,
@@ -34,12 +35,14 @@ export interface GroupData {
   name: string;
   description: string | null;
   invite_code?: string;
+  default_event_type?: string | null;
 }
 
 interface AdminGroupSettingsProps {
   groupData: GroupData;
   onSave?: (updatedData: { name: string; description: string | null }) => Promise<void>;
   onDelete?: () => Promise<void>;
+  onDefaultEventTypeChanged?: (defaultEventType: string | null) => void;
   isLoading?: boolean;
   error?: string | null;
 }
@@ -58,6 +61,7 @@ export const AdminGroupSettings: React.FC<AdminGroupSettingsProps> = ({
   groupData,
   onSave,
   onDelete,
+  onDefaultEventTypeChanged,
   isLoading = false,
   error = null,
 }) => {
@@ -259,6 +263,13 @@ export const AdminGroupSettings: React.FC<AdminGroupSettingsProps> = ({
             >
               Regenerate Invite Link
             </Button>
+            <Box w="100%" pt={2}>
+              <DefaultEventTypeSetting
+                groupId={groupData.id}
+                defaultEventType={groupData.default_event_type}
+                onChanged={onDefaultEventTypeChanged}
+              />
+            </Box>
           </VStack>
         </Box>
 

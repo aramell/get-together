@@ -47,6 +47,7 @@ interface GroupDetailsData {
     created_by: string;
     invite_code: string;
     planning_style: PlanningStyle;
+    default_event_type?: string | null;
     created_at: string;
     updated_at: string;
   };
@@ -693,6 +694,11 @@ export default function GroupDetailsPage() {
                   console.log('Update group:', updatedData);
                 }}
                 onDelete={handleDeleteGroup}
+                onDefaultEventTypeChanged={(default_event_type) =>
+                  setData((prev) =>
+                    prev ? { ...prev, group: { ...prev.group, default_event_type } } : prev
+                  )
+                }
               />
             </>
           )}
@@ -746,6 +752,7 @@ export default function GroupDetailsPage() {
         groupId={groupId}
         onSuccess={handleEventCreated}
         prefilledDate={prefilledDate}
+        defaultEventType={group.default_event_type}
       />
       </Container>
     </Box>

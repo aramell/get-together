@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isEventTypeKey } from '@/lib/events/eventTypes';
 
 // Event creation schema - used for both client and server validation
 export const eventCreateSchema = z.object({
@@ -34,6 +35,13 @@ export const eventCreateSchema = z.object({
     .max(255, 'Location must be 255 characters or less')
     .optional(),
 
+  // Story 14.7: optional event type, validated against the registry
+  event_type: z
+    .string()
+    .nullable()
+    .optional()
+    .refine((v) => v == null || isEventTypeKey(v), 'Invalid event type'),
+
   // Story 10.5: optional bulk-invite of a social circle's contacts (AC1, AC8)
   circleId: z.string().uuid().optional(),
   excludedContactIds: z.array(z.string().uuid()).optional(),
@@ -53,6 +61,7 @@ export const eventProposalSchema = z.object({
   title: z.string(),
   description: z.string().nullable(),
   location: z.string().nullable(),
+  event_type: z.string().nullable().optional(),
   date: z.string().datetime(),
   threshold: z.number().nullable(),
   status: z.enum(['proposal', 'confirmed', 'cancelled']),

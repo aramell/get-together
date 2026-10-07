@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createEvent, getGroupEvents } from '@/lib/services/eventService';
 import { getUserIdFromRequest } from '@/lib/api/auth';
+import { isEventTypeKey } from '@/lib/events/eventTypes';
 import { eventCreateSchema } from '@/lib/validation/eventSchema';
 import { bulkInviteCircleToEvent } from '@/lib/services/circleInviteService';
 
@@ -103,6 +104,18 @@ export async function POST(
           message: 'Invalid JSON in request body',
           error: 'INVALID_REQUEST',
           errorCode: 'BAD_REQUEST',
+        },
+        { status: 400 }
+      );
+    }
+
+    if (data?.event_type != null && !isEventTypeKey(data.event_type)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Invalid event type',
+          error: 'VALIDATION_ERROR',
+          errorCode: 'VALIDATION_ERROR',
         },
         { status: 400 }
       );
