@@ -66,6 +66,14 @@ jest.mock('@/components/groups/EventPolls', () => ({
   ),
 }));
 
+jest.mock('@/components/groups/EventNotes', () => ({
+  EventNotes: ({ eventId, groupId }: StubProps) => (
+    <div data-testid="widget-notes" data-event-id={eventId} data-group-id={groupId}>
+      Notes widget
+    </div>
+  ),
+}));
+
 const renderWithProviders = (component: React.ReactElement) => {
   return render(
     <ChakraProvider>
@@ -103,7 +111,7 @@ describe('EventPlanningTab', () => {
     expect(screen.queryByLabelText('Hide Checklist')).not.toBeInTheDocument();
   });
 
-  it('renders all 5 widgets in the default order when the group has no rows yet', async () => {
+  it('renders all 6 widgets in the default order when the group has no rows yet', async () => {
     mockLayoutFetch(defaultWidgetLayout());
     renderWithProviders(<EventPlanningTab eventId="event-1" groupId="group-1" />);
 
@@ -111,7 +119,7 @@ describe('EventPlanningTab', () => {
       expect(screen.getByTestId('widget-photos')).toBeInTheDocument();
     });
 
-    const testIds = ['widget-photos', 'widget-checklist', 'widget-timeline', 'widget-logistics', 'widget-polls'];
+    const testIds = ['widget-photos', 'widget-checklist', 'widget-timeline', 'widget-logistics', 'widget-polls', 'widget-notes'];
     // Assert DOM order matches the default configured order.
     const elements = testIds.map((id) => screen.getByTestId(id));
     for (let i = 0; i < elements.length - 1; i++) {
@@ -146,6 +154,7 @@ describe('EventPlanningTab', () => {
       { widget_key: 'checklist', position: 3, visible: true },
       { widget_key: 'timeline', position: 4, visible: true },
       { widget_key: 'logistics', position: 5, visible: true },
+      { widget_key: 'notes', position: 6, visible: true },
     ];
     mockLayoutFetch(layout);
     renderWithProviders(<EventPlanningTab eventId="event-1" groupId="group-1" />);

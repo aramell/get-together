@@ -54,12 +54,12 @@ describe('DashboardWidgetCustomizer', () => {
     jest.clearAllMocks();
   });
 
-  it('lists all 5 widgets in position order, including hidden ones', () => {
+  it('lists all 6 widgets in position order, including hidden ones', () => {
     global.fetch = jest.fn() as unknown as typeof fetch;
     render(<Harness />);
 
     // Default order: photos, checklist, timeline, logistics, polls
-    const labels = ['Photos', 'Checklist', 'Timeline', 'Logistics', 'Polls'];
+    const labels = ['Photos', 'Checklist', 'Timeline', 'Logistics', 'Polls', 'Notes & Links'];
     labels.forEach((label) => expect(screen.getByText(label)).toBeInTheDocument());
   });
 
@@ -68,9 +68,9 @@ describe('DashboardWidgetCustomizer', () => {
     render(<Harness />);
 
     expect(screen.getByLabelText('Move Photos up')).toBeDisabled();
-    expect(screen.getByLabelText('Move Polls down')).toBeDisabled();
+    expect(screen.getByLabelText('Move Notes & Links down')).toBeDisabled();
     expect(screen.getByLabelText('Move Photos down')).not.toBeDisabled();
-    expect(screen.getByLabelText('Move Polls up')).not.toBeDisabled();
+    expect(screen.getByLabelText('Move Notes & Links up')).not.toBeDisabled();
   });
 
   it('optimistically swaps positions on move-down and PATCHes the full layout', async () => {

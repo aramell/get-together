@@ -4,6 +4,7 @@ import { EventPhotoGrid } from './EventPhotoGrid';
 import { EventTimeline } from './EventTimeline';
 import { EventLogistics } from './EventLogistics';
 import { EventPolls } from './EventPolls';
+import { EventNotes } from './EventNotes';
 import type { WidgetKey } from '@/lib/dashboard/widgetRegistry';
 
 // Props every dashboard widget accepts. Member renders pass groupId; guest
@@ -25,4 +26,5 @@ export const WIDGET_RENDERERS: Record<WidgetKey, React.ComponentType<WidgetRende
   timeline: EventTimeline,
   logistics: EventLogistics,
   polls: EventPolls,
+  notes: EventNotes,
 };

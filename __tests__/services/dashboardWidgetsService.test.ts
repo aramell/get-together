@@ -49,8 +49,24 @@ describe('dashboardWidgetsService', () => {
         { widget_key: 'timeline', position: 3, visible: true },
         { widget_key: 'logistics', position: 4, visible: true },
         { widget_key: 'polls', position: 5, visible: true },
+        { widget_key: 'notes', position: 6, visible: true },
       ]);
       expect(validateWidgetLayout(result.data)).toBeNull();
+    });
+
+    it('appends notes (visible, last) to a layout saved before the notes widget existed', async () => {
+      const legacy = ['photos', 'checklist', 'timeline', 'logistics', 'polls'].map((widget_key, i) => ({
+        widget_key,
+        position: i + 1,
+        visible: widget_key !== 'polls',
+      }));
+      mockClient.query.mockResolvedValueOnce({ rows: legacy });
+
+      const result = await getWidgetLayout('group-1');
+
+      expect(result.data).toHaveLength(6);
+      expect(result.data![5]).toEqual({ widget_key: 'notes', position: 6, visible: true });
+      expect(result.data!.slice(0, 5)).toEqual(legacy);
     });
 
     it('falls back to the default layout when every stored key is unknown', async () => {
@@ -68,6 +84,7 @@ describe('dashboardWidgetsService', () => {
         { widget_key: 'timeline', position: 3, visible: true },
         { widget_key: 'logistics', position: 4, visible: true },
         { widget_key: 'polls', position: 5, visible: true },
+        { widget_key: 'notes', position: 6, visible: true },
       ];
       mockClient.query.mockResolvedValueOnce({ rows });
 
@@ -171,6 +188,7 @@ describe('dashboardWidgetsService', () => {
       { widget_key: 'checklist', position: 3, visible: true },
       { widget_key: 'timeline', position: 4, visible: true },
       { widget_key: 'logistics', position: 5, visible: true },
+      { widget_key: 'notes', position: 6, visible: true },
     ];
 
     it('returns the event rows with customized=true when the event has an override', async () => {
@@ -229,6 +247,7 @@ describe('dashboardWidgetsService', () => {
         { widget_key: 'timeline', position: 3, visible: true },
         { widget_key: 'logistics', position: 4, visible: true },
         { widget_key: 'polls', position: 5, visible: true },
+        { widget_key: 'notes', position: 6, visible: true },
       ];
       mockClient.query.mockImplementation(async (sql: string) => {
         const q = String(sql);
@@ -244,7 +263,7 @@ describe('dashboardWidgetsService', () => {
       const sqls = mockClient.query.mock.calls.map(([sql]) => String(sql));
       expect(sqls).toContain('BEGIN');
       expect(sqls).toContain('COMMIT');
-      expect(sqls.filter((q) => q.includes('INSERT INTO event_dashboard_widgets'))).toHaveLength(5);
+      expect(sqls.filter((q) => q.includes('INSERT INTO event_dashboard_widgets'))).toHaveLength(6);
       expect(sqls.some((q) => q.includes('group_dashboard_widgets'))).toBe(false);
       const photosInsert = mockClient.query.mock.calls.find(
         ([sql, params]) => String(sql).includes('INSERT INTO event_dashboard_widgets') && params?.[1] === 'photos'

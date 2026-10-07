@@ -37,6 +37,7 @@ function mockFetchSequence(options?: { layout?: any[]; eventType?: string | null
     { widget_key: 'photos', position: 3, visible: false },
     { widget_key: 'logistics', position: 4, visible: true },
     { widget_key: 'polls', position: 5, visible: true },
+    { widget_key: 'notes', position: 6, visible: false },
   ];
   const planningData = options?.planningData ?? defaultPlanningData;
 
@@ -62,6 +63,7 @@ describe('PublicEventPlanning Component', () => {
         { widget_key: 'logistics', position: 3, visible: true },
         { widget_key: 'polls', position: 4, visible: false },
         { widget_key: 'photos', position: 5, visible: false },
+        { widget_key: 'notes', position: 6, visible: false },
       ],
     });
     renderWithProviders(<PublicEventPlanning publicToken={publicToken} eventId={eventId} requestLogin={jest.fn()} />);
@@ -109,6 +111,7 @@ describe('PublicEventPlanning Component', () => {
         { widget_key: 'timeline', position: 3, visible: true },
         { widget_key: 'logistics', position: 4, visible: true },
         { widget_key: 'polls', position: 5, visible: true },
+        { widget_key: 'notes', position: 6, visible: true },
       ],
     });
     const requestLogin = jest.fn();
@@ -118,7 +121,7 @@ describe('PublicEventPlanning Component', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getAllByRole('heading', { level: 2 }).length).toBe(5);
+      expect(screen.getAllByRole('heading', { level: 2 }).length).toBe(6);
     });
   });
 
@@ -159,6 +162,7 @@ describe('PublicEventPlanning Component', () => {
               { widget_key: 'photos', position: 3, visible: false },
               { widget_key: 'logistics', position: 4, visible: false },
               { widget_key: 'polls', position: 5, visible: false },
+              { widget_key: 'notes', position: 6, visible: false },
             ],
           }),
         });

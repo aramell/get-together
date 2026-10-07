@@ -11,18 +11,19 @@ import { WIDGET_RENDERERS } from '@/components/groups/widgetRenderers';
 import { isValidWidgetLayoutResponse } from '@/lib/utils/dashboardWidgets';
 
 describe('widgetRegistry', () => {
-  it('keeps today\'s five widgets in today\'s default order', () => {
-    expect(DEFAULT_WIDGET_ORDER).toEqual(['photos', 'checklist', 'timeline', 'logistics', 'polls']);
+  it('keeps today\'s widgets in default order, with Notes & Links appended last', () => {
+    expect(DEFAULT_WIDGET_ORDER).toEqual(['photos', 'checklist', 'timeline', 'logistics', 'polls', 'notes']);
     expect(WIDGET_DEFINITIONS.map((w) => w.label)).toEqual([
       'Photos',
       'Checklist',
       'Timeline',
       'Logistics',
       'Polls',
+      'Notes & Links',
     ]);
   });
 
-  it('flags every widget except photos as commentable; all show in the public view', () => {
+  it('flags every widget except photos and notes as commentable; all show in the public view', () => {
     expect(WIDGET_DEFINITIONS.filter((w) => w.commentable).map((w) => w.key)).toEqual(['checklist', 'timeline', 'logistics', 'polls']);
     expect(WIDGET_DEFINITIONS.every((w) => w.publicView)).toBe(true);
   });
@@ -54,7 +55,7 @@ describe('widgetRegistry', () => {
     });
 
     it('rejects a missing widget', () => {
-      expect(validateWidgetLayout(valid().slice(0, 4))).toMatch(/exactly/);
+      expect(validateWidgetLayout(valid().slice(0, 5))).toMatch(/exactly/);
     });
 
     it('rejects a duplicated widget', () => {
@@ -65,7 +66,7 @@ describe('widgetRegistry', () => {
     it('rejects duplicate, non-integer and out-of-range positions', () => {
       expect(validateWidgetLayout(valid().map((w) => ({ ...w, position: 1 })))).toMatch(/Duplicate position/);
       expect(validateWidgetLayout(valid().map((w, i) => (i === 0 ? { ...w, position: 1.5 } : w)))).toMatch(/Invalid position/);
-      expect(validateWidgetLayout(valid().map((w, i) => (i === 0 ? { ...w, position: 6 } : w)))).toMatch(/Invalid position/);
+      expect(validateWidgetLayout(valid().map((w, i) => (i === 0 ? { ...w, position: 7 } : w)))).toMatch(/Invalid position/);
     });
 
     it('rejects a non-boolean visible flag and non-array input', () => {
