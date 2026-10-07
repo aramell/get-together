@@ -59,3 +59,10 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-14-4-comments-on-polls.md`
   summary: Poll comment routes (member and public) may return 500 instead of 404 when `pollId` is not a valid UUID.
   evidence: Same pre-existing behavior as the checklist/logistics/timeline comment routes (see the 14.3 entry above); the lookup runs with the raw id. Unverified; settle together with the 14.3 entry using a route test with a non-UUID id.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-14-5-per-event-layout.md`
+  summary: Dashboard-widgets routes return 500 instead of 400 on malformed JSON or a null body.
+  evidence: The new event route copies the group route's `request.json()` handling; both throw into the outer catch.
+- source_spec: `_bmad-output/implementation-artifacts/spec-14-5-per-event-layout.md`
+  summary: Non-UUID `eventId`/`groupId` reaches Postgres and surfaces as 500 rather than 404/400.
+  evidence: Same behavior as the other item routes; not caused by this story.

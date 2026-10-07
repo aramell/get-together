@@ -23,12 +23,27 @@ jest.mock('@/lib/contexts/AuthContext', () => ({
 // A stateful wrapper so onLayoutChange updates actually re-render the
 // customizer with the new layout, letting us assert optimistic updates and
 // reverts the same way EventChecklist's own tests do.
-function Harness({ initialLayout = defaultWidgetLayout() }: { initialLayout?: WidgetLayoutItem[] }) {
+function Harness({
+  initialLayout = defaultWidgetLayout(),
+  customized = false,
+  onCustomizedChange,
+}: {
+  initialLayout?: WidgetLayoutItem[];
+  customized?: boolean;
+  onCustomizedChange?: (customized: boolean) => void;
+}) {
   const [layout, setLayout] = useState<WidgetLayoutItem[]>(initialLayout);
   return (
     <ChakraProvider>
       <AuthProvider>
-        <DashboardWidgetCustomizer groupId="group-1" layout={layout} onLayoutChange={setLayout} />
+        <DashboardWidgetCustomizer
+          groupId="group-1"
+          eventId="event-1"
+          customized={customized}
+          layout={layout}
+          onLayoutChange={setLayout}
+          onCustomizedChange={onCustomizedChange}
+        />
       </AuthProvider>
     </ChakraProvider>
   );
@@ -141,6 +156,101 @@ describe('DashboardWidgetCustomizer', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Server error')).toBeInTheDocument();
+    });
+  });
+  describe('scope (Story 14.5)', () => {
+    const okResponse = (data: any) =>
+      Promise.resolve({ ok: true, json: async () => ({ success: true, data }) });
+
+    it('defaults to "All events in this group" when the event is not customized and PATCHes the group route', async () => {
+      global.fetch = jest.fn(() => okResponse(defaultWidgetLayout())) as unknown as typeof fetch;
+      render(<Harness />);
+
+      expect(screen.getByLabelText('All events in this group')).toBeChecked();
+      fireEvent.click(screen.getByLabelText('Hide Photos'));
+
+      await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/groups/group-1/dashboard-widgets',
+        expect.objectContaining({ method: 'PATCH' })
+      );
+    });
+
+    it('PATCHes the event route when "This event only" is chosen', async () => {
+      global.fetch = jest.fn(() => okResponse(defaultWidgetLayout())) as unknown as typeof fetch;
+      render(<Harness />);
+
+      fireEvent.click(screen.getByLabelText('This event only'));
+      fireEvent.click(screen.getByLabelText('Hide Photos'));
+
+      await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/groups/group-1/events/event-1/dashboard-widgets',
+        expect.objectContaining({ method: 'PATCH' })
+      );
+    });
+
+    it('reports customized=true after the first "This event only" save, not for group scope or an already-customized event', async () => {
+      global.fetch = jest.fn(() => okResponse(defaultWidgetLayout())) as unknown as typeof fetch;
+
+      const first = jest.fn();
+      const { unmount } = render(<Harness onCustomizedChange={first} />);
+      fireEvent.click(screen.getByLabelText('This event only'));
+      fireEvent.click(screen.getByLabelText('Hide Photos'));
+      await waitFor(() => expect(first).toHaveBeenCalledWith(true));
+      unmount();
+
+      const groupScope = jest.fn();
+      (global.fetch as jest.Mock).mockClear();
+      const second = render(<Harness onCustomizedChange={groupScope} />);
+      fireEvent.click(screen.getByLabelText('Hide Photos'));
+      await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+      expect(groupScope).not.toHaveBeenCalled();
+      second.unmount();
+      (global.fetch as jest.Mock).mockClear();
+
+      const already = jest.fn();
+      render(<Harness customized onCustomizedChange={already} />);
+      fireEvent.click(screen.getByLabelText('Hide Photos'));
+      await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+      expect(already).not.toHaveBeenCalled();
+    });
+
+    it('defaults to "This event only" for a customized event', () => {
+      global.fetch = jest.fn() as unknown as typeof fetch;
+      render(<Harness customized />);
+
+      expect(screen.getByLabelText('This event only')).toBeChecked();
+    });
+
+    it('edits the group layout without touching the event layout in group scope', async () => {
+      const eventLayout = defaultWidgetLayout().map((w) =>
+        w.widget_key === 'polls' ? { ...w, visible: false } : w
+      );
+      global.fetch = jest.fn((url: string, options?: any) =>
+        options?.method === 'PATCH' ? okResponse(defaultWidgetLayout()) : okResponse(defaultWidgetLayout())
+      ) as unknown as typeof fetch;
+      render(<Harness customized initialLayout={eventLayout} />);
+
+      fireEvent.click(screen.getByLabelText('All events in this group'));
+      // Group layout is loaded from the group route; Polls shows as visible there.
+      await waitFor(() => expect(screen.getByLabelText('Hide Polls')).toBeInTheDocument());
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/groups/group-1/dashboard-widgets',
+        expect.objectContaining({ headers: expect.any(Object) })
+      );
+
+      fireEvent.click(screen.getByLabelText('Hide Photos'));
+      await waitFor(() => expect(screen.getByText('Hidden')).toBeInTheDocument());
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/groups/group-1/dashboard-widgets',
+        expect.objectContaining({ method: 'PATCH' })
+      );
+
+      // Switching back shows the untouched event layout (Polls hidden, Photos visible).
+      fireEvent.click(screen.getByLabelText('This event only'));
+      await waitFor(() => expect(screen.getByLabelText('Show Polls')).toBeInTheDocument());
+      expect(screen.getByLabelText('Hide Photos')).toBeInTheDocument();
     });
   });
 });

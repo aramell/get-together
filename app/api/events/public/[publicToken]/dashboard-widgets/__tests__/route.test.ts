@@ -10,11 +10,11 @@ jest.mock('@/lib/db/queries', () => ({
 }));
 
 jest.mock('@/lib/services/dashboardWidgetsService', () => ({
-  getWidgetLayout: jest.fn(),
+  getEventWidgetLayout: jest.fn(),
 }));
 
 const { getEventByPublicToken } = require('@/lib/db/queries');
-const { getWidgetLayout } = require('@/lib/services/dashboardWidgetsService');
+const { getEventWidgetLayout } = require('@/lib/services/dashboardWidgetsService');
 
 describe('GET /api/events/public/[publicToken]/dashboard-widgets', () => {
   const validToken = 'a'.repeat(64);
@@ -40,7 +40,7 @@ describe('GET /api/events/public/[publicToken]/dashboard-widgets', () => {
 
     expect(response.status).toBe(404);
     expect(data.errorCode).toBe('EVENT_NOT_FOUND');
-    expect(getWidgetLayout).not.toHaveBeenCalled();
+    expect(getEventWidgetLayout).not.toHaveBeenCalled();
   });
 
   it('returns 410 when the event was cancelled', async () => {
@@ -59,13 +59,29 @@ describe('GET /api/events/public/[publicToken]/dashboard-widgets', () => {
       { widget_key: 'photos', position: 1, visible: true },
       { widget_key: 'checklist', position: 2, visible: false },
     ];
-    getWidgetLayout.mockResolvedValue({ success: true, data: layout });
+    getEventWidgetLayout.mockResolvedValue({ success: true, data: layout });
 
     const response = await GET(makeRequest(), { params: Promise.resolve({ publicToken: validToken }) });
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(getWidgetLayout).toHaveBeenCalledWith('group-1');
+    expect(getEventWidgetLayout).toHaveBeenCalledWith('group-1', 'event-1');
+    expect(data.data).toEqual(layout);
+    expect(JSON.stringify(data)).not.toContain('group-1');
+  });
+
+  it('returns the event override layout when the event is customized', async () => {
+    getEventByPublicToken.mockResolvedValue({ id: 'event-2', group_id: 'group-1', status: 'proposal' });
+    const layout = [
+      { widget_key: 'polls', position: 1, visible: true },
+      { widget_key: 'photos', position: 2, visible: false },
+    ];
+    getEventWidgetLayout.mockResolvedValue({ success: true, data: layout, customized: true });
+
+    const response = await GET(makeRequest(), { params: Promise.resolve({ publicToken: validToken }) });
+    const data = await response.json();
+
+    expect(getEventWidgetLayout).toHaveBeenCalledWith('group-1', 'event-2');
     expect(data.data).toEqual(layout);
     expect(JSON.stringify(data)).not.toContain('group-1');
   });
@@ -79,7 +95,7 @@ describe('GET /api/events/public/[publicToken]/dashboard-widgets', () => {
       { widget_key: 'logistics', position: 4, visible: true },
       { widget_key: 'polls', position: 5, visible: true },
     ];
-    getWidgetLayout.mockResolvedValue({ success: true, data: defaultLayout });
+    getEventWidgetLayout.mockResolvedValue({ success: true, data: defaultLayout });
 
     const response = await GET(makeRequest(), { params: Promise.resolve({ publicToken: validToken }) });
     const data = await response.json();
@@ -89,7 +105,7 @@ describe('GET /api/events/public/[publicToken]/dashboard-widgets', () => {
 
   it('returns 500 when the service reports failure', async () => {
     getEventByPublicToken.mockResolvedValue({ id: 'event-1', group_id: 'group-1', status: 'proposal' });
-    getWidgetLayout.mockResolvedValue({ success: false, error: 'db down', errorCode: 'INTERNAL_ERROR' });
+    getEventWidgetLayout.mockResolvedValue({ success: false, error: 'db down', errorCode: 'INTERNAL_ERROR' });
 
     const response = await GET(makeRequest(), { params: Promise.resolve({ publicToken: validToken }) });
 

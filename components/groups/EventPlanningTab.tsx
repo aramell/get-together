@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Box, VStack, HStack, IconButton, Spinner, Text } from '@chakra-ui/react';
+import { Box, VStack, HStack, IconButton, Spinner, Text, Badge, Button, useToast } from '@chakra-ui/react';
 import { EditIcon, CheckIcon } from '@chakra-ui/icons';
 import { DashboardWidgetCustomizer } from './DashboardWidgetCustomizer';
 import { WIDGET_RENDERERS } from './widgetRenderers';
@@ -18,6 +18,8 @@ export function EventPlanningTab({ eventId, groupId }: EventPlanningTabProps) {
   const [layout, setLayout] = useState<WidgetLayoutItem[]>(defaultWidgetLayout());
   const [loading, setLoading] = useState(true);
   const [customizing, setCustomizing] = useState(false);
+  const [customized, setCustomized] = useState(false);
+  const toast = useToast();
 
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isFetchingRef = useRef(false);
@@ -31,7 +33,7 @@ export function EventPlanningTab({ eventId, groupId }: EventPlanningTabProps) {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
     try {
-      const response = await fetch(`/api/groups/${groupId}/dashboard-widgets`, {
+      const response = await fetch(`/api/groups/${groupId}/events/${eventId}/dashboard-widgets`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (!response.ok) return;
@@ -43,6 +45,7 @@ export function EventPlanningTab({ eventId, groupId }: EventPlanningTabProps) {
       // customize-mode save is still pending.
       if (data.success && isValidWidgetLayoutResponse(data.data) && !isSavingRef.current) {
         setLayout(data.data);
+        setCustomized(data.customized === true);
       }
     } catch (err) {
       console.error('Error fetching dashboard widget layout:', err);
@@ -51,7 +54,33 @@ export function EventPlanningTab({ eventId, groupId }: EventPlanningTabProps) {
     } finally {
       isFetchingRef.current = false;
     }
-  }, [groupId, accessToken]);
+  }, [groupId, eventId, accessToken]);
+
+  const handleReset = async () => {
+    isSavingRef.current = true;
+    try {
+      const response = await fetch(`/api/groups/${groupId}/events/${eventId}/dashboard-widgets`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Failed to reset dashboard layout');
+      }
+      if (isValidWidgetLayoutResponse(data.data)) setLayout(data.data);
+      setCustomized(false);
+    } catch (err: any) {
+      toast({
+        title: 'Error',
+        description: err.message || 'Failed to reset dashboard layout',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      isSavingRef.current = false;
+    }
+  };
 
   useEffect(() => {
     if (!accessToken) return;
@@ -94,7 +123,15 @@ export function EventPlanningTab({ eventId, groupId }: EventPlanningTabProps) {
 
   return (
     <Box p={6}>
-      <HStack justify="flex-end" mb={customizing ? 0 : 4}>
+      <HStack justify="flex-end" mb={customizing ? 0 : 4} spacing={3}>
+        {customized && (
+          <>
+            <Badge colorScheme="cork">Customized for this event</Badge>
+            <Button size="xs" variant="link" onClick={handleReset}>
+              Reset to group default
+            </Button>
+          </>
+        )}
         <IconButton
           aria-label={customizing ? 'Done customizing dashboard layout' : 'Customize dashboard layout'}
           icon={customizing ? <CheckIcon /> : <EditIcon />}
@@ -107,8 +144,11 @@ export function EventPlanningTab({ eventId, groupId }: EventPlanningTabProps) {
       {customizing && (
         <DashboardWidgetCustomizer
           groupId={groupId}
+          eventId={eventId}
+          customized={customized}
           layout={layout}
           onLayoutChange={setLayout}
+          onCustomizedChange={setCustomized}
           onSavingChange={(isSaving) => {
             isSavingRef.current = isSaving;
           }}

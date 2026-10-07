@@ -150,3 +150,207 @@ export async function updateWidgetLayout(
     client.release();
   }
 }
+
+interface EventLayoutResult extends ServiceResult<WidgetLayoutItem[]> {
+  customized?: boolean;
+}
+
+const EVENT_IN_GROUP_SQL =
+  'SELECT id FROM event_proposals WHERE id = $1 AND group_id = $2 AND deleted_at IS NULL';
+
+/**
+ * Effective layout for one event: the event's own rows if it has been
+ * customized, else the group's rows, else the system default (reconciled
+ * against the registry either way). `customized` is true only when the event
+ * has its own rows. Pass `userId` to enforce membership and event-in-group
+ * checks (member API); omit it for the public view, which has already
+ * resolved the event from its token.
+ */
+export async function getEventWidgetLayout(
+  groupId: string,
+  eventId: string,
+  userId?: string
+): Promise<EventLayoutResult> {
+  const client = await getClient();
+
+  try {
+    if (userId !== undefined) {
+      const denied = await checkMemberAndEvent(client, groupId, eventId, userId);
+      if (denied) return denied;
+    }
+
+    const eventRows = await client.query(
+      `SELECT widget_key, position, visible
+       FROM event_dashboard_widgets
+       WHERE event_id = $1
+       ORDER BY position ASC`,
+      [eventId]
+    );
+
+    if (eventRows.rows.length > 0) {
+      return { success: true, data: reconcileWithRegistry(eventRows.rows), customized: true };
+    }
+
+    const groupRows = await client.query(
+      `SELECT widget_key, position, visible
+       FROM group_dashboard_widgets
+       WHERE group_id = $1
+       ORDER BY position ASC`,
+      [groupId]
+    );
+
+    return { success: true, data: reconcileWithRegistry(groupRows.rows), customized: false };
+  } catch (error: any) {
+    console.error('Error getting event widget layout:', error);
+    return {
+      success: false,
+      message: 'Failed to get widget layout',
+      error: error.message,
+      errorCode: 'INTERNAL_ERROR',
+    };
+  } finally {
+    client.release();
+  }
+}
+
+async function checkMemberAndEvent(
+  client: { query: (sql: string, params?: any[]) => Promise<any> },
+  groupId: string,
+  eventId: string,
+  userId: string
+): Promise<ServiceResult<never> | null> {
+  const userRole = await getUserGroupRole(groupId, userId);
+  if (!userRole) {
+    return {
+      success: false,
+      message: 'You must be a group member to change the dashboard layout',
+      error: 'NOT_GROUP_MEMBER',
+      errorCode: 'FORBIDDEN',
+    };
+  }
+
+  const event = await client.query(EVENT_IN_GROUP_SQL, [eventId, groupId]);
+  if (event.rows.length === 0) {
+    return {
+      success: false,
+      message: 'Event not found',
+      error: 'Event not found',
+      errorCode: 'NOT_FOUND',
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Replace an event's own widget layout. The first call for an event creates
+ * its override (the client sends the full visible layout); the group layout
+ * is never touched. Any group member may call this.
+ */
+export async function updateEventWidgetLayout(
+  groupId: string,
+  eventId: string,
+  userId: string,
+  changes: WidgetLayoutItem[]
+): Promise<EventLayoutResult> {
+  const client = await getClient();
+
+  try {
+    const denied = await checkMemberAndEvent(client, groupId, eventId, userId);
+    if (denied) return denied;
+
+    const validationError = validateWidgetLayout(changes);
+    if (validationError) {
+      return {
+        success: false,
+        message: validationError,
+        error: 'INVALID_WIDGET_LAYOUT',
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
+
+    await client.query('BEGIN');
+
+    for (const item of changes) {
+      await client.query(
+        `INSERT INTO event_dashboard_widgets (event_id, widget_key, position, visible)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (event_id, widget_key) DO UPDATE
+         SET position = $3, visible = $4, updated_at = NOW()`,
+        [eventId, item.widget_key, item.position, item.visible]
+      );
+    }
+
+    await client.query('COMMIT');
+
+    const result = await client.query(
+      `SELECT widget_key, position, visible
+       FROM event_dashboard_widgets
+       WHERE event_id = $1
+       ORDER BY position ASC`,
+      [eventId]
+    );
+
+    return {
+      success: true,
+      message: 'Dashboard layout updated',
+      data: reconcileWithRegistry(result.rows),
+      customized: true,
+    };
+  } catch (error: any) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('Error updating event widget layout:', error);
+    return {
+      success: false,
+      message: 'Failed to update widget layout',
+      error: error.message,
+      errorCode: 'INTERNAL_ERROR',
+    };
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Remove an event's override so it falls back to the group layout. Succeeds
+ * when the event had no rows. Any group member may call this.
+ */
+export async function resetEventWidgetLayout(
+  groupId: string,
+  eventId: string,
+  userId: string
+): Promise<EventLayoutResult> {
+  const client = await getClient();
+
+  try {
+    const denied = await checkMemberAndEvent(client, groupId, eventId, userId);
+    if (denied) return denied;
+
+    await client.query('DELETE FROM event_dashboard_widgets WHERE event_id = $1', [eventId]);
+
+    const groupRows = await client.query(
+      `SELECT widget_key, position, visible
+       FROM group_dashboard_widgets
+       WHERE group_id = $1
+       ORDER BY position ASC`,
+      [groupId]
+    );
+
+    return {
+      success: true,
+      message: 'Dashboard layout reset to group default',
+      data: reconcileWithRegistry(groupRows.rows),
+      customized: false,
+    };
+  } catch (error: any) {
+    console.error('Error resetting event widget layout:', error);
+    return {
+      success: false,
+      message: 'Failed to reset widget layout',
+      error: error.message,
+      errorCode: 'INTERNAL_ERROR',
+    };
+  } finally {
+    client.release();
+  }
+}

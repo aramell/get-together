@@ -70,9 +70,9 @@ const renderWithProviders = (component: React.ReactElement) => {
   );
 };
 
-function mockLayoutFetch(data: any) {
+function mockLayoutFetch(data: any, customized = false) {
   global.fetch = jest.fn(() =>
-    Promise.resolve({ ok: true, json: async () => ({ success: true, data }) })
+    Promise.resolve({ ok: true, json: async () => ({ success: true, data, customized }) })
   ) as unknown as typeof fetch;
 }
 
@@ -195,5 +195,55 @@ describe('EventPlanningTab', () => {
 
     expect(callCount).toBe(2);
     expect(screen.queryByTestId('widget-polls')).not.toBeInTheDocument();
+  });
+  it('fetches the event layout route', async () => {
+    mockLayoutFetch(defaultWidgetLayout());
+    renderWithProviders(<EventPlanningTab eventId="event-1" groupId="group-1" />);
+
+    await waitFor(() => expect(screen.getByTestId('widget-photos')).toBeInTheDocument());
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/groups/group-1/events/event-1/dashboard-widgets',
+      expect.any(Object)
+    );
+  });
+
+  it('shows no customized badge or reset button for an event without an override', async () => {
+    mockLayoutFetch(defaultWidgetLayout(), false);
+    renderWithProviders(<EventPlanningTab eventId="event-1" groupId="group-1" />);
+
+    await waitFor(() => expect(screen.getByTestId('widget-photos')).toBeInTheDocument());
+    expect(screen.queryByText('Customized for this event')).not.toBeInTheDocument();
+    expect(screen.queryByText('Reset to group default')).not.toBeInTheDocument();
+  });
+
+  it('shows the badge for a customized event and resets via DELETE', async () => {
+    const eventLayout = defaultWidgetLayout().map((w) =>
+      w.widget_key === 'polls' ? { ...w, visible: false } : w
+    );
+    global.fetch = jest.fn((url: string, options?: any) => {
+      if (options?.method === 'DELETE') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true, data: defaultWidgetLayout(), customized: false }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ success: true, data: eventLayout, customized: true }),
+      });
+    }) as unknown as typeof fetch;
+    renderWithProviders(<EventPlanningTab eventId="event-1" groupId="group-1" />);
+
+    await waitFor(() => expect(screen.getByText('Customized for this event')).toBeInTheDocument());
+    expect(screen.queryByTestId('widget-polls')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Reset to group default'));
+
+    await waitFor(() => expect(screen.queryByText('Customized for this event')).not.toBeInTheDocument());
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/groups/group-1/events/event-1/dashboard-widgets',
+      expect.objectContaining({ method: 'DELETE' })
+    );
+    expect(screen.getByTestId('widget-polls')).toBeInTheDocument();
   });
 });

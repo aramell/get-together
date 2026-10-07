@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getEventByPublicToken } from '@/lib/db/queries';
-import { getWidgetLayout } from '@/lib/services/dashboardWidgetsService';
+import { getEventWidgetLayout } from '@/lib/services/dashboardWidgetsService';
 
 /**
  * GET /api/events/public/[publicToken]/dashboard-widgets
  * Read-only dashboard widget layout (position + visibility for all 5
  * widgets) for the public/no-login event view (Story 13.5). Resolves
  * group_id via the public_token server-side to call the same
- * getWidgetLayout used by the authenticated Dashboard, but never returns
+ * getEventWidgetLayout (event override, then group) used by the authenticated Dashboard, but never returns
  * group_id itself -- see Story 7.3's no-group-leakage stance. No auth,
  * mirrors the 404/410/500 handling of the sibling `planning` route.
  */
@@ -41,7 +41,7 @@ export async function GET(
       );
     }
 
-    const result = await getWidgetLayout(event.group_id);
+    const result = await getEventWidgetLayout(event.group_id, event.id);
 
     if (!result.success) {
       return NextResponse.json(
