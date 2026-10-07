@@ -40,6 +40,49 @@ describe('getPublicEventPlanning', () => {
     expect(result.message).toBe('This event is no longer available');
   });
 
+  it('includes the group logistics categories (defaults when none stored) without leaking group_id', async () => {
+    getEventByPublicToken.mockResolvedValue({ id: eventId, group_id: groupId, status: 'proposal' });
+    getGroupMemberNames.mockResolvedValue([]);
+    query
+      .mockResolvedValueOnce([]) // checklist
+      .mockResolvedValueOnce([]) // logistics
+      .mockResolvedValueOnce([]) // timeline
+      .mockResolvedValueOnce([]) // photos
+      .mockResolvedValueOnce([]) // polls
+      .mockResolvedValueOnce([]); // categories
+
+    const result = await getPublicEventPlanning(publicToken);
+
+    expect(result.data?.logistics_categories).toEqual([
+      { key: 'bring', label: 'Bring List', mode: 'single' },
+      { key: 'carpool', label: 'Carpool', mode: 'seats' },
+    ]);
+    expect(result.data).not.toHaveProperty('group_id');
+    expect(JSON.stringify(result.data?.logistics_categories)).not.toContain(groupId);
+  });
+
+  it('returns the stored custom categories in position order', async () => {
+    getEventByPublicToken.mockResolvedValue({ id: eventId, group_id: groupId, status: 'proposal' });
+    getGroupMemberNames.mockResolvedValue([]);
+    query
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        { category_key: 'snacks', label: 'Snacks', mode: 'single' },
+        { category_key: 'rides', label: 'Rides', mode: 'seats' },
+      ]);
+
+    const result = await getPublicEventPlanning(publicToken);
+
+    expect(result.data?.logistics_categories).toEqual([
+      { key: 'snacks', label: 'Snacks', mode: 'single' },
+      { key: 'rides', label: 'Rides', mode: 'seats' },
+    ]);
+  });
+
   it('resolves assignees and claimants to first name only, never raw IDs', async () => {
     getEventByPublicToken.mockResolvedValue({ id: eventId, group_id: groupId, status: 'proposal' });
     getGroupMemberNames.mockResolvedValue([

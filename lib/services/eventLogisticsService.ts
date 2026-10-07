@@ -1,8 +1,22 @@
 import { getClient } from '@/lib/db/client';
 import { getUserGroupRole } from '@/lib/db/queries';
 import { isValidItemDate } from '@/lib/services/itemDateValidation';
+import { loadGroupCategories } from '@/lib/services/logisticsCategoriesService';
+import type { LogisticsCategoryMode } from '@/lib/logistics/defaultCategories';
 
-export type LogisticsCategory = 'bring' | 'carpool';
+// A category key from the group's logistics_categories (or the built-in
+// 'bring' / 'carpool' defaults). Validated against the group's list in the
+// service, not by a database CHECK.
+export type LogisticsCategory = string;
+
+async function getCategoryMode(
+  client: Parameters<typeof loadGroupCategories>[0],
+  groupId: string,
+  key: string
+): Promise<LogisticsCategoryMode | null> {
+  const { categories } = await loadGroupCategories(client, groupId);
+  return categories.find((c) => c.key === key)?.mode ?? null;
+}
 
 export interface LogisticsClaim {
   user_id: string;
@@ -83,10 +97,11 @@ export async function addLogisticsItem(
   const client = await getClient();
 
   try {
-    if (category !== 'bring' && category !== 'carpool') {
+    const mode = typeof category === 'string' ? await getCategoryMode(client, groupId, category) : null;
+    if (!mode) {
       return {
         success: false,
-        message: "Category must be 'bring' or 'carpool'",
+        message: "Category isn't one of this group's logistics categories",
         error: 'INVALID_CATEGORY',
         errorCode: 'VALIDATION_ERROR',
       };
@@ -110,11 +125,11 @@ export async function addLogisticsItem(
       };
     }
 
-    if (category === 'carpool') {
+    if (mode === 'seats') {
       if (!capacity || !Number.isInteger(capacity) || capacity < 1) {
         return {
           success: false,
-          message: 'Carpool items require a positive integer capacity',
+          message: 'Seat-based items require a positive integer capacity',
           error: 'INVALID_CAPACITY',
           errorCode: 'VALIDATION_ERROR',
         };
@@ -122,7 +137,7 @@ export async function addLogisticsItem(
       if (!assignedTo) {
         return {
           success: false,
-          message: 'Carpool items require a driver (assigned_to)',
+          message: 'Seat-based items require a driver (assigned_to)',
           error: 'MISSING_DRIVER',
           errorCode: 'VALIDATION_ERROR',
         };
@@ -171,7 +186,7 @@ export async function addLogisticsItem(
         category,
         title.trim(),
         assignedTo || null,
-        category === 'carpool' ? capacity : null,
+        mode === 'seats' ? capacity : null,
         itemDate || null,
       ]
     );
@@ -284,6 +299,7 @@ export async function updateLogisticsItem(
     }
 
     const item = itemResult.rows[0];
+    const itemMode = await getCategoryMode(client, groupId, item.category);
 
     const userRole = await getUserGroupRole(groupId, userId);
     if (!userRole) {
@@ -300,20 +316,20 @@ export async function updateLogisticsItem(
     const isMetadataUpdate =
       updates.title !== undefined || updates.capacity !== undefined || updates.item_date !== undefined;
 
-    // AC #5: claiming/unclaiming a 'bring' item's assigned_to is a relaxed
+    // AC #5: claiming/unclaiming a 'single'-mode item's assigned_to is a relaxed
     // authorization path (any member), but ONLY for the narrow self-claim /
     // self-unclaim shapes below. Any other assigned_to change (reassigning to
     // a third party, changing a carpool driver) is treated as a metadata edit.
     const isSelfClaim =
       !isMetadataUpdate &&
       updates.assigned_to !== undefined &&
-      item.category === 'bring' &&
+      itemMode === 'single' &&
       updates.assigned_to === userId &&
       item.assigned_to === null;
     const isSelfUnclaim =
       !isMetadataUpdate &&
       updates.assigned_to !== undefined &&
-      item.category === 'bring' &&
+      itemMode === 'single' &&
       updates.assigned_to === null &&
       item.assigned_to === userId;
     const isClaimAction = isSelfClaim || isSelfUnclaim;
@@ -354,7 +370,7 @@ export async function updateLogisticsItem(
       };
     }
 
-    if (updates.capacity !== undefined && item.category === 'carpool') {
+    if (updates.capacity !== undefined && itemMode === 'seats') {
       const claimCountResult = await client.query(
         `SELECT COUNT(*)::int AS count FROM event_logistics_claims WHERE logistics_item_id = $1`,
         [itemId]
@@ -396,9 +412,9 @@ export async function updateLogisticsItem(
       setClauses.push(`assigned_to = $${paramIndex++}`);
       values.push(updates.assigned_to);
     }
-    // Capacity is only meaningful for carpool items — ignored for 'bring',
+    // Capacity is only meaningful for seats-mode items — ignored for 'single',
     // matching creation-time semantics (AC #3).
-    if (updates.capacity !== undefined && item.category === 'carpool') {
+    if (updates.capacity !== undefined && itemMode === 'seats') {
       setClauses.push(`capacity = $${paramIndex++}`);
       values.push(updates.capacity);
     }
@@ -564,10 +580,10 @@ export async function claimLogisticsSeat(
 
     const item = itemResult.rows[0];
 
-    if (item.category !== 'carpool') {
+    if ((await getCategoryMode(client, groupId, item.category)) !== 'seats') {
       return {
         success: false,
-        message: 'Only carpool items can be claimed',
+        message: 'Only seat-based items can be claimed',
         error: 'INVALID_CATEGORY',
         errorCode: 'VALIDATION_ERROR',
       };

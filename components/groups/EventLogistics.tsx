@@ -19,6 +19,7 @@ import {
   Radio,
   NumberInput,
   NumberInputField,
+  useDisclosure,
 } from '@chakra-ui/react';
 import { EditIcon, DeleteIcon } from '@chakra-ui/icons';
 import { useAuth } from '@/lib/contexts/AuthContext';
@@ -28,6 +29,40 @@ import {
   compareByItemDateThenCreatedAt,
 } from '@/lib/utils/itemDateGrouping';
 import { ItemCommentPopover } from './ItemCommentPopover';
+import { LogisticsCategoryEditor } from './LogisticsCategoryEditor';
+import {
+  LogisticsCategoryDef,
+  LogisticsCategoryMode,
+  defaultLogisticsCategories,
+  isLogisticsCategoryMode,
+} from '@/lib/logistics/defaultCategories';
+
+// Accept only well-formed category lists from the API; anything else falls
+// back to the built-in defaults so the widget always renders.
+function parseCategories(value: unknown): LogisticsCategoryDef[] | null {
+  if (!Array.isArray(value) || value.length === 0) return null;
+  const parsed: LogisticsCategoryDef[] = [];
+  for (const c of value) {
+    if (
+      !c ||
+      typeof c.key !== 'string' ||
+      typeof c.label !== 'string' ||
+      !isLogisticsCategoryMode(c.mode)
+    ) {
+      return null;
+    }
+    parsed.push({ key: c.key, label: c.label, mode: c.mode });
+  }
+  return parsed;
+}
+
+// Empty-state copy for the built-in categories is kept as it was before
+// categories became configurable.
+function emptyText(category: LogisticsCategoryDef): string {
+  if (category.key === 'bring' && category.label === 'Bring List') return 'Nothing on the bring list yet.';
+  if (category.key === 'carpool' && category.label === 'Carpool') return 'No carpools set up yet.';
+  return `Nothing in ${category.label} yet.`;
+}
 
 interface LogisticsClaim {
   user_id: string;
@@ -37,7 +72,7 @@ interface LogisticsClaim {
 interface LogisticsItem {
   id: string;
   created_by: string;
-  category: 'bring' | 'carpool';
+  category: string;
   title: string;
   assigned_to: string | null;
   capacity: number | null;
@@ -59,7 +94,7 @@ interface GroupMember {
 // identity (Story 13.5).
 interface GuestLogisticsItem {
   id: string;
-  category: 'bring' | 'carpool';
+  category: string;
   title: string;
   capacity: number | null;
   assignee_first_name: string | null;
@@ -103,7 +138,9 @@ export function EventLogistics({ eventId, groupId, publicToken, requestLogin }: 
     Boolean(accessToken && groupId) || Boolean(accessToken && resolvedGroupId && membershipConfirmed);
   const [userRole, setUserRole] = useState<'admin' | 'member' | null>(null);
   const [loading, setLoading] = useState(true);
-  const [newCategory, setNewCategory] = useState<'bring' | 'carpool'>('bring');
+  const [categories, setCategories] = useState<LogisticsCategoryDef[]>(defaultLogisticsCategories);
+  const [newCategoryKey, setNewCategoryKey] = useState('bring');
+  const categoryEditor = useDisclosure();
   const [newTitle, setNewTitle] = useState('');
   const [newAssignee, setNewAssignee] = useState('');
   const [newCapacity, setNewCapacity] = useState('');
@@ -116,6 +153,11 @@ export function EventLogistics({ eventId, groupId, publicToken, requestLogin }: 
   const isFetchingRef = useRef(false);
 
   const isAdmin = userRole === 'admin';
+
+  // Fall back to the first category if the selected one no longer exists.
+  const activeCategory = categories.find((c) => c.key === newCategoryKey) ?? categories[0];
+  const newMode: LogisticsCategoryMode = activeCategory?.mode ?? 'single';
+  const categoryByKey = (key: string) => categories.find((c) => c.key === key);
 
   const authHeaders = useCallback(
     (extra?: Record<string, string>): Record<string, string> => ({
@@ -144,6 +186,21 @@ export function EventLogistics({ eventId, groupId, publicToken, requestLogin }: 
       isFetchingRef.current = false;
     }
   }, [eventId, effectiveGroupId, authHeaders]);
+
+  const fetchCategories = useCallback(async () => {
+    if (!effectiveGroupId) return;
+    try {
+      const response = await fetch(`/api/groups/${effectiveGroupId}/logistics-categories`, {
+        headers: authHeaders(),
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      const parsed = data.success ? parseCategories(data.data?.categories) : null;
+      if (parsed) setCategories(parsed);
+    } catch (err) {
+      console.error('Error fetching logistics categories:', err);
+    }
+  }, [effectiveGroupId, authHeaders]);
 
   const fetchMembers = useCallback(async () => {
     if (!effectiveGroupId) return;
@@ -175,6 +232,8 @@ export function EventLogistics({ eventId, groupId, publicToken, requestLogin }: 
       const data = await response.json();
       if (data.success && data.data) {
         if (Array.isArray(data.data.logistics)) setGuestItems(data.data.logistics);
+        const parsed = parseCategories(data.data.logistics_categories);
+        if (parsed) setCategories(parsed);
         if (typeof data.data.group_id === 'string') setResolvedGroupId(data.data.group_id);
       }
     } catch (err) {
@@ -188,10 +247,11 @@ export function EventLogistics({ eventId, groupId, publicToken, requestLogin }: 
     if (!canAttemptAuthenticated) return;
 
     setLoading(true);
-    Promise.all([fetchItems(), fetchMembers()]).finally(() => setLoading(false));
+    Promise.all([fetchItems(), fetchMembers(), fetchCategories()]).finally(() => setLoading(false));
 
     pollingIntervalRef.current = setInterval(() => {
       fetchItems();
+      fetchCategories();
     }, 5000);
 
     return () => {
@@ -215,17 +275,18 @@ export function EventLogistics({ eventId, groupId, publicToken, requestLogin }: 
 
   const handleAddItem = async () => {
     if (!newTitle.trim()) return;
-    if (newCategory === 'carpool' && (!newAssignee || !newCapacity)) return;
+    if (!activeCategory) return;
+    if (newMode === 'seats' && (!newAssignee || !newCapacity)) return;
 
     try {
       const response = await fetch(`/api/groups/${effectiveGroupId}/events/${eventId}/logistics`, {
         method: 'POST',
         headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
-          category: newCategory,
+          category: activeCategory.key,
           title: newTitle.trim(),
           assigned_to: newAssignee || undefined,
-          capacity: newCategory === 'carpool' ? parseInt(newCapacity, 10) : undefined,
+          capacity: newMode === 'seats' ? parseInt(newCapacity, 10) : undefined,
           item_date: newDate || undefined,
         }),
       });
@@ -348,6 +409,27 @@ export function EventLogistics({ eventId, groupId, publicToken, requestLogin }: 
     }
   };
 
+  const handleSaveCategories = async (
+    list: { key?: string; label: string; mode: LogisticsCategoryMode }[]
+  ) => {
+    try {
+      const response = await fetch(`/api/groups/${effectiveGroupId}/logistics-categories`, {
+        method: 'PATCH',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ categories: list }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to save categories');
+      }
+      const parsed = parseCategories(data.data?.categories);
+      if (parsed) setCategories(parsed);
+      categoryEditor.onClose();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message || 'Failed to save categories', status: 'error', duration: 3000, isClosable: true });
+    }
+  };
+
   const memberName = (id: string | null) => {
     if (!id) return null;
     return members.find((m) => m.user_id === id)?.name || 'Unknown';
@@ -444,9 +526,9 @@ export function EventLogistics({ eventId, groupId, publicToken, requestLogin }: 
     );
 
   // showCategoryBadge is true only inside the cross-cutting Today group,
-  // where items from both categories are interleaved and the Bring
-  // List/Carpool heading that normally conveys category isn't present.
-  const renderBringRow = (item: LogisticsItem, opts?: { showCategoryBadge?: boolean }) => {
+  // where items from every category are interleaved and the category
+  // heading that normally conveys it isn't present.
+  const renderSingleRow = (item: LogisticsItem, opts?: { showCategoryBadge?: boolean }) => {
     const isSelf = item.assigned_to === userId;
     return (
       <HStack key={item.id} spacing={3} py={2} borderBottom="1px solid" borderColor="cork.100">
@@ -455,7 +537,7 @@ export function EventLogistics({ eventId, groupId, publicToken, requestLogin }: 
           <>
             {opts?.showCategoryBadge && (
               <Badge colorScheme="cork" fontSize="xs">
-                Bring
+                {categoryByKey(item.category)?.label ?? item.category}
               </Badge>
             )}
             {renderDateBadge(item)}
@@ -481,7 +563,7 @@ export function EventLogistics({ eventId, groupId, publicToken, requestLogin }: 
     );
   };
 
-  const renderCarpoolRow = (item: LogisticsItem, opts?: { showCategoryBadge?: boolean }) => {
+  const renderSeatsRow = (item: LogisticsItem, opts?: { showCategoryBadge?: boolean }) => {
     const hasClaimed = item.claims.some((c) => c.user_id === userId);
     const isFull = item.claim_count >= (item.capacity ?? 0);
     return (
@@ -491,7 +573,7 @@ export function EventLogistics({ eventId, groupId, publicToken, requestLogin }: 
           <>
             {opts?.showCategoryBadge && (
               <Badge colorScheme="cork" fontSize="xs">
-                Carpool
+                {categoryByKey(item.category)?.label ?? item.category}
               </Badge>
             )}
             {renderDateBadge(item)}
@@ -518,15 +600,18 @@ export function EventLogistics({ eventId, groupId, publicToken, requestLogin }: 
   };
 
   const renderItemRow = (item: LogisticsItem, opts?: { showCategoryBadge?: boolean }) =>
-    item.category === 'bring' ? renderBringRow(item, opts) : renderCarpoolRow(item, opts);
+    categoryByKey(item.category)?.mode === 'seats'
+      ? renderSeatsRow(item, opts)
+      : renderSingleRow(item, opts);
 
   const todayItems = items.filter(isItemToday);
   const generalItems = items.filter((item) => !isItemToday(item));
-  // Each general sub-list (Bring List, Carpool) is ordered by item_date
+  // Each general sub-list (one per category) is ordered by item_date
   // ascending on its own — they render as separate lists under separate
   // headings, so there's no single combined "general list" to sort.
-  const bringItems = generalItems.filter((i) => i.category === 'bring').sort(compareByItemDateThenCreatedAt);
-  const carpoolItems = generalItems.filter((i) => i.category === 'carpool').sort(compareByItemDateThenCreatedAt);
+  const itemsForCategory = (key: string) =>
+    generalItems.filter((i) => i.category === key).sort(compareByItemDateThenCreatedAt);
+  const usedKeys = new Set(items.map((i) => i.category));
 
   // Neither an authenticated group nor a public token to read from -- there
   // is nothing this widget can render, and without one of them neither
@@ -549,84 +634,75 @@ export function EventLogistics({ eventId, groupId, publicToken, requestLogin }: 
   // Guest (no-login) read-only render: same Bring List/Carpool split, minus
   // interactive controls. Claim buttons prompt login instead of claiming.
   if (!interactive && publicToken) {
-    const guestBringItems = guestItems.filter((i) => i.category === 'bring');
-    const guestCarpoolItems = guestItems.filter((i) => i.category === 'carpool');
     return (
       <Box>
         <Heading as="h2" fontWeight="bold" fontSize="lg" mb={4}>
           Logistics
         </Heading>
 
-        <Box mb={6}>
-          <Heading as="h3" fontWeight="semibold" fontSize="md" mb={2}>
-            Bring List
-          </Heading>
-          <VStack spacing={2} align="stretch">
-            {guestBringItems.length === 0 && (
-              <Text color="ink.500" fontSize="sm">
-                Nothing on the bring list yet.
-              </Text>
-            )}
-            {guestBringItems.map((item) => (
-              <HStack key={item.id} spacing={3} py={2} borderBottom="1px solid" borderColor="cork.100">
-                <Text flex={1} color="ink.800">
-                  {item.title}
-                </Text>
-                {item.assignee_first_name ? (
-                  <Badge colorScheme="cork" fontSize="xs">
-                    {item.assignee_first_name}
-                  </Badge>
-                ) : (
-                  <>
-                    <Text color="ink.500" fontSize="xs">
-                      Unclaimed
-                    </Text>
-                    <Button size="sm" variant="outline" onClick={() => requestLogin?.()}>
-                      Log in to bring this
-                    </Button>
-                  </>
+        {categories.map((category) => {
+          const categoryItems = guestItems.filter((i) => i.category === category.key);
+          return (
+            <Box key={category.key} mb={6}>
+              <Heading as="h3" fontWeight="semibold" fontSize="md" mb={2}>
+                {category.label}
+              </Heading>
+              <VStack spacing={2} align="stretch">
+                {categoryItems.length === 0 && (
+                  <Text color="ink.500" fontSize="sm">
+                    {emptyText(category)}
+                  </Text>
                 )}
-                {renderGuestCommentPopover(item)}
-              </HStack>
-            ))}
-          </VStack>
-        </Box>
-
-        <Box mb={6}>
-          <Heading as="h3" fontWeight="semibold" fontSize="md" mb={2}>
-            Carpool
-          </Heading>
-          <VStack spacing={2} align="stretch">
-            {guestCarpoolItems.length === 0 && (
-              <Text color="ink.500" fontSize="sm">
-                No carpools set up yet.
-              </Text>
-            )}
-            {guestCarpoolItems.map((item) => {
-              const isFull = item.claim_count >= (item.capacity ?? 0);
-              return (
-                <HStack key={item.id} spacing={3} py={2} borderBottom="1px solid" borderColor="cork.100">
-                  <Text flex={1} color="ink.800">
-                    {item.title}
-                  </Text>
-                  {item.assignee_first_name && (
-                    <Badge colorScheme="cork" fontSize="xs">
-                      Driver: {item.assignee_first_name}
-                    </Badge>
-                  )}
-                  <Text fontSize="xs" color="ink.500">
-                    {item.claim_count}/{item.capacity} seats claimed
-                    {item.claimant_first_names.length > 0 && ` — ${item.claimant_first_names.join(', ')}`}
-                  </Text>
-                  <Button size="sm" variant="outline" isDisabled={isFull} onClick={() => requestLogin?.()}>
-                    {isFull ? 'Seats full' : 'Log in to claim a seat'}
-                  </Button>
-                  {renderGuestCommentPopover(item)}
-                </HStack>
-              );
-            })}
-          </VStack>
-        </Box>
+                {category.mode === 'single'
+                  ? categoryItems.map((item) => (
+                      <HStack key={item.id} spacing={3} py={2} borderBottom="1px solid" borderColor="cork.100">
+                        <Text flex={1} color="ink.800">
+                          {item.title}
+                        </Text>
+                        {item.assignee_first_name ? (
+                          <Badge colorScheme="cork" fontSize="xs">
+                            {item.assignee_first_name}
+                          </Badge>
+                        ) : (
+                          <>
+                            <Text color="ink.500" fontSize="xs">
+                              Unclaimed
+                            </Text>
+                            <Button size="sm" variant="outline" onClick={() => requestLogin?.()}>
+                              Log in to bring this
+                            </Button>
+                          </>
+                        )}
+                        {renderGuestCommentPopover(item)}
+                      </HStack>
+                    ))
+                  : categoryItems.map((item) => {
+                      const isFull = item.claim_count >= (item.capacity ?? 0);
+                      return (
+                        <HStack key={item.id} spacing={3} py={2} borderBottom="1px solid" borderColor="cork.100">
+                          <Text flex={1} color="ink.800">
+                            {item.title}
+                          </Text>
+                          {item.assignee_first_name && (
+                            <Badge colorScheme="cork" fontSize="xs">
+                              Driver: {item.assignee_first_name}
+                            </Badge>
+                          )}
+                          <Text fontSize="xs" color="ink.500">
+                            {item.claim_count}/{item.capacity} seats claimed
+                            {item.claimant_first_names.length > 0 && ` — ${item.claimant_first_names.join(', ')}`}
+                          </Text>
+                          <Button size="sm" variant="outline" isDisabled={isFull} onClick={() => requestLogin?.()}>
+                            {isFull ? 'Seats full' : 'Log in to claim a seat'}
+                          </Button>
+                          {renderGuestCommentPopover(item)}
+                        </HStack>
+                      );
+                    })}
+              </VStack>
+            </Box>
+          );
+        })}
       </Box>
     );
   }
@@ -651,49 +727,41 @@ export function EventLogistics({ eventId, groupId, publicToken, requestLogin }: 
         </Box>
       )}
 
-      {/* Bring List */}
-      <Box mb={6}>
-        <Heading as="h3" fontWeight="semibold" fontSize="md" mb={2}>
-          Bring List
-        </Heading>
-        <VStack spacing={2} align="stretch">
-          {bringItems.length === 0 && (
-            <Text color="ink.500" fontSize="sm">
-              Nothing on the bring list yet.
-            </Text>
-          )}
-          {bringItems.map((item) => renderItemRow(item))}
-        </VStack>
-      </Box>
-
-      {/* Carpool */}
-      <Box mb={6}>
-        <Heading as="h3" fontWeight="semibold" fontSize="md" mb={2}>
-          Carpool
-        </Heading>
-        <VStack spacing={2} align="stretch">
-          {carpoolItems.length === 0 && (
-            <Text color="ink.500" fontSize="sm">
-              No carpools set up yet.
-            </Text>
-          )}
-          {carpoolItems.map((item) => renderItemRow(item))}
-        </VStack>
-      </Box>
+      {categories.map((category) => {
+        const categoryItems = itemsForCategory(category.key);
+        return (
+          <Box key={category.key} mb={6}>
+            <Heading as="h3" fontWeight="semibold" fontSize="md" mb={2}>
+              {category.label}
+            </Heading>
+            <VStack spacing={2} align="stretch">
+              {categoryItems.length === 0 && (
+                <Text color="ink.500" fontSize="sm">
+                  {emptyText(category)}
+                </Text>
+              )}
+              {categoryItems.map((item) => renderItemRow(item))}
+            </VStack>
+          </Box>
+        );
+      })}
 
       {/* Add item form */}
       <VStack align="stretch" spacing={2}>
-        <RadioGroup value={newCategory} onChange={(v) => setNewCategory(v as 'bring' | 'carpool')}>
-          <HStack spacing={4}>
-            <Radio value="bring">Bring</Radio>
-            <Radio value="carpool">Carpool</Radio>
+        <RadioGroup value={activeCategory?.key ?? ''} onChange={(v) => setNewCategoryKey(v)}>
+          <HStack spacing={4} wrap="wrap">
+            {categories.map((c) => (
+              <Radio key={c.key} value={c.key}>
+                {c.label}
+              </Radio>
+            ))}
           </HStack>
         </RadioGroup>
 
         <HStack spacing={2} align="flex-end">
           <FormControl flex={2}>
             <Input
-              placeholder={newCategory === 'bring' ? 'What are you bringing?' : 'e.g. Leaving downtown at 5pm'}
+              placeholder={newMode === 'single' ? 'What are you bringing?' : 'e.g. Leaving downtown at 5pm'}
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               onKeyDown={(e) => {
@@ -704,10 +772,10 @@ export function EventLogistics({ eventId, groupId, publicToken, requestLogin }: 
           </FormControl>
           <FormControl flex={1}>
             <Select
-              placeholder={newCategory === 'carpool' ? 'Driver (required)' : 'Unassigned'}
+              placeholder={newMode === 'seats' ? 'Driver (required)' : 'Unassigned'}
               value={newAssignee}
               onChange={(e) => setNewAssignee(e.target.value)}
-              aria-label={newCategory === 'carpool' ? 'Driver' : 'Assign to (optional)'}
+              aria-label={newMode === 'seats' ? 'Driver' : 'Assign to (optional)'}
             >
               {members.map((m) => (
                 <option key={m.user_id} value={m.user_id}>
@@ -716,7 +784,7 @@ export function EventLogistics({ eventId, groupId, publicToken, requestLogin }: 
               ))}
             </Select>
           </FormControl>
-          {newCategory === 'carpool' && (
+          {newMode === 'seats' && (
             <FormControl flex={1}>
               <NumberInput min={1} value={newCapacity} onChange={(v) => setNewCapacity(v)}>
                 <NumberInputField placeholder="Seats" aria-label="Number of seats" />
@@ -733,13 +801,28 @@ export function EventLogistics({ eventId, groupId, publicToken, requestLogin }: 
           </FormControl>
           <Button
             onClick={handleAddItem}
-            isDisabled={!newTitle.trim() || (newCategory === 'carpool' && (!newAssignee || !newCapacity))}
+            isDisabled={!newTitle.trim() || (newMode === 'seats' && (!newAssignee || !newCapacity))}
             colorScheme="coral"
           >
             Add
           </Button>
         </HStack>
       </VStack>
+
+      {isAdmin && interactive && (
+        <>
+          <Button size="sm" variant="ghost" mt={4} onClick={categoryEditor.onOpen}>
+            Manage categories
+          </Button>
+          <LogisticsCategoryEditor
+            isOpen={categoryEditor.isOpen}
+            onClose={categoryEditor.onClose}
+            categories={categories}
+            usedKeys={usedKeys}
+            onSave={handleSaveCategories}
+          />
+        </>
+      )}
     </Box>
   );
 }

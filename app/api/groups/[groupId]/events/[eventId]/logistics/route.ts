@@ -73,7 +73,7 @@ export async function GET(
 
 /**
  * POST /api/groups/:groupId/events/:eventId/logistics
- * Create a logistics item ('bring' or 'carpool'). Requires group membership.
+ * Create a logistics item in one of the group's categories. Requires group membership.
  */
 export async function POST(
   request: NextRequest,
@@ -107,9 +107,10 @@ export async function POST(
 
     const body = await request.json();
 
-    if (body.category !== 'bring' && body.category !== 'carpool') {
+    // The service validates the key against the group's categories.
+    if (typeof body.category !== 'string' || body.category.length === 0) {
       return NextResponse.json(
-        { success: false, error: "Category must be 'bring' or 'carpool'", errorCode: 'VALIDATION_ERROR' },
+        { success: false, error: 'Category is required', errorCode: 'VALIDATION_ERROR' },
         { status: 400 }
       );
     }

@@ -49,7 +49,7 @@ const yesterdayStr = format(subDays(new Date(), 1), 'yyyy-MM-dd');
 
 function mockFetchSequence(itemsResponse = mockItems, membersResponse = mockMembers) {
   global.fetch = jest.fn((url: string) => {
-    if (typeof url === 'string' && url.includes('/logistics')) {
+    if (typeof url === 'string' && /\/logistics(?!-categories)/.test(url)) {
       return Promise.resolve({ ok: true, json: async () => ({ success: true, data: itemsResponse }) });
     }
     return Promise.resolve({
@@ -70,7 +70,8 @@ describe('EventLogistics Component', () => {
     renderWithProviders(<EventLogistics eventId="event-1" groupId="group-1" />);
 
     await waitFor(() => {
-      expect(screen.getByText('Bring List')).toBeInTheDocument();
+      // Labels also appear as radio labels in the add-item form.
+      expect(screen.getAllByText('Bring List').length).toBeGreaterThan(0);
       // "Carpool" also appears as a radio label in the add-item form.
       expect(screen.getAllByText('Carpool').length).toBeGreaterThan(0);
       expect(screen.getByText('Speaker')).toBeInTheDocument();
@@ -268,7 +269,7 @@ describe('EventLogistics Component', () => {
     let logisticsCallCount = 0;
 
     global.fetch = jest.fn((url: string) => {
-      if (typeof url === 'string' && url.includes('/logistics')) {
+      if (typeof url === 'string' && /\/logistics(?!-categories)/.test(url)) {
         logisticsCallCount += 1;
         if (logisticsCallCount === 1) {
           return Promise.resolve({ ok: true, json: async () => ({ success: true, data: mockItems }) });
@@ -435,7 +436,7 @@ describe('EventLogistics Component', () => {
       });
 
       const todayBringRow = screen.getByText('Today snacks').closest('div') as HTMLElement;
-      expect(within(todayBringRow).getByText('Bring')).toBeInTheDocument();
+      expect(within(todayBringRow).getByText('Bring List')).toBeInTheDocument();
 
       const todayCarpoolRow = screen.getByText('Today ride').closest('div') as HTMLElement;
       expect(within(todayCarpoolRow).getByText('Carpool')).toBeInTheDocument();
@@ -471,7 +472,7 @@ describe('EventLogistics Component', () => {
 
       let logisticsCallCount = 0;
       global.fetch = jest.fn((url: string) => {
-        if (typeof url === 'string' && url.includes('/logistics')) {
+        if (typeof url === 'string' && /\/logistics(?!-categories)/.test(url)) {
           logisticsCallCount += 1;
           const item_date = logisticsCallCount === 1 ? todayStr : yesterdayStr;
           return Promise.resolve({
@@ -619,6 +620,90 @@ describe('EventLogistics Component', () => {
       );
       expect(await screen.findByRole('button', { name: /view comments/i })).toBeInTheDocument();
       expect(requestLogin).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('configurable categories (Story 14.6)', () => {
+    const customCategories = [
+      { key: 'snacks', label: 'Snacks', mode: 'single' },
+      { key: 'rides', label: 'Rides', mode: 'seats' },
+    ];
+    const customItems = [
+      { id: 's-1', created_by: 'other-user', category: 'snacks', title: 'Chips', assigned_to: null, capacity: null, claims: [], claim_count: 0 },
+      { id: 'r-1', created_by: 'other-user', category: 'rides', title: 'Van', assigned_to: 'other-user', capacity: 3, claims: [], claim_count: 0 },
+    ];
+
+    function mockCustom(role: 'admin' | 'member') {
+      global.fetch = jest.fn((url: string) => {
+        if (typeof url === 'string' && url.includes('/logistics-categories')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ success: true, data: { categories: customCategories, customized: true } }),
+          });
+        }
+        if (typeof url === 'string' && url.includes('/logistics')) {
+          return Promise.resolve({ ok: true, json: async () => ({ success: true, data: customItems }) });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true, data: { members: mockMembers, currentUserRole: role } }),
+        });
+      }) as unknown as typeof fetch;
+    }
+
+    it('renders one section per custom category by label and mode', async () => {
+      mockCustom('member');
+      renderWithProviders(<EventLogistics eventId="event-1" groupId="group-1" />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { level: 3, name: 'Snacks' })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { level: 3, name: 'Rides' })).toBeInTheDocument();
+      });
+      expect(screen.queryByRole('heading', { level: 3, name: /bring list/i })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /i'll bring this/i })).toBeInTheDocument();
+      expect(screen.getByText('0/3 seats claimed')).toBeInTheDocument();
+      expect(screen.getByLabelText('Snacks')).toBeInTheDocument();
+      expect(screen.getByLabelText('Rides')).toBeInTheDocument();
+    });
+
+    it('shows Manage categories to admins only', async () => {
+      mockCustom('member');
+      const { unmount } = renderWithProviders(<EventLogistics eventId="event-1" groupId="group-1" />);
+      await waitFor(() => expect(screen.getByText('Chips')).toBeInTheDocument());
+      expect(screen.queryByRole('button', { name: /manage categories/i })).not.toBeInTheDocument();
+      unmount();
+
+      mockCustom('admin');
+      renderWithProviders(<EventLogistics eventId="event-1" groupId="group-1" />);
+      await waitFor(() => expect(screen.getByText('Chips')).toBeInTheDocument());
+      expect(await screen.findByRole('button', { name: /manage categories/i })).toBeInTheDocument();
+    });
+
+    it('guests see the group labels, read-only, without Manage categories', async () => {
+      (useAuth as jest.Mock).mockReturnValue({ userId: null, accessToken: null, isAuthenticated: false, isLoading: false });
+      global.fetch = jest.fn(() =>
+        Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              logistics: [
+                { id: 'g-1', category: 'snacks', title: 'Chips', capacity: null, assignee_first_name: null, claim_count: 0, claimant_first_names: [] },
+              ],
+              logistics_categories: customCategories,
+            },
+          }),
+        })
+      ) as unknown as typeof fetch;
+
+      renderWithProviders(<EventLogistics eventId="event-1" publicToken={'a'.repeat(64)} />);
+
+      await waitFor(() => expect(screen.getByText('Chips')).toBeInTheDocument());
+      expect(screen.getByRole('heading', { level: 3, name: 'Snacks' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 3, name: 'Rides' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /manage categories/i })).not.toBeInTheDocument();
+
+      (useAuth as jest.Mock).mockReturnValue({ userId: 'user-1', accessToken: 'test-token', isAuthenticated: true, isLoading: false });
     });
   });
 });

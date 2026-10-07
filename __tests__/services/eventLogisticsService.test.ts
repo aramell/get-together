@@ -8,9 +8,20 @@ import {
 } from '@/lib/services/eventLogisticsService';
 import { getClient } from '@/lib/db/client';
 import { getUserGroupRole } from '@/lib/db/queries';
+import { loadGroupCategories } from '@/lib/services/logisticsCategoriesService';
+import { defaultLogisticsCategories } from '@/lib/logistics/defaultCategories';
 
 jest.mock('@/lib/db/client');
 jest.mock('@/lib/db/queries');
+jest.mock('@/lib/services/logisticsCategoriesService');
+
+const customCategories = {
+  customized: true,
+  categories: [
+    { key: 'snacks', label: 'Snacks', mode: 'single' },
+    { key: 'rides', label: 'Rides', mode: 'seats' },
+  ],
+};
 
 describe('eventLogisticsService', () => {
   let mockClient: { query: jest.Mock; release: jest.Mock };
@@ -20,6 +31,10 @@ describe('eventLogisticsService', () => {
     (getClient as jest.Mock).mockResolvedValue(mockClient);
     jest.clearAllMocks();
     (getClient as jest.Mock).mockResolvedValue(mockClient);
+    (loadGroupCategories as jest.Mock).mockResolvedValue({
+      categories: defaultLogisticsCategories(),
+      customized: false,
+    });
   });
 
   const mockEventExists = () => {
@@ -81,6 +96,52 @@ describe('eventLogisticsService', () => {
       const result = await addLogisticsItem('event-1', 'group-1', 'user-1', 'invalid' as any, 'Title');
       expect(result.success).toBe(false);
       expect(result.errorCode).toBe('VALIDATION_ERROR');
+      expect(result.error).toBe('INVALID_CATEGORY');
+    });
+
+    it("rejects a default key the group's custom list no longer contains", async () => {
+      (loadGroupCategories as jest.Mock).mockResolvedValue(customCategories);
+      const result = await addLogisticsItem('event-1', 'group-1', 'user-1', 'bring', 'Speaker');
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('INVALID_CATEGORY');
+    });
+
+    it('creates an item in a custom single-mode category with no capacity', async () => {
+      (loadGroupCategories as jest.Mock).mockResolvedValue(customCategories);
+      mockEventExists();
+      (getUserGroupRole as jest.Mock).mockResolvedValueOnce('member');
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{ id: 'item-1', category: 'snacks', title: 'Chips', assigned_to: null, capacity: null }],
+      });
+
+      const result = await addLogisticsItem('event-1', 'group-1', 'user-1', 'snacks', 'Chips', null, 5);
+
+      expect(result.success).toBe(true);
+      const insertParams = mockClient.query.mock.calls[1][1];
+      expect(insertParams[3]).toBe('snacks');
+      expect(insertParams[6]).toBeNull(); // capacity ignored for single mode
+    });
+
+    it('requires capacity and a driver in a custom seats-mode category', async () => {
+      (loadGroupCategories as jest.Mock).mockResolvedValue(customCategories);
+      const noCapacity = await addLogisticsItem('event-1', 'group-1', 'user-1', 'rides', 'Van', 'driver-1');
+      expect(noCapacity.error).toBe('INVALID_CAPACITY');
+      const noDriver = await addLogisticsItem('event-1', 'group-1', 'user-1', 'rides', 'Van', undefined, 4);
+      expect(noDriver.error).toBe('MISSING_DRIVER');
+    });
+
+    it('creates an item in a custom seats-mode category', async () => {
+      (loadGroupCategories as jest.Mock).mockResolvedValue(customCategories);
+      mockEventExists();
+      (getUserGroupRole as jest.Mock).mockResolvedValueOnce('member').mockResolvedValueOnce('member');
+      mockClient.query.mockResolvedValueOnce({
+        rows: [{ id: 'item-1', category: 'rides', title: 'Van', assigned_to: 'driver-1', capacity: 6 }],
+      });
+
+      const result = await addLogisticsItem('event-1', 'group-1', 'user-1', 'rides', 'Van', 'driver-1', 6);
+
+      expect(result.success).toBe(true);
+      expect(mockClient.query.mock.calls[1][1][6]).toBe(6);
     });
 
     it('rejects an empty title', async () => {
@@ -264,6 +325,52 @@ describe('eventLogisticsService', () => {
       const updateCall = mockClient.query.mock.calls.find((c) => String(c[0]).startsWith('UPDATE'));
       const setClause = String(updateCall![0]).split('RETURNING')[0];
       expect(setClause).not.toContain('capacity');
+    });
+
+    describe('with custom categories', () => {
+      beforeEach(() => {
+        (loadGroupCategories as jest.Mock).mockResolvedValue(customCategories);
+      });
+      const snackItem = { id: 'item-1', created_by: 'creator-1', category: 'snacks', assigned_to: null };
+      const rideItem = { id: 'item-1', created_by: 'creator-1', category: 'rides', assigned_to: null };
+
+      it('lets a member self-claim an unassigned item in a custom single-mode category', async () => {
+        mockClient.query.mockResolvedValueOnce({ rows: [snackItem] });
+        (getUserGroupRole as jest.Mock).mockResolvedValueOnce('member');
+        mockClient.query.mockResolvedValueOnce({ rows: [{ ...snackItem, assigned_to: 'random-member' }] });
+        mockClient.query.mockResolvedValueOnce({ rows: [] });
+
+        const result = await updateLogisticsItem('event-1', 'group-1', 'item-1', 'random-member', { assigned_to: 'random-member' });
+
+        expect(result.success).toBe(true);
+      });
+
+      it('treats self-claim in a custom seats-mode category as a metadata edit (FORBIDDEN)', async () => {
+        mockClient.query.mockResolvedValueOnce({ rows: [rideItem] });
+        (getUserGroupRole as jest.Mock).mockResolvedValueOnce('member');
+
+        const result = await updateLogisticsItem('event-1', 'group-1', 'item-1', 'random-member', { assigned_to: 'random-member' });
+
+        expect(result.success).toBe(false);
+        expect(result.errorCode).toBe('FORBIDDEN');
+      });
+
+      it('applies capacity only for the seats-mode category', async () => {
+        const setClauseFor = async (row: any) => {
+          mockClient.query.mockClear();
+          mockClient.query.mockResolvedValueOnce({ rows: [row] }); // item
+          (getUserGroupRole as jest.Mock).mockResolvedValueOnce('member');
+          mockClient.query.mockResolvedValueOnce({ rows: [{ count: 0 }] }); // claim count (seats only)
+          mockClient.query.mockResolvedValue({ rows: [{ ...row, capacity: 5 }] });
+          const result = await updateLogisticsItem('event-1', 'group-1', 'item-1', 'creator-1', { capacity: 5 });
+          expect(result.success).toBe(true);
+          const updateCall = mockClient.query.mock.calls.find((c) => String(c[0]).startsWith('UPDATE'));
+          return String(updateCall![0]).split('RETURNING')[0];
+        };
+
+        expect(await setClauseFor(snackItem)).not.toContain('capacity');
+        expect(await setClauseFor(rideItem)).toContain('capacity');
+      });
     });
 
     it('allows the creator to set item_date', async () => {
@@ -487,6 +594,29 @@ describe('eventLogisticsService', () => {
 
       const result = await claimLogisticsSeat('event-1', 'group-1', 'item-1', 'rider-1');
 
+      expect(result.success).toBe(false);
+      expect(result.errorCode).toBe('VALIDATION_ERROR');
+    });
+
+    it('allows claiming a seat on a custom seats-mode category', async () => {
+      (loadGroupCategories as jest.Mock).mockResolvedValue(customCategories);
+      mockClient.query
+        .mockResolvedValueOnce({ rows: [{ id: 'item-1', category: 'rides', capacity: 2 }] })
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({ rows: [{ count: '0' }] })
+        .mockResolvedValueOnce({ rows: [{ user_id: 'rider-1', claimed_at: 't' }] })
+        .mockResolvedValueOnce({}); // COMMIT
+      (getUserGroupRole as jest.Mock).mockResolvedValueOnce('member');
+
+      const result = await claimLogisticsSeat('event-1', 'group-1', 'item-1', 'rider-1');
+      expect(result.success).toBe(true);
+    });
+
+    it('rejects claiming a seat on a custom single-mode category', async () => {
+      (loadGroupCategories as jest.Mock).mockResolvedValue(customCategories);
+      mockClient.query.mockResolvedValueOnce({ rows: [{ id: 'item-1', category: 'snacks', capacity: null }] });
+
+      const result = await claimLogisticsSeat('event-1', 'group-1', 'item-1', 'rider-1');
       expect(result.success).toBe(false);
       expect(result.errorCode).toBe('VALIDATION_ERROR');
     });

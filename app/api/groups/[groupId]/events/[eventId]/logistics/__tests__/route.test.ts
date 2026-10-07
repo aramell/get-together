@@ -73,13 +73,41 @@ describe('POST /api/groups/:groupId/events/:eventId/logistics', () => {
     expect(res.status).toBe(401);
   });
 
-  it('returns 400 for an invalid category', async () => {
+  it('returns 400 when the category is missing', async () => {
     (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('user-1');
+    const res = await POST(
+      makeRequest({ authHeader: 'Bearer good-token', body: { title: 'Speaker' } }),
+      { params }
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 400 when the service rejects a category the group doesn't have", async () => {
+    (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('user-1');
+    (logisticsService.addLogisticsItem as jest.Mock).mockResolvedValue({
+      success: false,
+      error: 'INVALID_CATEGORY',
+      errorCode: 'VALIDATION_ERROR',
+    });
     const res = await POST(
       makeRequest({ authHeader: 'Bearer good-token', body: { category: 'invalid', title: 'Speaker' } }),
       { params }
     );
     expect(res.status).toBe(400);
+  });
+
+  it('passes a custom category key through to the service', async () => {
+    (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('user-1');
+    (logisticsService.addLogisticsItem as jest.Mock).mockResolvedValue({
+      success: true,
+      data: { id: 'item-1', category: 'snacks', title: 'Chips' },
+    });
+    const res = await POST(
+      makeRequest({ authHeader: 'Bearer good-token', body: { category: 'snacks', title: 'Chips' } }),
+      { params }
+    );
+    expect(res.status).toBe(201);
+    expect((logisticsService.addLogisticsItem as jest.Mock).mock.calls[0][3]).toBe('snacks');
   });
 
   it('returns 400 when title is missing', async () => {

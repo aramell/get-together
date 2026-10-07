@@ -66,3 +66,7 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-14-5-per-event-layout.md`
   summary: Non-UUID `eventId`/`groupId` reaches Postgres and surfaces as 500 rather than 404/400.
   evidence: Same behavior as the other item routes; not caused by this story.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-14-6-configurable-logistics-categories-labels.md`
+  summary: Malformed JSON or null body on the logistics-categories PATCH returns 500 instead of 400.
+  evidence: Same behavior exists in the other group routes; pre-existing pattern, found in 14.6 review.

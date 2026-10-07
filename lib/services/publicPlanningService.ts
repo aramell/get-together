@@ -5,6 +5,8 @@ import {
   getItemComments,
 } from '@/lib/db/queries';
 import { query } from '@/lib/db/client';
+import { loadGroupCategories } from '@/lib/services/logisticsCategoriesService';
+import { LogisticsCategoryDef } from '@/lib/logistics/defaultCategories';
 import { CommentItemType } from '@/lib/validation/commentSchema';
 
 /**
@@ -28,7 +30,7 @@ export interface PublicChecklistItem {
 
 export interface PublicLogisticsItem {
   id: string;
-  category: 'bring' | 'carpool';
+  category: string;
   title: string;
   capacity: number | null;
   assignee_first_name: string | null;
@@ -68,6 +70,8 @@ export interface PublicPollItem {
 export interface PublicPlanningData {
   checklist: PublicChecklistItem[];
   logistics: PublicLogisticsItem[];
+  // The group's category labels and modes (no group_id).
+  logistics_categories: LogisticsCategoryDef[];
   timeline: PublicTimelineItem[];
   photos: PublicPhotoItem[];
   polls: PublicPollItem[];
@@ -113,7 +117,7 @@ export async function getPublicEventPlanning(
       return { success: false, message: 'This event is no longer available' };
     }
 
-    const [members, checklistRows, logisticsRows, timelineRows, photoRows, pollRows] = await Promise.all([
+    const [members, checklistRows, logisticsRows, timelineRows, photoRows, pollRows, categoriesData] = await Promise.all([
       getGroupMemberNames(event.group_id),
       query<{
         id: string;
@@ -132,7 +136,7 @@ export async function getPublicEventPlanning(
       ),
       query<{
         id: string;
-        category: 'bring' | 'carpool';
+        category: string;
         title: string;
         assigned_to: string | null;
         capacity: number | null;
@@ -197,6 +201,10 @@ export async function getPublicEventPlanning(
          ORDER BY p.created_at ASC, o.display_order ASC`,
         [event.id]
       ),
+      loadGroupCategories(
+        { query: async (text, params) => ({ rows: await query<any>(text, params) }) },
+        event.group_id
+      ),
     ]);
 
     const nameById = new Map(members.map((m) => [m.id, firstNameOf(m.displayName)]));
@@ -245,6 +253,7 @@ export async function getPublicEventPlanning(
             comment_count: Number(row.comment_count) || 0,
           };
         }),
+        logistics_categories: categoriesData.categories,
         timeline: timelineRows.map((row) => ({
           id: row.id,
           item_time: row.item_time,
