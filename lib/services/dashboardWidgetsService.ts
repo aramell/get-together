@@ -3,7 +3,7 @@ import { getUserGroupRole } from '@/lib/db/queries';
 import {
   WidgetLayoutItem,
   defaultWidgetLayout,
-  isWidgetKey,
+  reconcileWithRegistry,
   validateWidgetLayout,
 } from '@/lib/dashboard/widgetRegistry';
 
@@ -48,28 +48,6 @@ export async function getWidgetLayout(groupId: string): Promise<ServiceResult<Wi
   } finally {
     client.release();
   }
-}
-
-/**
- * Reconcile stored rows with the registry: drop rows whose key the registry
- * no longer knows, append registry widgets the group has no row for (visible,
- * at the end -- e.g. a widget added after the group's rows were stored), and
- * renumber positions 1..N. The result always passes validateWidgetLayout, so
- * the client accepts it and a PATCH built from it is valid. A group with no
- * usable rows gets the default layout.
- */
-function reconcileWithRegistry(rows: WidgetLayoutItem[]): WidgetLayoutItem[] {
-  const known = rows
-    .filter((row) => isWidgetKey(row.widget_key))
-    .sort((a, b) => a.position - b.position);
-  const present = new Set(known.map((row) => row.widget_key));
-  const missing = defaultWidgetLayout().filter((w) => !present.has(w.widget_key));
-
-  return [...known, ...missing].map((row, index) => ({
-    widget_key: row.widget_key,
-    position: index + 1,
-    visible: row.visible,
-  }));
 }
 
 /**

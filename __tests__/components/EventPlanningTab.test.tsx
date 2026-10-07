@@ -100,8 +100,8 @@ describe('EventPlanningTab', () => {
     expect(await screen.findByRole('heading', { level: 2, name: 'To do' })).toBeInTheDocument();
   });
 
-  it('names widgets in the customizer by the event type labels', async () => {
-    mockLayoutFetch(defaultWidgetLayout(), false, 'dinner');
+  it('names widgets in the customizer by the event type labels in "This event only" scope', async () => {
+    mockLayoutFetch(defaultWidgetLayout(), true, 'dinner');
     renderWithProviders(<EventPlanningTab eventId="event-1" groupId="group-1" />);
     await waitFor(() => expect(screen.getByTestId('widget-photos')).toBeInTheDocument());
 
@@ -109,6 +109,19 @@ describe('EventPlanningTab', () => {
     expect(screen.getByLabelText('Hide To do')).toBeInTheDocument();
     expect(screen.getByLabelText('Hide Who brings what')).toBeInTheDocument();
     expect(screen.queryByLabelText('Hide Checklist')).not.toBeInTheDocument();
+  });
+
+  it('names widgets in the customizer by the registry labels in "All events" scope', async () => {
+    // Not customized -> the customizer opens in group scope, which edits every
+    // event in the group, so one event's type labels must not leak in.
+    mockLayoutFetch(defaultWidgetLayout(), false, 'dinner');
+    renderWithProviders(<EventPlanningTab eventId="event-1" groupId="group-1" />);
+    await waitFor(() => expect(screen.getByTestId('widget-photos')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByLabelText('Customize dashboard layout'));
+    expect(screen.getByLabelText('Hide Checklist')).toBeInTheDocument();
+    expect(screen.getByLabelText('Hide Logistics')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Hide To do')).not.toBeInTheDocument();
   });
 
   it('renders all 6 widgets in the default order when the group has no rows yet', async () => {

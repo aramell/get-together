@@ -99,3 +99,22 @@ Labels are read live from the registry, unlike layout and categories, which 14.7
 - `npx tsc --noEmit` -- expected: error count not above baseline (706 pre-existing)
 - `npx jest --testPathPatterns "eventType|EventLabels|dashboard-widgets|EventPlanningTab|PublicEventPlanning|EventChecklist|EventTimeline|EventPolls|EventLogistics|EventPhotoGrid"` -- expected: no new failures beyond baseline
 - `npm run lint` -- expected: no new errors
+
+### Review Findings
+
+Code review of commit c4fbe68 (2026-10-07). Layers: Blind Hunter, Edge Case Hunter, Verification Gap, Acceptance Auditor.
+
+- [x] [Review][Patch] Customizer shows the current event's type labels in "All events in this group" scope — use registry labels when scope is `group` (decision: option 2) [components/groups/DashboardWidgetCustomizer.tsx:189]
+- [x] [Review][Patch] No service-level test for `getEventTypeKey` [lib/services/dashboardWidgetsService.ts:216-237] — the route test mocks the whole service module, so the SQL, the null fallback on error and client release are never executed. Add tests to `__tests__/services/dashboardWidgetsService.test.ts`: returns the row's `event_type`; null for no rows or null column; null and client released when `query` throws; null when `getClient` rejects.
+
+#### Rejected
+
+- Dinner headings flip to registry labels for one poll cycle when `getEventTypeKey` fails (4 layers; `EventPlanningTab.tsx:51`, `PublicEventPlanning.tsx:53`) — `low`: real but needs a transient DB error right after a successful layout read, self-heals on the next 5s poll, and the fix adds a distinct failure signal plus client branches. Already rejected in the Review Triage Log.
+- Extra pooled client per member poll; suggested `Promise.all` (`dashboard-widgets/route.ts:79`) — `low`: sequential order is intentional (the doc comment says membership is verified first), so `Promise.all` would query for non-members; folding it into `getEventWidgetLayout` is a refactor for a small cost.
+- Public route sends raw `event.event_type` to guests (`public/.../dashboard-widgets/route.ts:53`) — `low`: type keys are internal labels like `dinner` and unknown keys already fall back to registry labels, so there is no secret to leak.
+- `??` lets an empty preset label through (`eventTypes.ts:141`) — `false`: preset labels are code constants and none is empty.
+- Possible orphaned member route, so the provider never reaches live widgets — `false`: `app/groups/[groupId]/events/[eventId]/page.tsx:69` renders `EventDetail`, which renders `EventPlanningTab` (`EventDetail.tsx:323`). The orphaning noted during Story 13.1 planning no longer holds.
+- Other trip wording left in widgets — `false`: grep for "trip" across the widget, planning-tab and `CreateEventModal` components returns nothing.
+- `getEventByPublicToken` selecting `event_type` is verified only through mocks — `low`: same mock boundary as the repo's other query tests; closing it needs a new DB-level test pattern.
+- Missing component tests for the Trip/unknown matrix rows, Dinner Polls/Photos headings and the `CreateEventModal` placeholder — `low`: the helper and provider tests cover those rows, and Polls/Photos labels equal the registry labels today, so no regression would be observable.
+- New route test file instead of extending the existing ones; spec `status: done` vs sprint `review`; empty Spec Change Log; provider wrapper not re-indented; unresolved flaky Timeline/Polls test "under load" — `low`: process or cosmetic only, or fixed by editing the spec. The flaky test is unverified, and would only be `low` if real.

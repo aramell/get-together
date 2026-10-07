@@ -186,7 +186,9 @@ export function DashboardWidgetCustomizer({
       </RadioGroup>
       <VStack spacing={2} align="stretch">
         {sorted.map((widget, index) => {
-          const label = getWidgetLabel(eventType, widget.widget_key);
+          // Group scope edits every event in the group, so use the neutral
+          // registry labels rather than this one event's type labels.
+          const label = getWidgetLabel(scope === 'group' ? null : eventType, widget.widget_key);
           return (
             <HStack key={widget.widget_key} justify="space-between" py={1}>
               <HStack spacing={3}>

@@ -74,3 +74,9 @@
 ## Deferred from: code review of spec-14-9-notes-and-links-widget (2026-10-07)
 
 - Migration 041 (event_notes) was never run against a database. Unverified severity: high if it fails. Settle by applying it to a dev database. gen_random_uuid() is already used by migration 001.
+
+## Deferred from: code review of spec-14-7-event-types-and-presets (2026-10-07)
+
+- Deploy order for Story 14.7: group queries select `groups.default_event_type`, so migration 040 must be applied before this code is deployed or every group read and write fails. Check whether 040 has been applied to production.
+- `__tests__/components/CreateEventModal.test.tsx` submit tests assert on a mocked `createEvent` while the modal submits via `fetch` (19 of 32 tests fail). Pre-existing, not touched by 14.7.
+

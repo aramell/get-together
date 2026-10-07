@@ -49,6 +49,39 @@ describe('CreateEventModal event type', () => {
     wrap(<CreateEventModal {...props} defaultEventType="rave" />);
     expect(screen.getByRole('radio', { name: 'Trip' })).toBeChecked();
   });
+
+  describe('submit', () => {
+    const originalFetch = global.fetch;
+    afterEach(() => {
+      global.fetch = originalFetch;
+    });
+
+    async function submitWith(ui: React.ReactElement, pick?: string) {
+      const fetchMock = jest.fn(() =>
+        Promise.resolve({ ok: true, json: async () => ({ success: true, data: { event: { id: 'e1' } } }) })
+      );
+      global.fetch = fetchMock as unknown as typeof fetch;
+      wrap(ui);
+      if (pick) fireEvent.click(screen.getByRole('radio', { name: pick }));
+      fireEvent.change(screen.getByLabelText('Event Title *'), { target: { value: 'Pizza Night' } });
+      fireEvent.change(screen.getByLabelText('Date & Time *'), { target: { value: '2999-04-20T19:00' } });
+      fireEvent.click(screen.getByRole('button', { name: /Create Event/i }));
+      await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+      const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+      return { url, body: JSON.parse(init.body as string) };
+    }
+
+    it('sends the type picked in the modal', async () => {
+      const { url, body } = await submitWith(<CreateEventModal {...props} />, 'Dinner');
+      expect(url).toBe('/api/groups/g1/events');
+      expect(body.event_type).toBe('dinner');
+    });
+
+    it('sends the group default when the pick is unchanged', async () => {
+      const { body } = await submitWith(<CreateEventModal {...props} defaultEventType="game_night" />);
+      expect(body.event_type).toBe('game_night');
+    });
+  });
 });
 
 describe('DefaultEventTypeSetting', () => {

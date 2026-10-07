@@ -1,5 +1,10 @@
 import { getEventType } from '@/lib/events/eventTypes';
-import { defaultWidgetLayout, validateWidgetLayout } from '@/lib/dashboard/widgetRegistry';
+import {
+  WidgetLayoutItem,
+  defaultWidgetLayout,
+  reconcileWithRegistry,
+  validateWidgetLayout,
+} from '@/lib/dashboard/widgetRegistry';
 import { defaultLogisticsCategories } from '@/lib/logistics/defaultCategories';
 import { generateCategoryKey } from '@/lib/services/logisticsCategoriesService';
 
@@ -51,10 +56,14 @@ export async function applyEventTypePreset(
       [event.group_id]
     );
     // Rows equal to the system default (e.g. migration 033's backfill) are
-    // not a customization.
+    // not a customization. Reconcile first: backfilled groups predate widgets
+    // added to the registry later (e.g. notes), which the default includes.
     const groupCustomized =
       groupRows.rows.length > 0 &&
-      !layoutsEqual(groupRows.rows as { widget_key: string; position: number; visible: boolean }[], defaultWidgetLayout());
+      !layoutsEqual(
+        reconcileWithRegistry(groupRows.rows as WidgetLayoutItem[]),
+        defaultWidgetLayout()
+      );
     if (!groupCustomized) {
       for (const item of preset.widgets) {
         await client.query(

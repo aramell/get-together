@@ -42,6 +42,15 @@ describe('applyEventTypePreset', () => {
     expect(calls).toHaveLength(0);
   });
 
+  it('treats a backfilled group (rows predating the notes widget) as uncustomized', async () => {
+    const backfilled = defaultWidgetLayout()
+      .filter((w) => w.widget_key !== 'notes')
+      .map((w, i) => ({ ...w, position: i + 1 }));
+    const { client, calls } = makeClient({ groupLayout: backfilled });
+    await applyEventTypePreset(client, event('dinner'), 'u1');
+    expect(inserts(calls, 'event_dashboard_widgets')).toHaveLength(getEventType('dinner')!.widgets.length);
+  });
+
   it('writes no rows for Trip', async () => {
     const { client, calls } = makeClient();
     await applyEventTypePreset(client, event('trip'), 'u1');

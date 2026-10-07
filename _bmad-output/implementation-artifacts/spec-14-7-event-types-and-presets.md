@@ -96,3 +96,28 @@ Implemented by a subagent from this spec; review patches applied. Migration 040 
 - `npx tsc --noEmit` -- expected: error count not above baseline (706 pre-existing)
 - `npx jest --testPathPatterns "eventType|EventType|eventService|wishlist|CreateEventModal|AdminGroupSettings|groups"` -- expected: all pass
 - `npm run lint` -- expected: no new errors beyond existing `no-explicit-any` pattern
+
+### Review Findings
+
+Code review of commit 65ac5bb (2026-10-07). Layers: Blind Hunter, Edge Case Hunter, Verification Gap, Acceptance Auditor.
+
+- [x] [Review][Patch] Widget presets never apply to groups with the 5 backfilled rows since Story 14.9 added the 6th `notes` widget — `groupCustomized` compares the raw rows (5) with `defaultWidgetLayout()` (6) via `layoutsEqual`, which fails on length, so every group backfilled by migration 033 now counts as customized and Dinner/Game night/Practice never write `event_dashboard_widgets` rows. Compare the rows after reconciling them with the registry (the same drop-unknown, append-missing, renumber step `getWidgetLayout` uses) [lib/services/eventTypePresetService.ts:52-61]
+- [x] [Review][Patch] No test that `CreateEventModal` sends the selected `event_type` — the picker tests only read radio state and the route test builds its own body, so dropping `event_type: eventType` from the POST body would pass every test. Add a submit test that stubs `fetch` and asserts the parsed body: a non-default pick is sent, and the group default is sent when nothing is changed [components/groups/CreateEventModal.tsx:145]
+- [x] [Review][Defer] Deploy order: `getGroupById`, `getGroupDetailsWithMembers`, `updateGroup` and `createGroupWithMembership` select `default_event_type`, so deploying before migration 040 is applied breaks every group read and write [lib/db/queries.ts:1211] — deferred: real but operational; apply 040 before deploying this code. Check whether 040 has been applied to production.
+- [x] [Review][Defer] `CreateEventModal.test.tsx` submit tests assert on a mocked `createEvent`, but the modal submits via `fetch` (19 of 32 tests fail) [__tests__/components/CreateEventModal.test.tsx:100-125] — deferred: pre-existing, the modal already used `fetch` before 14.7 and the file was not touched.
+
+#### Rejected
+
+- Any member's first typed event seeds the group's logistics categories and bypasses the admin gate (3 layers) — `low`: a recorded planning decision ("seed group only if untouched"), so the only fix is to change the spec.
+- Widget-customization check treats a group that deliberately saved the default layout as uncustomized (Blind Hunter, Acceptance Auditor) — `low`: deliberate and documented trade-off, since 033 backfill rows are indistinguishable from a saved default. The `notes` regression above is the separate, fixable defect.
+- Widget SELECT-then-INSERT has no advisory lock; `hashtext` collisions; lock only taken for non-default categories — `low`: a race needs a simultaneous admin layout save and costs one mis-seeded event; same lock key as the category editor.
+- Unique violation if `event_dashboard_widgets` rows already exist for the new event — `false`: the event was just inserted in this transaction and no code or trigger seeds event widget rows.
+- `ROLLBACK` can throw on the two early returns, and the connection is not destroyed on rollback failure — `low`: the early returns need `INSERT ... RETURNING` to return no row, which does not happen in practice.
+- Wishlist conversion reads `default_event_type` without `deleted_at IS NULL`, and fails if 040 is missing (Blind Hunter, Edge Case Hunter, Acceptance Auditor) — `low`: conversion is member-gated earlier, and the 040 case is covered by the deploy-order item above.
+- Empty-string `default_event_type` or `event_type` gets a 400 — `low`: the UI sends null or omits the field; only a non-UI client could hit it.
+- `CreateEventModal` resets the pick if `defaultEventType` changes while it is open; `DefaultEventTypeSetting` does not re-sync with its prop — `low`: needs a group-data refresh mid-form, and the fix adds transition tracking.
+- Modal may send a stale or removed type key — `false`: `eventType` is only ever set from `initialEventType` (validated with `isEventTypeKey`) or from the picker's registry options.
+- Generic error toast in `DefaultEventTypeSetting`, picker accessibility, duplicated validation, dead `labels` data, event type not shown after creation, starter items skip the checklist service — `low`/`false`: polish or already decided in the spec's triage log; `event_checklist_items` has no extra invariants beyond the inserted columns.
+- Group page and `AdminGroupSettings` wiring untested; preset SQL only run against mocks; positional `mockResolvedValueOnce` BEGIN entries — `low`: thin prop wiring, and the same mock boundary the repo uses everywhere.
+- Spec `status: done` vs sprint `review`, empty Spec Change Log, accepted 81 failing tests and 706 tsc errors — `low`: fixing means editing the spec, and the baseline counts are recorded as known.
+

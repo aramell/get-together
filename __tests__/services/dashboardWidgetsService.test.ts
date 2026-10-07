@@ -4,6 +4,7 @@ import {
   getEventWidgetLayout,
   updateEventWidgetLayout,
   resetEventWidgetLayout,
+  getEventTypeKey,
 } from '@/lib/services/dashboardWidgetsService';
 import { getClient } from '@/lib/db/client';
 import { getUserGroupRole } from '@/lib/db/queries';
@@ -336,6 +337,48 @@ describe('dashboardWidgetsService', () => {
       const result = await resetEventWidgetLayout('group-1', 'event-1', 'user-1');
 
       expect(result.errorCode).toBe('FORBIDDEN');
+    });
+  });
+
+  describe('getEventTypeKey (Story 14.8)', () => {
+    it('returns the event_type of the non-deleted event', async () => {
+      mockClient.query.mockResolvedValueOnce({ rows: [{ event_type: 'dinner' }] });
+
+      await expect(getEventTypeKey('event-1')).resolves.toBe('dinner');
+
+      expect(mockClient.query).toHaveBeenCalledWith(
+        expect.stringMatching(/SELECT event_type FROM event_proposals WHERE id = \$1 AND deleted_at IS NULL/),
+        ['event-1']
+      );
+      expect(mockClient.release).toHaveBeenCalled();
+    });
+
+    it('returns null when there is no row or the column is null', async () => {
+      mockClient.query.mockResolvedValueOnce({ rows: [] });
+      await expect(getEventTypeKey('event-1')).resolves.toBeNull();
+
+      mockClient.query.mockResolvedValueOnce({ rows: [{ event_type: null }] });
+      await expect(getEventTypeKey('event-1')).resolves.toBeNull();
+    });
+
+    it('returns null and releases the client when the query throws', async () => {
+      const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      mockClient.query.mockRejectedValueOnce(new Error('db down'));
+
+      await expect(getEventTypeKey('event-1')).resolves.toBeNull();
+
+      expect(mockClient.release).toHaveBeenCalled();
+      spy.mockRestore();
+    });
+
+    it('returns null when getClient rejects', async () => {
+      const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      (getClient as jest.Mock).mockRejectedValueOnce(new Error('no pool'));
+
+      await expect(getEventTypeKey('event-1')).resolves.toBeNull();
+
+      expect(mockClient.release).not.toHaveBeenCalled();
+      spy.mockRestore();
     });
   });
 });
