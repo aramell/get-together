@@ -26,6 +26,7 @@ describe('notes collection route', () => {
     (svc.listEventNotes as jest.Mock).mockResolvedValueOnce({ success: true, data: [{ id: 'n1' }] });
     const ok = await GET(req(), { params });
     expect(ok.status).toBe(200);
+    expect(svc.listEventNotes).toHaveBeenCalledWith('e1', 'g1', 'u1');
     expect((await ok.json()).data).toHaveLength(1);
 
     (svc.listEventNotes as jest.Mock).mockResolvedValueOnce({ success: false, errorCode: 'FORBIDDEN', message: 'no' });
@@ -42,7 +43,8 @@ describe('notes collection route', () => {
   it('POST creates (201), and maps validation errors to 400', async () => {
     (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('u1');
     (svc.addEventNote as jest.Mock).mockResolvedValueOnce({ success: true, data: { id: 'n1' } });
-    expect((await POST(req({ title: 'a', url: 'https://x.com' }), { params })).status).toBe(201);
+    expect((await POST(req({ title: 'a', url: 'https://x.com', body: 'b' }), { params })).status).toBe(201);
+    expect(svc.addEventNote).toHaveBeenCalledWith('e1', 'g1', 'u1', { title: 'a', url: 'https://x.com', body: 'b' });
 
     (svc.addEventNote as jest.Mock).mockResolvedValueOnce({ success: false, errorCode: 'VALIDATION_ERROR', message: 'bad url' });
     const bad = await POST(req({ title: 'a', url: 'javascript:1' }), { params });

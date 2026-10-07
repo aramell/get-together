@@ -24,7 +24,8 @@ describe('notes item route', () => {
   it('PATCH succeeds, 400 on empty body, 403 for another member', async () => {
     (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('u1');
     (svc.updateEventNote as jest.Mock).mockResolvedValueOnce({ success: true, data: { id: 'n1' } });
-    expect((await PATCH(req({ title: 'x' }), { params })).status).toBe(200);
+    expect((await PATCH(req({ title: 'x', url: 'https://x.com', body: 'b' }), { params })).status).toBe(200);
+    expect(svc.updateEventNote).toHaveBeenCalledWith('e1', 'g1', 'n1', 'u1', { title: 'x', url: 'https://x.com', body: 'b' });
     expect((await PATCH(req({}), { params })).status).toBe(400);
     (svc.updateEventNote as jest.Mock).mockResolvedValueOnce({ success: false, errorCode: 'FORBIDDEN', message: 'no' });
     expect((await PATCH(req({ title: 'x' }), { params })).status).toBe(403);
@@ -41,6 +42,7 @@ describe('notes item route', () => {
     (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('u1');
     (svc.deleteEventNote as jest.Mock).mockResolvedValueOnce({ success: true });
     expect((await DELETE(req(), { params })).status).toBe(200);
+    expect(svc.deleteEventNote).toHaveBeenCalledWith('e1', 'g1', 'n1', 'u1');
     (svc.deleteEventNote as jest.Mock).mockResolvedValueOnce({ success: false, errorCode: 'FORBIDDEN', message: 'no' });
     expect((await DELETE(req(), { params })).status).toBe(403);
     (svc.deleteEventNote as jest.Mock).mockResolvedValueOnce({ success: false, errorCode: 'NOT_FOUND', message: 'gone' });

@@ -222,8 +222,8 @@ export function EventNotes({ eventId, groupId, publicToken }: EventNotesProps) {
         </Box>
         {canManage && (
           <HStack spacing={1}>
-            <IconButton aria-label="Edit note" icon={<EditIcon />} size="sm" variant="ghost" onClick={() => startEdit(n)} />
-            <IconButton aria-label="Delete note" icon={<DeleteIcon />} size="sm" variant="ghost" onClick={() => handleDelete(n.id)} />
+            <IconButton aria-label={`Edit note: ${n.title}`} icon={<EditIcon />} size="sm" variant="ghost" onClick={() => startEdit(n)} />
+            <IconButton aria-label={`Delete note: ${n.title}`} icon={<DeleteIcon />} size="sm" variant="ghost" onClick={() => handleDelete(n.id)} />
           </HStack>
         )}
       </HStack>

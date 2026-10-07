@@ -49,7 +49,7 @@ describe('EventNotes', () => {
     expect(link).toHaveAttribute('target', '_blank');
     expect(link.getAttribute('rel')).toContain('noopener');
     expect(link.getAttribute('rel')).toContain('noreferrer');
-    expect(screen.getAllByLabelText('Edit note')).toHaveLength(1);
+    expect(screen.getAllByLabelText(/^Edit note:/)).toHaveLength(1);
     expect(screen.getByLabelText('New note title')).toBeInTheDocument();
   });
 
@@ -57,7 +57,7 @@ describe('EventNotes', () => {
     mockFetch('admin');
     renderIt({ groupId: 'group-1' });
     await screen.findByText('Parking');
-    await waitFor(() => expect(screen.getAllByLabelText('Delete note')).toHaveLength(2));
+    await waitFor(() => expect(screen.getAllByLabelText(/^Delete note:/)).toHaveLength(2));
   });
 
   it('does not render a javascript: url as a link', async () => {
@@ -83,7 +83,7 @@ describe('EventNotes', () => {
     mockFetch('member');
     renderIt({ groupId: 'group-1' });
     await screen.findByText('Venue site');
-    fireEvent.click(screen.getByLabelText('Edit note'));
+    fireEvent.click(screen.getByLabelText(/^Edit note:/));
     fireEvent.change(screen.getByLabelText('Edit note title'), { target: { value: 'Renamed' } });
     (global.fetch as jest.Mock).mockImplementationOnce(() =>
       Promise.resolve({ ok: true, json: async () => ({ success: true, data: { ...notes[0], title: 'Renamed' } }) })
@@ -100,7 +100,7 @@ describe('EventNotes', () => {
     renderIt({ groupId: 'group-1' });
     await screen.findByText('Venue site');
     (global.fetch as jest.Mock).mockImplementationOnce(() => Promise.resolve({ ok: true, json: async () => ({ success: true }) }));
-    fireEvent.click(screen.getByLabelText('Delete note'));
+    fireEvent.click(screen.getByLabelText(/^Delete note:/));
     await waitFor(() => expect(screen.queryByText('Venue site')).not.toBeInTheDocument());
     const call = (global.fetch as jest.Mock).mock.calls.find(([, init]) => init?.method === 'DELETE');
     expect(call[0]).toBe('/api/groups/group-1/events/event-1/notes/n1');
@@ -113,7 +113,7 @@ describe('EventNotes', () => {
     (global.fetch as jest.Mock).mockImplementationOnce(() =>
       Promise.resolve({ ok: false, json: async () => ({ success: false, error: 'nope' }) })
     );
-    fireEvent.click(screen.getByLabelText('Delete note'));
+    fireEvent.click(screen.getByLabelText(/^Delete note:/));
     await waitFor(() => expect(screen.getByText('Venue site')).toBeInTheDocument());
   });
 
@@ -130,7 +130,7 @@ describe('EventNotes', () => {
     renderIt({ publicToken: 'a'.repeat(64) });
     expect(await screen.findByRole('link', { name: 'https://venue.example.com' })).toBeInTheDocument();
     expect(screen.queryByLabelText('New note title')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Edit note')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/^Edit note:/)).not.toBeInTheDocument();
     expect((global.fetch as jest.Mock).mock.calls[0][0]).toBe(`/api/events/public/${'a'.repeat(64)}/notes`);
   });
 });

@@ -103,6 +103,7 @@ describe('eventNotesService', () => {
 
   describe('updateEventNote / deleteEventNote', () => {
     it('lets the author update', async () => {
+      eventFound();
       client.query.mockResolvedValueOnce({ rows: [{ created_by: 'u1' }] });
       (getUserGroupRole as jest.Mock).mockResolvedValue('member');
       client.query.mockResolvedValueOnce({ rows: [{ id: 'n1', title: 'New' }] });
@@ -125,25 +126,38 @@ describe('eventNotesService', () => {
     });
 
     it('looks the note up by [noteId, eventId, groupId]; zero rows is NOT_FOUND with no write', async () => {
-      client.query.mockResolvedValue({ rows: [] });
+      eventFound();
+      client.query.mockResolvedValueOnce({ rows: [] });
+      eventFound();
+      client.query.mockResolvedValueOnce({ rows: [] });
       const u = await updateEventNote('e1', 'g1', 'n1', 'u1', { title: 'X' });
       const d = await deleteEventNote('e1', 'g1', 'n1', 'u1');
       expect(u.errorCode).toBe('NOT_FOUND');
       expect(d.errorCode).toBe('NOT_FOUND');
-      expect(client.query).toHaveBeenCalledTimes(2);
-      for (const [sql, params] of client.query.mock.calls) {
+      expect(client.query).toHaveBeenCalledTimes(4);
+      for (const [sql, params] of [client.query.mock.calls[1], client.query.mock.calls[3]]) {
         expect(params).toEqual(['n1', 'e1', 'g1']);
         expect(String(sql)).toContain('event_id');
         expect(String(sql)).toContain('group_id');
       }
     });
 
+    it('returns EVENT_NOT_FOUND for a missing or soft-deleted event, with no note lookup', async () => {
+      client.query.mockResolvedValue({ rows: [] });
+      const u = await updateEventNote('e1', 'g1', 'n1', 'u1', { title: 'X' });
+      const d = await deleteEventNote('e1', 'g1', 'n1', 'u1');
+      expect(u.error).toBe('EVENT_NOT_FOUND');
+      expect(d.error).toBe('EVENT_NOT_FOUND');
+      expect(client.query).toHaveBeenCalledTimes(2);
+    });
+
     it('builds the UPDATE from provided fields only', async () => {
+      eventFound();
       client.query.mockResolvedValueOnce({ rows: [{ created_by: 'u1' }] });
       (getUserGroupRole as jest.Mock).mockResolvedValue('member');
       client.query.mockResolvedValueOnce({ rows: [{ id: 'n1' }] });
       await updateEventNote('e1', 'g1', 'n1', 'u1', { title: 'New', url: null });
-      const [sql, params] = client.query.mock.calls[1];
+      const [sql, params] = client.query.mock.calls[2];
       expect(String(sql)).toContain('SET updated_at = NOW(), title = $1, url = $2 WHERE id = $3');
       expect(String(sql)).not.toContain('body =');
       expect(params).toEqual(['New', null, 'n1']);
@@ -151,10 +165,12 @@ describe('eventNotesService', () => {
 
     it('returns NOTE_NOT_FOUND when the row vanishes before UPDATE or DELETE', async () => {
       (getUserGroupRole as jest.Mock).mockResolvedValue('member');
+      eventFound();
       client.query.mockResolvedValueOnce({ rows: [{ created_by: 'u1' }] }).mockResolvedValueOnce({ rows: [] });
       const u = await updateEventNote('e1', 'g1', 'n1', 'u1', { title: 'X' });
       expect(u.success).toBe(false);
       expect(u.error).toBe('NOTE_NOT_FOUND');
+      eventFound();
       client.query.mockResolvedValueOnce({ rows: [{ created_by: 'u1' }] }).mockResolvedValueOnce({ rows: [] });
       const d = await deleteEventNote('e1', 'g1', 'n1', 'u1');
       expect(d.success).toBe(false);
@@ -162,10 +178,12 @@ describe('eventNotesService', () => {
     });
 
     it('rejects a bad URL on update and NOT_FOUND for a missing note', async () => {
+      eventFound();
       client.query.mockResolvedValueOnce({ rows: [{ created_by: 'u1' }] });
       (getUserGroupRole as jest.Mock).mockResolvedValue('member');
       expect((await updateEventNote('e1', 'g1', 'n1', 'u1', { url: 'javascript:1' })).errorCode).toBe('VALIDATION_ERROR');
 
+      eventFound();
       client.query.mockResolvedValueOnce({ rows: [] });
       expect((await deleteEventNote('e1', 'g1', 'nx', 'u1')).errorCode).toBe('NOT_FOUND');
     });

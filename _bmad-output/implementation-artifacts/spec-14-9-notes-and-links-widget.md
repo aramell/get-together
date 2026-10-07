@@ -65,6 +65,23 @@ context:
 - Given a member adds an entry with a link, when the page refreshes, then members and guests both see it and the link opens safely.
 - Given an admin hides the widget in customize mode, when guests load the public link, then it is absent.
 
+### Review Findings
+
+- [x] [Review][Patch] Notes route 500 responses leak raw DB/driver error text (medium) — `noteErrorResponse` returns `result.error` (the service's `e?.message`) on the 500 path; sibling handlers (`itemCommentHandlers.ts`) return a generic 'Internal server error'. Return a generic message, keep detail in the server log. [lib/api/notesRouteHelpers.ts:15]
+- [x] [Review][Patch] Route tests don't pin service call arguments (low) — both notes route test files auto-mock `eventNotesService` and assert only status codes; dropping `url`/`body` forwarding or swapping `eventId`/`groupId` would still pass. Add `toHaveBeenCalledWith` on the success cases. [app/api/groups/[groupId]/events/[eventId]/notes/__tests__/route.test.ts, .../notes/[noteId]/__tests__/route.test.ts]
+- [x] [Review][Patch] `updateEventNote` / `deleteEventNote` skip `verifyEventInGroup` (low) — notes on a soft-deleted event stay editable/deletable by the author or an admin via the API; the triage-log claim "unreachable" holds for list/add only. [lib/services/eventNotesService.ts]
+- [x] [Review][Patch] Edit/Delete buttons share identical aria-labels on every row (low) — screen-reader users cannot tell which note a button affects; include the note title in the label. [components/groups/EventNotes.tsx]
+- [x] [Review][Defer] Migration 041 never run against a database (unverified, would be high if it fails) — deferred: run it against a dev database; `gen_random_uuid()` is already used by migration 001 and the FK targets are the tables the service queries, so the remaining risk is small. [lib/db/migrations/041_create_event_notes_table.sql]
+
+**Rejected:**
+- Public notes exposed for soft-deleted event (edge) — false: `getEventByPublicToken` filters `deleted_at IS NULL`.
+- Presets/event overrides untested with `notes` (blind) — false: `layout()` builds from `DEFAULT_WIDGET_ORDER` and appends hidden keys, so presets include `notes` automatically.
+- PATCH route skips title type check (edge) — false: `normalizeFields` rejects non-string titles with 400 INVALID_TITLE.
+- Double-click delete restores a deleted row (blind, edge) — false in practice: the optimistic update removes the button before a second click can land; the stale-snapshot rollback needs overlapping requests (low, rejected, already in triage log).
+- Role effect omits `userId` (edge) — low, rejected: login sets `userId` and `accessToken` together and the refresh path sets them in one batch, so the race is unlikely.
+- Add on cancelled event; non-member 404 vs 403; fetch failure shows empty state; stale 5-widget clients; body length before trim; edit of vanished note; silent role-fetch failure; delete confirmation / Enter-to-submit / invalid-URL message; TOCTOU; unused `requestLogin`; redundant `group_id`; RLS-without-policies; missing extra tests (blind, edge, acceptance, verification-gap) — low, rejected: unlikely in everyday use and each fix adds guards, states or branches; most already in the triage log.
+- Spec `status: done` vs sprint-status `review` (blind) — rejected: the fix edits the spec.
+
 ## Implementation Notes
 
 Implemented by a subagent from this spec; nine review patches applied (JSON 400s, vanished-row handling, guest payload without `created_by`, double-submit guard, URL credential rejection, input limits, stable ordering, service/UI test gaps). Migration 041 not run against a database. Guests stay read-only after login and notes do not poll; body/URL caps (5000/2000) were an implementation choice. Verification: tsc errors unchanged at 706; targeted suites pass (16 suites, 164 tests); lint adds only existing-style `no-explicit-any`, `require()` in tests and setState-in-effect.

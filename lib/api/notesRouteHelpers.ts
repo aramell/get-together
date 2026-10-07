@@ -12,7 +12,7 @@ export function noteErrorResponse(result: { error?: string; message?: string; er
   return NextResponse.json(
     {
       success: false,
-      error: status === 500 ? result.error || result.message || 'Internal error' : result.message || result.error,
+      error: status === 500 ? 'Internal server error' : result.message || result.error,
       errorCode: status === 500 ? 'INTERNAL_ERROR' : result.errorCode,
     },
     { status }

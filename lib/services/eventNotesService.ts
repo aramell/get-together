@@ -183,6 +183,9 @@ export async function updateEventNote(
 ): Promise<ServiceResult<EventNote>> {
   const client = await getClient();
   try {
+    if (!(await verifyEventInGroup(client, eventId, groupId))) {
+      return notFound('Event not found', 'EVENT_NOT_FOUND');
+    }
     const existing = await client.query(
       'SELECT created_by FROM event_notes WHERE id = $1 AND event_id = $2 AND group_id = $3',
       [noteId, eventId, groupId]
@@ -232,6 +235,9 @@ export async function deleteEventNote(
 ): Promise<ServiceResult<null>> {
   const client = await getClient();
   try {
+    if (!(await verifyEventInGroup(client, eventId, groupId))) {
+      return notFound('Event not found', 'EVENT_NOT_FOUND');
+    }
     const existing = await client.query(
       'SELECT created_by FROM event_notes WHERE id = $1 AND event_id = $2 AND group_id = $3',
       [noteId, eventId, groupId]

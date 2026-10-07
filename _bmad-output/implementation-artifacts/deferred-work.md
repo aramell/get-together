@@ -70,3 +70,7 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-14-6-configurable-logistics-categories-labels.md`
   summary: Malformed JSON or null body on the logistics-categories PATCH returns 500 instead of 400.
   evidence: Same behavior exists in the other group routes; pre-existing pattern, found in 14.6 review.
+
+## Deferred from: code review of spec-14-9-notes-and-links-widget (2026-10-07)
+
+- Migration 041 (event_notes) was never run against a database. Unverified severity: high if it fails. Settle by applying it to a dev database. gen_random_uuid() is already used by migration 001.
