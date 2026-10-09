@@ -22,12 +22,13 @@ import {
 } from '@chakra-ui/react';
 import { FiMessageSquare } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
+import { CommentItemType } from '@/lib/validation/commentSchema';
 import { ItemCommentSection, ItemComment } from './ItemCommentSection';
 
 export interface ItemCommentPopoverProps {
   // Generic: one popover serves every commentable item type.
   itemId: string;
-  itemType: 'checklist' | 'logistics' | 'timeline' | 'poll';
+  itemType: CommentItemType;
   // Human label used in accessible names, e.g. the checklist item title.
   itemLabel?: string;
   fetchCommentsUrl: string;

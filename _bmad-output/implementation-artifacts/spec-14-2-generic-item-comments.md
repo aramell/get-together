@@ -100,3 +100,29 @@ The epic's open item (were 034/035 applied to production?) is handled by the mig
 - `npx tsc --noEmit` -- expected: error count not above baseline (706 pre-existing)
 - `npx jest --testPathPattern "comment|Comment|checklist|logistics|publicPlanning"` -- expected: all pass
 - `npm run lint` -- expected: no new errors
+
+### Review Findings
+
+Code review 2026-10-09 of commit `f80f5c1` (diff `ebc16cc..f80f5c1`), four layers: Blind Hunter, Edge Case Hunter, Verification Gap, Acceptance Auditor. No acceptance criterion is violated in a way that breaks behavior; AC3 (the data migration) was never run.
+
+- [x] [Review][Patch] Public planning `comment_count` subqueries for checklist and logistics now read `item_comments` filtered by `item_type`, but only the timeline and poll SQL is asserted. Add `FROM item_comments` and `item_type = 'checklist'` / `'logistics'` assertions beside the existing ones [`__tests__/services/publicPlanningService.test.ts:176`, `lib/services/publicPlanningService.ts:124-150`]
+- [x] [Review][Patch] `ItemCommentPopoverProps.itemType` hand-writes `'checklist' | 'logistics' | 'timeline' | 'poll'` instead of using the shared `CommentItemType`, so the two can drift [`components/groups/ItemCommentPopover.tsx:30`]
+- [x] [Review][Defer] Migration 037 has only source-text tests and was never run against Postgres; it copies rows then drops `checklist_comments` / `logistics_comments` — deferred: needs a database to verify (unverified severity: high if the copy is wrong). Settle by running it on a dev database seeded with 034/035 comments and comparing row counts before and after.
+
+#### Rejected
+
+- `false` Migration silently loses comments whose item is missing or whose id conflicts: 034/035 declare `REFERENCES event_checklist_items / event_logistics_items ON DELETE CASCADE`, so an orphan comment cannot exist, and `item_comments` is new so ids cannot conflict.
+- `false` Migration errors if the item tables are missing: those tables are created by earlier migrations that 034/035 themselves depend on via FK.
+- `false` Timeline/poll item types give a 500 and "Item item not found": all four types are now registered in `COMMENTABLE_ITEM_TABLES` (14.3/14.4) and the public service has per-type not-found messages.
+- `false` Deleted comment reported as an edit conflict: the 409 text is "Comment was deleted or edited by another user", which covers both.
+- `false` Update/delete can touch another item's comment: `authorize()` loads the comment and checks group, `item_type` and `item_id` against the URL before either runs.
+- `false` Orphaned comments from other delete paths: the only `DELETE FROM event_checklist_items / event_logistics_items` statements are the two service deletes that now remove comments first; event and group deletes cascade via `event_id` / `group_id`.
+- `false` Nested `BEGIN` risk: each service call takes its own pooled client.
+- `low` Non-UUID `itemId` on GET returns 500: unchanged from before (the old `getChecklistItemInEvent` did the same).
+- `low` `ROLLBACK` failure masks the original error: outer catch already logs and returns a failure result; rare and the same pattern as elsewhere.
+- `low` Delete of an already-deleted comment returns success: idempotent and harmless.
+- `low` Index doesn't cover the item-delete `DELETE`: runs on rare item deletes against a small table.
+- `low` `queryOne<any>` typing, hand-rolled PATCH length check, duplicated 2000 limit, `ITEM_TYPE_LABELS` duplication, stale `cc`/`lc` aliases and doc names: no concrete harm, fixes add churn.
+- `low` Public lookup now also requires `group_id` and malformed-`itemId` message text changed: stricter only for rows that should not exist; status and error code unchanged.
+- `low` No assertion that the public service passes `event.group_id`: covered at the query level; low value.
+- Spec bookkeeping (unchecked Tests task, `done` vs `review`, `last_updated` moving backward, Code Map line numbers, AC4 wording): fix is to edit the spec under review or historical; rejected.

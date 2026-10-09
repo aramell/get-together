@@ -41,7 +41,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: "2026-08-31"
-last_updated: "10-07-2026 14:40"
+last_updated: "10-09-2026 12:00"
 project: get-together
 project_key: NOKEY
 tracking_system: file-system
@@ -182,11 +182,12 @@ development_status:
   epic-13-retrospective: optional
 
   # EPIC 14: Flexible Event Dashboard (added by sprint change proposal 2026-10-06, see
-  # epics.md and planning-artifacts/sprint-change-proposal-2026-10-06.md. Blocked on the
-  # Epic 14 architecture addendum; supersedes Decisions 13a and 13b.)
+  # epics.md and planning-artifacts/sprint-change-proposal-2026-10-06.md. Stories built on
+  # [ASSUMPTION] decisions; the Epic 14 architecture addendum is still pending. Supersedes
+  # Decisions 13a and 13b.)
   epic-14: in-progress
-  14-1-widget-registry: review
-  14-2-generic-item-comments: review
+  14-1-widget-registry: done
+  14-2-generic-item-comments: done
   14-3-comments-on-timeline-items: review
   14-4-comments-on-polls: review
   14-5-per-event-layout: review

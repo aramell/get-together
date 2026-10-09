@@ -80,3 +80,12 @@
 - Deploy order for Story 14.7: group queries select `groups.default_event_type`, so migration 040 must be applied before this code is deployed or every group read and write fails. Check whether 040 has been applied to production.
 - `__tests__/components/CreateEventModal.test.tsx` submit tests assert on a mocked `createEvent` while the modal submits via `fetch` (19 of 32 tests fail). Pre-existing, not touched by 14.7.
 
+
+## Deferred from: code review of spec-14-1-widget-registry (2026-10-09)
+
+- `publicView` and `commentable` registry flags have no consumer; `PublicEventPlanning` renders every renderer entry, so a future widget with `publicView: false` would reach guests. Fix when the first non-public widget is added.
+- Confirm migrations 033-036 are applied to production before deploying Epic 14 code. Migration 036 was never run against Postgres (AC3 unverified). Unverified severity: high if the CHECK drop fails. Settle by applying it to a dev database and inserting a key outside the old set and a position above 5.
+
+## Deferred from: code review of spec-14-2-generic-item-comments (2026-10-09)
+
+- Migration 037 (item_comments) has only source-text tests and was never run against a database; it drops `checklist_comments` and `logistics_comments` after copying. Unverified severity: high if the copy is wrong. Settle by running it on a dev database seeded with 034/035 comments and comparing row counts before and after.

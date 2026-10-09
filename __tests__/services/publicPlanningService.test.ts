@@ -172,6 +172,14 @@ describe('getPublicEventPlanning', () => {
     expect(result.data?.timeline).toEqual([
       { id: 'tl-1', item_time: '2026-09-20T14:00:00Z', title: 'Scavenger hunt', description: null, comment_count: 2 },
     ]);
+    const sqlFor = (table: string) =>
+      query.mock.calls.map((c: any[]) => String(c[0])).find((q: string) => q.includes(`FROM ${table}`));
+    const checklistSql = sqlFor('event_checklist_items');
+    expect(checklistSql).toContain('FROM item_comments');
+    expect(checklistSql).toContain("item_type = 'checklist'");
+    const logisticsSql = sqlFor('event_logistics_items');
+    expect(logisticsSql).toContain('FROM item_comments');
+    expect(logisticsSql).toContain("item_type = 'logistics'");
     const timelineSql = query.mock.calls.map((c: any[]) => String(c[0])).find((q: string) => q.includes('FROM event_timeline_items'));
     expect(timelineSql).toContain('FROM item_comments');
     expect(timelineSql).toContain("item_type = 'timeline'");
