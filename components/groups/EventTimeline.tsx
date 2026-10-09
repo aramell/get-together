@@ -363,79 +363,81 @@ export function EventTimeline({ eventId, groupId, publicToken, requestLogin }: E
         )}
         {items.map((item) => (
           <Box key={item.id} py={2} borderBottom="1px solid" borderColor="cork.100">
-            {editingId === item.id ? (
-              <VStack align="stretch" spacing={2}>
-                <Input
-                  size="sm"
-                  type="datetime-local"
-                  value={editingItemTime}
-                  onChange={(e) => setEditingItemTime(e.target.value)}
-                  aria-label="Edit timeline item time"
-                />
-                <Input
-                  size="sm"
-                  value={editingTitle}
-                  onChange={(e) => setEditingTitle(e.target.value)}
-                  aria-label="Edit timeline item title"
-                />
-                <Textarea
-                  size="sm"
-                  value={editingDescription}
-                  onChange={(e) => setEditingDescription(e.target.value)}
-                  aria-label="Edit timeline item description"
-                />
-                <HStack>
-                  <Button size="sm" onClick={() => handleSaveEdit(item.id)}>
-                    Save
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>
-                    Cancel
-                  </Button>
-                </HStack>
-              </VStack>
-            ) : (
-              <HStack spacing={3} align="start">
-                <Box flex={1}>
-                  <Text fontWeight="semibold" fontSize="sm" color="ink.600">
-                    {formatItemTime(item.item_time)}
-                  </Text>
-                  <Text color="ink.800">{item.title}</Text>
-                  {item.description && (
-                    <Text fontSize="sm" color="ink.500">
-                      {item.description}
+            <HStack spacing={3} align="start">
+              <Box flex={1}>
+                {editingId === item.id ? (
+                  <VStack align="stretch" spacing={2}>
+                    <Input
+                      size="sm"
+                      type="datetime-local"
+                      value={editingItemTime}
+                      onChange={(e) => setEditingItemTime(e.target.value)}
+                      aria-label="Edit timeline item time"
+                    />
+                    <Input
+                      size="sm"
+                      value={editingTitle}
+                      onChange={(e) => setEditingTitle(e.target.value)}
+                      aria-label="Edit timeline item title"
+                    />
+                    <Textarea
+                      size="sm"
+                      value={editingDescription}
+                      onChange={(e) => setEditingDescription(e.target.value)}
+                      aria-label="Edit timeline item description"
+                    />
+                    <HStack>
+                      <Button size="sm" onClick={() => handleSaveEdit(item.id)}>
+                        Save
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>
+                        Cancel
+                      </Button>
+                    </HStack>
+                  </VStack>
+                ) : (
+                  <>
+                    <Text fontWeight="semibold" fontSize="sm" color="ink.600">
+                      {formatItemTime(item.item_time)}
                     </Text>
-                  )}
-                </Box>
-                <ItemCommentPopover
-                  itemId={item.id}
-                  itemType="timeline"
-                  itemLabel={item.title}
-                  fetchCommentsUrl={`/api/groups/${effectiveGroupId}/events/${eventId}/timeline/${item.id}/comments`}
-                  addCommentUrl={`/api/groups/${effectiveGroupId}/events/${eventId}/timeline/${item.id}/comments`}
-                  commentCount={item.comment_count ?? 0}
-                  userRole={userRole}
-                  onCountChange={handleCommentCountChange}
-                />
-                {item.created_by === userId && (
-                  <HStack spacing={1}>
-                    <IconButton
-                      aria-label="Edit item"
-                      icon={<EditIcon />}
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleStartEdit(item)}
-                    />
-                    <IconButton
-                      aria-label="Delete item"
-                      icon={<DeleteIcon />}
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleDelete(item.id)}
-                    />
-                  </HStack>
+                    <Text color="ink.800">{item.title}</Text>
+                    {item.description && (
+                      <Text fontSize="sm" color="ink.500">
+                        {item.description}
+                      </Text>
+                    )}
+                  </>
                 )}
-              </HStack>
-            )}
+              </Box>
+              <ItemCommentPopover
+                itemId={item.id}
+                itemType="timeline"
+                itemLabel={item.title}
+                fetchCommentsUrl={`/api/groups/${effectiveGroupId}/events/${eventId}/timeline/${item.id}/comments`}
+                addCommentUrl={`/api/groups/${effectiveGroupId}/events/${eventId}/timeline/${item.id}/comments`}
+                commentCount={item.comment_count ?? 0}
+                userRole={userRole}
+                onCountChange={handleCommentCountChange}
+              />
+              {item.created_by === userId && editingId !== item.id && (
+                <HStack spacing={1}>
+                  <IconButton
+                    aria-label="Edit item"
+                    icon={<EditIcon />}
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleStartEdit(item)}
+                  />
+                  <IconButton
+                    aria-label="Delete item"
+                    icon={<DeleteIcon />}
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleDelete(item.id)}
+                  />
+                </HStack>
+              )}
+            </HStack>
           </Box>
         ))}
       </VStack>

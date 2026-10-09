@@ -251,6 +251,22 @@ describe('EventTimeline Component', () => {
       );
     });
 
+    it('keeps the comment trigger and badge mounted while the creator edits the item', async () => {
+      mockFetchSequence(commentItems as any);
+      renderWithProviders(<EventTimeline eventId="event-1" groupId="group-1" />);
+
+      await waitFor(() => expect(screen.getByText('Arrive')).toBeInTheDocument());
+      const trigger = screen.getByTestId('timeline-comment-trigger-item-1');
+      fireEvent.click(screen.getByLabelText('Edit item'));
+
+      expect(screen.getByLabelText('Edit timeline item title')).toBeInTheDocument();
+      // Same DOM node: the popover was not unmounted/remounted by entering edit mode.
+      expect(screen.getByTestId('timeline-comment-trigger-item-1')).toBe(trigger);
+      expect(screen.getByTestId('timeline-comment-count-item-1')).toHaveTextContent('3');
+      // Item edit/delete controls are hidden while editing.
+      expect(screen.queryByLabelText('Edit item')).not.toBeInTheDocument();
+    });
+
     it('passes the group admin role to the comment thread so admins can moderate others\' comments', async () => {
       const otherComment = {
         id: 'cm-1',
@@ -350,6 +366,34 @@ describe('EventTimeline Component', () => {
       await waitFor(() =>
         expect(global.fetch).toHaveBeenCalledWith(`/api/events/public/${'a'.repeat(64)}/timeline/tl-1/comments`)
       );
+    });
+
+    it('guest thread is read-only: no comment form, and "Log in to comment" calls requestLogin', async () => {
+      const requestLogin = jest.fn();
+      global.fetch = jest.fn((url: string) => {
+        if (typeof url === 'string' && url.includes('/planning')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              success: true,
+              data: { timeline: [{ ...guestTimeline[0], comment_count: 0 }] },
+            }),
+          });
+        }
+        return Promise.resolve({ ok: true, json: async () => ({ success: true, data: [] }) });
+      }) as unknown as typeof fetch;
+      renderWithProviders(
+        <EventTimeline eventId="event-1" publicToken={'a'.repeat(64)} requestLogin={requestLogin} />
+      );
+
+      await waitFor(() => expect(screen.getByText('Scavenger hunt')).toBeInTheDocument());
+      fireEvent.click(screen.getByTestId('timeline-comment-trigger-tl-1'));
+      fireEvent.click(await screen.findByRole('button', { name: /view comments/i }));
+
+      const login = await screen.findByRole('button', { name: /log in to comment/i });
+      expect(screen.queryByLabelText('Comment input')).not.toBeInTheDocument();
+      fireEvent.click(login);
+      expect(requestLogin).toHaveBeenCalledTimes(1);
     });
   });
 });

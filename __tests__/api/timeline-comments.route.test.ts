@@ -126,6 +126,9 @@ describe('POST timeline comments', () => {
     expect(userLookup[0]).toContain('WHERE id = $1');
     expect(userLookup[0]).not.toContain('sub');
     expect(userLookup[1]).toEqual(['user-1']);
+    const insert = queryOne.mock.calls.find((c) => (c[0] as string).includes('INSERT INTO item_comments'))!;
+    // [item_type, item_id, event_id, group_id, created_by, content]
+    expect(insert[1]).toEqual(['timeline', ITEM, EVENT, GROUP, 'user-1', 'hi']);
   });
 });
 
@@ -162,6 +165,8 @@ describe('PATCH/DELETE timeline comment', () => {
     const body = await res.json();
     expect(res.status).toBe(200);
     expect(body.data.content).toBe('new');
+    const update = queryOne.mock.calls.find((c) => (c[0] as string).includes('UPDATE item_comments'))!;
+    expect(update[1]).toEqual([COMMENT, 'new']);
   });
 
   it('lets an admin delete another member\'s comment (soft delete)', async () => {
