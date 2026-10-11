@@ -29,7 +29,7 @@ interface DashboardWidgetCustomizerProps {
 
 /**
  * Customize-mode controls for the Dashboard's per-group widget layout
- * (Story 13.4). Lists all 5 widgets, visible or hidden, so a hidden one can
+ * (Story 13.4). Lists every registry widget, visible or hidden, so a hidden one can
  * still be found and re-shown -- unlike the Dashboard itself, which never
  * renders a hidden widget's card for anyone. Move-up/move-down + show/hide
  * are optimistic for the acting member, reverting the whole layout array on

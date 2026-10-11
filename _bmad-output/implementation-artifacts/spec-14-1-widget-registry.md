@@ -102,3 +102,48 @@ The Epic 14 architecture addendum (decisions 14a-14e) is still pending the archi
 - `npx tsc --noEmit` -- expected: no type errors
 - `npx jest __tests__/services/dashboardWidgetsService.test.ts __tests__/components app/api --testPathPattern "dashboard|Widget|EventPlanning|EventDetail"` -- expected: all pass
 - `npm run lint` -- expected: no new errors
+
+### Review Findings
+
+Code review 2026-10-09 of commit `ebc16cc` (diff `289ebcd..ebc16cc`), four layers: Blind Hunter, Edge Case Hunter, Verification Gap, Acceptance Auditor. All four ACs hold in code; AC3 (the migration) was never run.
+
+- [x] [Review][Patch] `updateWidgetLayout` returns `reconcileWithRegistry(result.rows)` but no test pins it; the success test mocks an already-valid layout, so reverting the reconcile still passes. Add a case whose final SELECT includes a retired key and expects a reconciled full layout [`__tests__/services/dashboardWidgetsService.test.ts`, `lib/services/dashboardWidgetsService.ts:138`]
+- [x] [Review][Patch] Stale "5 widgets" doc comment left in the group dashboard-widgets route (Code Map item not done) [`app/api/groups/[groupId]/dashboard-widgets/route.ts:9`]
+- [x] [Review][Patch] Stale "Blocked on the Epic 14 architecture addendum" comment in sprint tracking while Epic 14 is `in-progress` and all stories are built [`sprint-status.yaml:185`]
+- [x] [Review][Defer] `publicView` (and `commentable`) flag has no consumer; a future widget with `publicView: false` would still render for guests in `PublicEventPlanning` [`lib/dashboard/widgetRegistry.ts`] — deferred: already in the spec's triage log; fix when the first non-public widget is added
+- [x] [Review][Defer] Open item from `epic-14-context.md` has no owner: confirm migrations 033-035 (and now 036) are applied to production before this code deploys — deferred: needs a human with production access; migration 036 has never been run, so AC3 is unverified (unverified severity: high if the CHECK-drop fails)
+
+#### Rejected
+
+- `false` Duplicate `widget_key` rows break `reconcileWithRegistry`: migration 033 has `UNIQUE(group_id, widget_key)`, so duplicates cannot exist.
+- `false` `visible` null/undefined in stored rows: the column is `BOOLEAN NOT NULL DEFAULT true`.
+- `false` Renumbered layout collides with a hidden stale row on a position UNIQUE: no UNIQUE exists on position, only on `(group_id, widget_key)`.
+- `false` Migration `ILIKE` could drop an unrelated CHECK: 033 is the only migration defining CHECKs on this table (grep of all migrations), and it has exactly the two.
+- `false` `WIDGET_RENDERERS[key]` undefined crashes the dashboard: layouts are always reconciled/validated to registry keys first.
+- `false` Customizer `getWidgetDefinition(...)!` throws on an unknown key: the key is typed `WidgetKey` and layouts are reconciled.
+- `false` Registry tests break when a widget is added: tests pass at HEAD after 14.9 added a sixth widget.
+- `low` Stale tab rejects polled layouts after a deploy adds a widget: self-heals on reload; a tolerant validator adds branching for a rare window.
+- `low` `ALTER COLUMN TYPE` lock / no `lock_timeout`: tiny table, one-time migration.
+- `low` Migration widens `widget_key` to VARCHAR(50): disclosed in Implementation Notes and harmless.
+- `low` Stale client gets generic 400 instead of a distinct 409: adds a new error contract for a rare case.
+- `low` `WidgetRendererProps` all-optional: props were already optional on the widgets before this change (see Triage Log).
+- `low` Shim re-export and two import paths for registry: blurs nothing observable; shim is temporary.
+- `low` Stricter client validator and changed "missing widget" error text: disclosed, covered by server reconcile.
+- Spec bookkeeping (Tests task unchecked, status/I-O matrix/"behavior-preserving" wording, `tsc` 706 baseline): fix is to edit the spec under review; rejected.
+
+#### Second pass (2026-10-11, uncommitted review-patch diff)
+
+Four layers reviewed the uncommitted diff that applies the patches above. 0 decision-needed, 2 patch, 0 new defer, 7 rejected.
+
+- [x] [Review][Patch] New reconcile test asserts only length, positions, no retired key and `data[0]`; it does not pin the gap-filled entries (`visible: true`, registry order). Replace with a full `toEqual` of the expected layout [`__tests__/services/dashboardWidgetsService.test.ts:155-162`]
+- [x] [Review][Patch] Stale "5 widgets" wording remains (registry has 6): customizer doc comment, test title, route-test error string [`components/groups/DashboardWidgetCustomizer.tsx:32`, `__tests__/services/dashboardWidgetsService.test.ts:175`, `app/api/groups/[groupId]/dashboard-widgets/__tests__/route.test.ts:111`]
+
+##### Rejected (second pass)
+
+- `false` Sprint-status comment patch is "checked but not in the diff": `sprint-status.yaml` is unmodified and no longer contains "Blocked on the Epic 14"; it was already gone at HEAD.
+- `low` once-value queue could leak between tests (`clearAllMocks` keeps once-queues): the new test consumes exactly the values it queues; no leak shown. A guard adds config.
+- `low` out-of-order stored positions untested: not reachable by a demonstrated failure; the fix is a new test case.
+- `low` final SELECT after COMMIT not asserted: queue-order mocks; marginal.
+- Spec bookkeeping (Tests task unchecked, circular "rejected" wording, `tsc` baseline, shim removal condition, "Same five widgets" wording): fix edits the spec under review.
+- AC3 migration 036 never run, no owner: already recorded as a deferral in the first pass above and in `deferred-work.md`; not re-filed.
+- `false` `publicView`/`commentable` have no consumer: already deferred above.

@@ -137,6 +137,37 @@ describe('dashboardWidgetsService', () => {
       expect(mockClient.release).toHaveBeenCalled();
     });
 
+    it('returns the layout reconciled with the registry (drops retired keys, fills gaps)', async () => {
+      (getUserGroupRole as jest.Mock).mockResolvedValueOnce('member');
+      mockClient.query.mockResolvedValueOnce({ rows: [] }); // BEGIN
+      for (let i = 0; i < validLayout.length; i++) {
+        mockClient.query.mockResolvedValueOnce({ rows: [] }); // each upsert
+      }
+      mockClient.query.mockResolvedValueOnce({ rows: [] }); // COMMIT
+      // Stale DB state: a retired key plus only some registry widgets
+      mockClient.query.mockResolvedValueOnce({
+        rows: [
+          { widget_key: 'retired', position: 1, visible: true },
+          { widget_key: validLayout[1].widget_key, position: 2, visible: false },
+        ],
+      });
+
+      const result = await updateWidgetLayout('group-1', 'member-user', validLayout);
+
+      expect(result.success).toBe(true);
+      // Stored row first (visible:false preserved), then missing registry widgets
+      // appended in registry order, visible by default, positions renumbered.
+      const kept = validLayout[1].widget_key;
+      const expected = [
+        { widget_key: kept, position: 1, visible: false },
+        ...validLayout
+          .filter((w) => w.widget_key !== kept)
+          .map((w, i) => ({ widget_key: w.widget_key, position: i + 2, visible: true })),
+      ];
+      expect(result.data).toEqual(expected);
+      expect(validateWidgetLayout(result.data)).toBeNull();
+    });
+
     it('rejects an unknown widget_key with VALIDATION_ERROR', async () => {
       (getUserGroupRole as jest.Mock).mockResolvedValueOnce('member');
       const badLayout = validLayout.map((w, i) => (i === 0 ? { ...w, widget_key: 'not-a-widget' as any } : w));
@@ -147,7 +178,7 @@ describe('dashboardWidgetsService', () => {
       expect(result.errorCode).toBe('VALIDATION_ERROR');
     });
 
-    it('rejects a payload missing one of the 5 widgets', async () => {
+    it('rejects a payload missing one of the registry widgets', async () => {
       (getUserGroupRole as jest.Mock).mockResolvedValueOnce('member');
       const shortLayout = validLayout.slice(0, 4);
 

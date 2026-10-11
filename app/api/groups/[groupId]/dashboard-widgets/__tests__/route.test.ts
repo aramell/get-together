@@ -108,7 +108,7 @@ describe('PATCH /api/groups/:groupId/dashboard-widgets', () => {
     (authLib.getUserIdFromBearerToken as jest.Mock).mockResolvedValue('user-1');
     (dashboardWidgetsService.updateWidgetLayout as jest.Mock).mockResolvedValue({
       success: false,
-      error: 'All 5 widgets must be present',
+      error: 'All registry widgets must be present',
       errorCode: 'VALIDATION_ERROR',
     });
 

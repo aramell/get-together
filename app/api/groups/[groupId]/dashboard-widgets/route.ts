@@ -5,8 +5,8 @@ import { getUserIdFromBearerToken } from '@/lib/api/auth';
 
 /**
  * GET /api/groups/:groupId/dashboard-widgets
- * Current per-group dashboard widget layout (position + visibility for all
- * 5 widgets). Requires group membership (any role) -- reuses the "any
+ * Current per-group dashboard widget layout (position + visibility for every
+ * registry widget). Requires group membership (any role) -- reuses the "any
  * member" getUserGroupRole idiom, not Story 2.8's admin-only pattern.
  */
 export async function GET(
