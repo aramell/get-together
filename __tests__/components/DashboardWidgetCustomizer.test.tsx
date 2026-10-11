@@ -252,5 +252,33 @@ describe('DashboardWidgetCustomizer', () => {
       await waitFor(() => expect(screen.getByLabelText('Show Polls')).toBeInTheDocument());
       expect(screen.getByLabelText('Hide Photos')).toBeInTheDocument();
     });
+
+    it('reverts a failed group-scope save into the group layout, leaving the event layout untouched', async () => {
+      const eventLayout = defaultWidgetLayout().map((w) =>
+        w.widget_key === 'polls' ? { ...w, visible: false } : w
+      );
+      global.fetch = jest.fn((url: string, options?: any) =>
+        options?.method === 'PATCH'
+          ? Promise.resolve({ ok: false, json: async () => ({ success: false, error: 'Server error' }) })
+          : okResponse(defaultWidgetLayout())
+      ) as unknown as typeof fetch;
+      render(<Harness customized initialLayout={eventLayout} />);
+
+      fireEvent.click(screen.getByLabelText('All events in this group'));
+      await waitFor(() => expect(screen.getByLabelText('Hide Polls')).toBeInTheDocument());
+
+      fireEvent.click(screen.getByLabelText('Hide Photos'));
+      await waitFor(() => expect(screen.getByText('Hidden')).toBeInTheDocument());
+
+      // The group list reverts (Photos visible again) and the error is shown.
+      await waitFor(() => expect(screen.getByText('Server error')).toBeInTheDocument());
+      expect(screen.queryByText('Hidden')).not.toBeInTheDocument();
+      expect(screen.getByLabelText('Hide Photos')).toBeInTheDocument();
+
+      // The event layout was not overwritten by the revert (Polls still hidden).
+      fireEvent.click(screen.getByLabelText('This event only'));
+      await waitFor(() => expect(screen.getByLabelText('Show Polls')).toBeInTheDocument());
+      expect(screen.getByLabelText('Hide Photos')).toBeInTheDocument();
+    });
   });
 });

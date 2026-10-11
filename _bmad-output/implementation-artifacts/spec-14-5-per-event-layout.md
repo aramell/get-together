@@ -102,3 +102,27 @@ Implemented by a subagent from this spec. Beyond the Code Map: `getEventWidgetLa
 - `npx tsc --noEmit` -- expected: error count not above baseline (706 pre-existing)
 - `npx jest --testPathPattern "dashboard|Dashboard|EventPlanningTab|PublicEventPlanning|widgetRegistry"` -- expected: all pass
 - `npm run lint` -- expected: no new errors
+
+### Review Findings
+
+Code review of commit 4f6c10d (2026-10-11). Layers: Blind Hunter, Edge Case Hunter, Verification Gap Reviewer, Acceptance Auditor. No acceptance-criteria violations and no frozen-block contradictions.
+
+- [x] [Review][Patch] No test fails a save while editing the group layout on a customized event [__tests__/components/DashboardWidgetCustomizer.test.tsx] — the `saveLayout` catch reverts via `setLayout` (`setGroupLayout` in "All events" scope on a customized event). Swapping it back to `onLayoutChange` would overwrite the event's own layout with the group layout and no test would fail. Add a test: render `<Harness customized initialLayout={eventLayout}/>`, switch to "All events in this group", make the PATCH fail, assert the group list reverts and the event layout is unchanged after switching back to "This event only".
+- [x] [Review][Defer] Event SQL and migration 038 never run against Postgres [lib/services/dashboardWidgetsService.ts, lib/db/migrations/038_create_event_dashboard_widgets_table.sql] — deferred: every service test mocks `getClient`. Unverified severity: high if a column name, the `ON CONFLICT (event_id, widget_key)` target or `event_proposals.deleted_at` is wrong. Settle by applying 038 to a dev database and exercising GET, PATCH and DELETE on the event route.
+- [x] [Review][Defer] Event route returns raw DB `error.message` in 500s and a malformed PATCH body yields 500 instead of 400 [app/api/groups/[groupId]/events/[eventId]/dashboard-widgets/route.ts] — deferred: same pattern as the existing group route, not introduced by this story's design.
+
+#### Rejected
+
+- Scope state does not follow `customized` after reset or remote change (Blind, Edge, Auditor) — low: the radio still visibly reads "This event only", so the next edit creating an override matches what the UI says. Fix adds an effect.
+- Group-scope list is empty while loading or after a failed fetch, no retry (Blind, Edge, Auditor) — low: a toast is shown, and edits on the empty list fail validation and revert. Polish.
+- Failed save reverts into the wrong layout if the user switches scope mid-save (Edge) — false: each branch's captured setter targets state that is reset or refetched on scope switch.
+- Reset clears `isSavingRef` early / stale in-flight poll re-applies pre-reset layout (Edge, Blind) — low: the poll corrects within ~5s; same save-vs-poll pattern the customizer already has.
+- Reset button has no pending or disabled state, no confirmation, focus lost after reset (Edge, Blind) — low: DELETE is idempotent; polish.
+- Non-JSON reset response gives a cryptic toast (Edge) — low: same pattern as the other fetches in this component.
+- Post-COMMIT SELECT failure, spurious ROLLBACK, reset DELETE+SELECT not in a transaction, interleaved concurrent upserts (Edge, Blind) — low: mirrors the existing group-layout service, and the next poll self-corrects.
+- Cancelled events not checked on member edit (Blind) — low: spec is silent and the member view is not gated on status.
+- First event save is a snapshot with no link to later group changes (Blind) — rejected: this is the specified design ("first change saves the full visible layout").
+- Unique `(event_id, position)`, RLS without policy, no down script, no `updated_at` trigger, no UUID validation (Edge, Blind) — low: mirrors migration 033/036 conventions; validation is in the app layer by design.
+- `Badge colorScheme="cork"` unverified (Blind) — false: `cork` is used by the pre-existing Customizer markup.
+- `onReset` prop missing from the Customizer, status mismatch (`done` vs `review`), `--testPathPattern` typo in Verification (Auditor, Blind) — rejected: fixes edit the spec under review; behaviour matches AC2.
+- Public-route test mocks `customized`, no poll-during-reset test, identical ternary branches in a test, stale header comment, eslint-disable on deps (Auditor, Blind) — low: cosmetic or negligible.

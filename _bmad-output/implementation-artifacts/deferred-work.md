@@ -89,3 +89,8 @@
 ## Deferred from: code review of spec-14-2-generic-item-comments (2026-10-09)
 
 - Migration 037 (item_comments) has only source-text tests and was never run against a database; it drops `checklist_comments` and `logistics_comments` after copying. Unverified severity: high if the copy is wrong. Settle by running it on a dev database seeded with 034/035 comments and comparing row counts before and after.
+
+## Deferred from: code review of spec-14-5-per-event-layout (2026-10-11)
+
+- Migration 038 (`event_dashboard_widgets`) and the new event get/update/reset SQL were never run against Postgres; every service test mocks `getClient`. Unverified severity: high if a column name, the `ON CONFLICT (event_id, widget_key)` target or `event_proposals.deleted_at` is wrong. Settle by applying 038 to a dev database and exercising GET, PATCH and DELETE on `/api/groups/:groupId/events/:eventId/dashboard-widgets`.
+- The new event dashboard-widgets route returns raw DB `error.message` in 500 responses and returns 500 (not 400) for a malformed PATCH body. Same pattern as the existing group route; fix both together.
