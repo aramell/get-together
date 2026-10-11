@@ -138,6 +138,15 @@ describe('getPublicEventPlanning', () => {
           vote_count: '1',
           comment_count: '2',
         },
+        {
+          poll_id: 'poll-2',
+          question: 'Beach or lake?',
+          option_id: 'opt-3',
+          label: 'Beach',
+          display_order: 0,
+          vote_count: '0',
+          comment_count: '0',
+        },
       ]);
 
     const result = await getPublicEventPlanning(publicToken);
@@ -197,10 +206,18 @@ describe('getPublicEventPlanning', () => {
         total_votes: 4,
         comment_count: 2,
       },
+      {
+        id: 'poll-2',
+        question: 'Beach or lake?',
+        options: [{ id: 'opt-3', label: 'Beach', vote_count: 0 }],
+        total_votes: 0,
+        comment_count: 0,
+      },
     ]);
     const pollSql = query.mock.calls.map((c: any[]) => String(c[0])).find((q: string) => q.includes('FROM event_polls'));
     expect(pollSql).toContain('FROM item_comments');
     expect(pollSql).toContain("item_type = 'poll'");
+    expect(pollSql).toContain('deleted_at IS NULL');
     expect(result.data?.group_id).toBeUndefined();
 
     const serialized = JSON.stringify(result.data);

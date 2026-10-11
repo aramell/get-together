@@ -188,8 +188,7 @@ export async function getPublicEventPlanning(
       }>(
         `SELECT
            p.id AS poll_id, p.question,
-           (SELECT COUNT(*) FROM item_comments pc
-             WHERE pc.item_type = 'poll' AND pc.item_id = p.id AND pc.deleted_at IS NULL) AS comment_count,
+           COALESCE(pcc.count, 0) AS comment_count,
            o.id AS option_id, o.label, o.display_order,
            COALESCE(vc.count, 0) AS vote_count
          FROM event_polls p
@@ -197,6 +196,10 @@ export async function getPublicEventPlanning(
          LEFT JOIN (
            SELECT option_id, COUNT(*) AS count FROM event_poll_votes GROUP BY option_id
          ) vc ON vc.option_id = o.id
+         LEFT JOIN (
+           SELECT item_id, COUNT(*) AS count FROM item_comments
+           WHERE item_type = 'poll' AND deleted_at IS NULL GROUP BY item_id
+         ) pcc ON pcc.item_id = p.id
          WHERE p.event_id = $1
          ORDER BY p.created_at ASC, o.display_order ASC`,
         [event.id]

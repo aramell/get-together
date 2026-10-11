@@ -432,7 +432,7 @@ export function EventPolls({ eventId, groupId, publicToken, requestLogin }: Even
             <Box key={poll.id} p={3} borderWidth="1px" borderColor="cork.100" borderRadius="md">
               <HStack justify="space-between" mb={2}>
                 <Text fontWeight="semibold">{poll.question}</Text>
-                <HStack spacing={1}>
+                <HStack spacing={1} flexShrink={0}>
                   <ItemCommentPopover
                     itemId={poll.id}
                     itemType="poll"
