@@ -192,6 +192,7 @@ describe('getPublicEventPlanning', () => {
     const timelineSql = query.mock.calls.map((c: any[]) => String(c[0])).find((q: string) => q.includes('FROM event_timeline_items'));
     expect(timelineSql).toContain('FROM item_comments');
     expect(timelineSql).toContain("item_type = 'timeline'");
+    expect(timelineSql).toContain('deleted_at IS NULL');
     expect(result.data?.photos).toEqual([
       { id: 'photo-1', url: 'https://cdn.example.com/photo-1.jpg', caption: 'Campfire' },
     ]);

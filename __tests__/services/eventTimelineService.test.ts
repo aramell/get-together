@@ -90,6 +90,7 @@ describe('eventTimelineService', () => {
       const listSql = mockClient.query.mock.calls.map((c: any[]) => String(c[0])).find((q: string) => q.includes('comment_count'));
       expect(listSql).toContain('FROM item_comments');
       expect(listSql).toContain("item_type = 'timeline'");
+      expect(listSql).toContain('deleted_at IS NULL');
     });
 
     it('rejects a non-member', async () => {

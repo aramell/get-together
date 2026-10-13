@@ -94,3 +94,7 @@
 
 - Migration 038 (`event_dashboard_widgets`) and the new event get/update/reset SQL were never run against Postgres; every service test mocks `getClient`. Unverified severity: high if a column name, the `ON CONFLICT (event_id, widget_key)` target or `event_proposals.deleted_at` is wrong. Settle by applying 038 to a dev database and exercising GET, PATCH and DELETE on `/api/groups/:groupId/events/:eventId/dashboard-widgets`.
 - The new event dashboard-widgets route returns raw DB `error.message` in 500 responses and returns 500 (not 400) for a malformed PATCH body. Same pattern as the existing group route; fix both together.
+
+## Deferred from: code review of spec-14-3-comments-on-timeline-items (2026-10-12)
+
+- Group-scoped item-comment GET routes (timeline, checklist, logistics, poll) need no auth and return each commenter's `email` and `avatar_url` via `getItemComments` (lib/db/queries.ts). Anyone holding group, event and item UUIDs can read member emails. The guest route already limits creators to first name. Fix by requiring membership on GET or dropping `email` from the creator projection, in the shared handler so all item types change together.

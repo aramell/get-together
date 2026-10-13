@@ -89,6 +89,27 @@ Implemented directly (no subagent). `timeline` registered in `COMMENTABLE_ITEM_T
 | Duplicated public route token validation, `COUNT` coercion differences, no `encodeURIComponent`, layout/aria nits (blind) | low | reject | Mirrors the established checklist/logistics routes; changes would diverge from them. |
 | Spec Verification text calls the publicPlanningService failure pre-existing though this diff fixes it; sprint status lags (blind, gap) | low | reject | Fix would edit this build's spec; sprint status is synced in the next step. |
 
+### Review Findings
+
+Code review 2026-10-12 (Blind Hunter, Edge Case Hunter, Verification Gap, Acceptance Auditor). Acceptance Auditor: no AC or boundary violations.
+
+- [x] [Review][Patch] Assert `deleted_at IS NULL` in the `comment_count` subquery tests; dropping the filter would count soft-deleted comments and no test fails [__tests__/services/eventTimelineService.test.ts, __tests__/services/publicPlanningService.test.ts]
+- [x] [Review][Defer] Group-scoped comments GET is unauthenticated and returns commenter `email` and `avatar_url` [lib/db/queries.ts:1603, lib/api/itemCommentHandlers.ts:41] — deferred: pre-existing in the shared 14.2 handler and `getItemComments`, affects every item type. Real privacy exposure (needs only group/event/item UUIDs); worth its own story.
+
+**Rejected**
+- Client leak if `deleteTimelineItem` fails (gap): false. `client.release()` runs in the `finally` at eventTimelineService.ts:~345.
+- Orphaned comments on event/group deletion (edge, blind): false. Previously triaged: event deletion cascades via `event_id`; `deleteTimelineItem` is the only item-delete site.
+- Count badge update after post/delete untested (gap): low. Pure state update matching the tested logistics handler; already rejected in the earlier triage log.
+- `ROLLBACK` masking the original error, permission check outside the transaction (edge, blind): low. Same pattern as `deleteLogisticsItem`; the outer catch still returns INTERNAL_ERROR.
+- Role fetched once and fails silently, late admin controls (edge, blind): low. Matches `EventLogistics`; the server enforces permissions.
+- Poll overwriting optimistic counts (blind): false. The poll returns server truth, so the count converges on the next tick.
+- Non-UUID `itemId` returns 500 (edge): low. Affects all item-comment routes; already logged in deferred-work.
+- Dead guest `addCommentUrl`, `publicToken.length < 32` magic number, nested ternary (blind): low. Cosmetic; mirrors the checklist/logistics routes.
+- Brittle SQL-substring route mocks, unrestored `console.error` spy, test nits (blind): low. Test hygiene only; no demonstrated failure.
+- `poll` unmapped-type test will break at 14.4 (blind): false. The test was already updated at HEAD.
+- No spec/sprint-status update in the diff (blind): false. Both exist; sprint status is synced in step 6.
+- Non-member signed-in user sees add-comment form (auditor): low. Server returns 403 and the UI matches checklist/logistics.
+
 ## Verification
 
 **Commands:**
