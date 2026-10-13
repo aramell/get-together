@@ -70,9 +70,10 @@ describe('GET logistics comments (group-scoped)', () => {
     expect(body.totalCount).toBe(1);
     expect(body.data[0].creator).toEqual({
       display_name: 'Alice Smith',
-      email: 'a@example.com',
       avatar_url: null,
     });
+    expect(JSON.stringify(body)).not.toContain('a@example.com');
+    expect(query.mock.calls[0][0]).not.toContain('email');
     expect(body.data[0]).not.toHaveProperty('display_name');
     const sql = query.mock.calls[0][0] as string;
     expect(sql).toContain('cc.created_by = u.id');

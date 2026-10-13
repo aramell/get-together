@@ -98,3 +98,7 @@
 ## Deferred from: code review of spec-14-3-comments-on-timeline-items (2026-10-12)
 
 - Group-scoped item-comment GET routes (timeline, checklist, logistics, poll) need no auth and return each commenter's `email` and `avatar_url` via `getItemComments` (lib/db/queries.ts). Anyone holding group, event and item UUIDs can read member emails. The guest route already limits creators to first name. Fix by requiring membership on GET or dropping `email` from the creator projection, in the shared handler so all item types change together.
+
+## Deferred from: spec-item-comment-email-exposure (2026-10-13)
+
+- Event comments and wishlist comments still return the creator's `email` in their GET payloads (item comments no longer do). Same exposure class; fix separately if those routes are reachable without membership.

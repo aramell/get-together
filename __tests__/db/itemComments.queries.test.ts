@@ -59,7 +59,8 @@ describe('item comment queries', () => {
     ]);
     const { comments, totalCount } = await getItemComments('logistics', 'i1');
     expect(totalCount).toBe(1);
-    expect(comments[0].creator).toEqual({ display_name: 'A', email: 'a@x.com', avatar_url: null });
+    expect(comments[0].creator).toEqual({ display_name: 'A', avatar_url: null });
+    expect(query.mock.calls[0][0]).not.toContain('email');
     expect(query.mock.calls[0][0]).toContain('FROM item_comments');
     expect(query.mock.calls[0][1]).toEqual(['logistics', 'i1']);
   });
@@ -72,9 +73,11 @@ describe('item comment queries', () => {
   it('addItemComment inserts type, item, event and group', async () => {
     queryOne
       .mockResolvedValueOnce({ id: 'c1', content: 'hi', created_by: 'u1', created_at: 't', edited_at: null, updated_count: 0 })
-      .mockResolvedValueOnce({ display_name: 'A', email: null, avatar_url: null });
+      .mockResolvedValueOnce({ display_name: 'A', avatar_url: null });
     const c = await addItemComment('checklist', 'i1', 'e1', 'g1', 'u1', 'hi');
     expect(c.creator.display_name).toBe('A');
+    expect(c.creator).not.toHaveProperty('email');
+    expect(queryOne.mock.calls[1][0]).not.toContain('email');
     expect(queryOne.mock.calls[0][0]).toContain('INSERT INTO item_comments');
     expect(queryOne.mock.calls[0][1]).toEqual(['checklist', 'i1', 'e1', 'g1', 'u1', 'hi']);
   });

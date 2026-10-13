@@ -1545,7 +1545,6 @@ export interface ItemCommentRecord {
   updated_count: number;
   creator: {
     display_name?: string | null;
-    email?: string | null;
     avatar_url?: string | null;
   };
 }
@@ -1601,7 +1600,7 @@ export async function getItemComments(
   assertItemType(itemType);
   const rows = await query<any>(
     `SELECT cc.id, cc.content, cc.created_by, cc.created_at, cc.edited_at, cc.updated_count,
-            u.display_name, u.email, u.avatar_url
+            u.display_name, u.avatar_url
      FROM item_comments cc
      LEFT JOIN users u ON cc.created_by = u.id
      WHERE cc.item_type = $1 AND cc.item_id = $2 AND cc.deleted_at IS NULL
@@ -1618,7 +1617,6 @@ export async function getItemComments(
     updated_count: row.updated_count,
     creator: {
       display_name: row.display_name,
-      email: row.email,
       avatar_url: row.avatar_url,
     },
   }));
@@ -1651,7 +1649,7 @@ export async function addItemComment(
   }
 
   const creator = await queryOne<any>(
-    `SELECT display_name, email, avatar_url FROM users WHERE id = $1`,
+    `SELECT display_name, avatar_url FROM users WHERE id = $1`,
     [userId]
   );
 
@@ -1664,7 +1662,6 @@ export async function addItemComment(
     updated_count: inserted.updated_count,
     creator: {
       display_name: creator?.display_name,
-      email: creator?.email,
       avatar_url: creator?.avatar_url,
     },
   };

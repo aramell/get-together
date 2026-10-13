@@ -218,7 +218,7 @@ export const ItemCommentPopover: React.FC<ItemCommentPopoverProps> = ({
               {latest && count > 0 ? (
                 <Box>
                   <Text fontSize="sm" fontWeight="bold">
-                    {latest.creator?.display_name || latest.creator?.email || 'Anonymous'}
+                    {latest.creator?.display_name || 'Anonymous'}
                   </Text>
                   <Text fontSize="sm" noOfLines={3} whiteSpace="pre-wrap">
                     {latest.content}

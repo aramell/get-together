@@ -36,7 +36,6 @@ export interface ItemComment {
   updated_count?: number;
   creator?: {
     display_name?: string | null;
-    email?: string | null;
     avatar_url?: string | null;
   };
 }
@@ -225,7 +224,7 @@ export const ItemCommentSection: React.FC<ItemCommentSectionProps> = ({
                 <HStack mb={2} justify="space-between">
                   <HStack>
                     <Text fontWeight="bold" fontSize="sm">
-                      {comment.creator?.display_name || comment.creator?.email || 'Anonymous'}
+                      {comment.creator?.display_name || 'Anonymous'}
                     </Text>
                     <Text fontSize="xs" color="gray.500">
                       {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
