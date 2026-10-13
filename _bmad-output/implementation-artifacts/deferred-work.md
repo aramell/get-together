@@ -107,3 +107,7 @@
 
 - Migration 039 (`logistics_categories`) and the new category queries were never run against Postgres; its DO block drops the category CHECK and `carpool_requires_capacity` by pattern match. Unverified severity: high if the drop or the queries are wrong. Settle by applying 039 to a dev database, then exercising GET and PATCH on `/api/groups/:groupId/logistics-categories` and adding items to default and custom categories.
 
+## Update from: Epic 14 retrospective follow-up (2026-10-13)
+
+- The "migration never run against Postgres" items for 036, 037, 038, 039 and 041 (and 040's SQL) were checked on a scratch Postgres 18.1 cluster: all 44 migrations applied from empty via `scripts/migrate.js` (a re-run skipped all 44), 037 copied seeded legacy comments correctly and dropped the old tables, 036 and 039 dropped only the intended CHECKs, and the service paths for layouts, categories, comments, notes and event-type presets ran against the real tables. The earlier entries above are left as written. Still unverified: HTTP routes, UI, Supabase role and RLS setup, production data volumes, and the rule that migration 040 must be applied before the 14.7 code deploys.
+
