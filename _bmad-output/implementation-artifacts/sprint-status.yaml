@@ -45,7 +45,8 @@ last_updated: "10-13-2026 12:00"
 project: get-together
 project_key: NOKEY
 tracking_system: file-system
-story_location: /Users/andrewramell/code/get-together/_bmad-output/implementation-artifacts
+story_location: 
+  /Users/andrewramell/code/get-together/_bmad-output/implementation-artifacts
 
 development_status:
   # EPIC 1: Authentication & User Profiles
@@ -195,7 +196,7 @@ development_status:
   14-7-event-types-and-presets: done
   14-8-terminology-copy-neutralization: done
   14-9-notes-and-links-widget: done
-  epic-14-retrospective: optional
+  epic-14-retrospective: done
 
 summary:
   total_epics: 13
@@ -210,3 +211,55 @@ summary:
   stories_ready_for_dev: 0
   retrospectives_optional: 13
   retrospectives_done: 0
+action_items:
+  - id: "epic-14-retro-item-1-apply-migrations-033-041-in-order-on-a-s"
+    epic: 14
+    action: "Apply migrations 033-041 in order on a scratch Postgres, smoke the dashboard-widgets,
+      logistics-categories, comments, notes and event-type paths, and settle the deferred
+      unverified-migration items. Deploy 040 before the 14.7 code."
+    owner: "Amelia (dev); Andrewramell approves the database"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-14-retro-2026-10-13.md"
+  - id: "epic-14-retro-item-2-remove-creator-email-from-event-comment"
+    epic: 14
+    action: "Remove creator email from event-comment and wishlist-comment GET payloads
+      and drop the email fallback in EventCommentSection.tsx."
+    owner: "Amelia (dev)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-14-retro-2026-10-13.md"
+  - id: "epic-14-retro-item-3-triage-the-71-baseline-failing-jest-suit"
+    epic: 14
+    action: "Triage the 71 baseline failing jest suites (environmental vs real) and
+      make the load-sensitive popover, timeline and polls tests robust under parallel
+      runs."
+    owner: "Murat (test architect)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-14-retro-2026-10-13.md"
+  - id: "epic-14-retro-item-4-add-fr79-fr84-and-the-coverage-entry-to"
+    epic: 14
+    action: "Add FR79-FR84 and the coverage entry to prd.md."
+    owner: "John (PM)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-14-retro-2026-10-13.md"
+  - id: "epic-14-retro-item-5-write-the-epic-14-architecture-addendum"
+    epic: 14
+    action: "Write the Epic 14 architecture addendum superseding Decisions 13a and
+      13b."
+    owner: "Winston (architect)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-14-retro-2026-10-13.md"
+  - id: "epic-14-retro-item-6-add-a-migration-smoke-step-to-the-defini"
+    epic: 14
+    action: "Add a migration-smoke step to the definition of done for epics that ship
+      migrations, and a fields-exposed note for unauthenticated routes to the spec
+      template."
+    owner: "Andrewramell with Winston"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-14-retro-2026-10-13.md"
+  - id: "epic-14-retro-item-7-collapse-the-four-per-type-comment-route"
+    epic: 14
+    action: "Collapse the four per-type comment route tests into a shared describe.each
+      (optional, low)."
+    owner: "Amelia (dev)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-14-retro-2026-10-13.md"
