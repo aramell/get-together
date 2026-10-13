@@ -20,7 +20,7 @@ function statusForErrorCode(errorCode?: string): number {
 
 /**
  * POST /api/groups/:groupId/events/:eventId/logistics/:itemId/claims
- * Claim an open seat on a 'carpool' logistics item. Rejected with 409 if
+ * Claim an open seat on a seats-mode logistics item. Rejected with 409 if
  * capacity is already reached or the caller already holds a claim.
  */
 export async function POST(

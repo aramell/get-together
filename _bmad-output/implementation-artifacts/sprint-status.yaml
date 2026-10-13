@@ -41,7 +41,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: "2026-08-31"
-last_updated: "10-12-2026 12:00"
+last_updated: "10-13-2026 12:00"
 project: get-together
 project_key: NOKEY
 tracking_system: file-system
@@ -191,7 +191,7 @@ development_status:
   14-3-comments-on-timeline-items: done
   14-4-comments-on-polls: done
   14-5-per-event-layout: done
-  14-6-configurable-logistics-categories-labels: review
+  14-6-configurable-logistics-categories-labels: done
   14-7-event-types-and-presets: done
   14-8-terminology-copy-neutralization: done
   14-9-notes-and-links-widget: done

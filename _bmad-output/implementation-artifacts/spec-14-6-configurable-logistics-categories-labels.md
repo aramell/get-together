@@ -95,6 +95,32 @@ Implemented by a subagent from this spec; review patches applied. Migration 039 
 | Non-JSON error response parse, unsaved-edit confirmation, a11y of disabled controls, brittle mock regex (blind) | low | reject | Polish only; no hidden defect. |
 | Spec bookkeeping and sprint-status mismatch (blind) | false | reject | Status is updated by the workflow at present time. |
 
+### Review Findings
+
+Code review 2026-10-13 (Blind Hunter, Edge Case Hunter, Verification Gap, Acceptance Auditor). Acceptance Auditor: no AC or boundary violations. Most findings repeat rows already in the Review Triage Log above and are carried.
+
+- [x] [Review][Patch] Add an `EventLogistics` test for the admin "Manage categories" save: open the editor, rename a category, Save, assert a PATCH to `/logistics-categories` with `{ categories: [...] }`, the new heading renders and the modal closes; plus a non-ok response keeps the modal open and shows the error [__tests__/components/EventLogistics.test.tsx]
+- [x] [Review][Patch] Add `EventLogistics` tests for adding an item to a custom category: a seats category posts `category` key plus `capacity` and driver, a single category posts no capacity [__tests__/components/EventLogistics.test.tsx]
+- [x] [Review][Patch] Update the claims route docstring from "'carpool' logistics item" to a seats-mode item [app/api/groups/[groupId]/events/[eventId]/logistics/[itemId]/claims/route.ts:23]
+- [x] [Review][Defer] Migration 039 and the new category SQL have never run against Postgres; every service test mocks `getClient` [lib/db/migrations/039_create_logistics_categories_table.sql] — deferred: unverified severity high if the constraint-drop DO block or the category queries are wrong. Settle by applying 039 to a dev database and exercising GET and PATCH on `/api/groups/:groupId/logistics-categories` plus an item add in a custom category.
+
+**Rejected**
+- Add-item, claim and update validate the category outside the advisory lock, so a concurrent category delete can orphan an item, which then blocks later saves with CATEGORY_IN_USE (blind, edge, gap, auditor): low. Needs an admin deleting a category in the same moment someone adds to it; the earlier triage already rejected the orphan outcome, and re-creating a category with the same label restores its key. The fix means a transaction and lock in three item paths.
+- Items with an unknown category key vanish from sections or render as single (blind, edge, auditor): low. Carried; reachable only through the race above.
+- Failed categories fetch falls back to defaults and drops custom-category items until the next poll (edge): low. Carried.
+- Migration drops every CHECK matching `%category%`; RLS with no policy; no down script (blind, edge): false. Carried; the only matching constraints are the category CHECK and `carpool_requires_capacity`, and the pattern mirrors 033/038.
+- Editor "in use" lock only sees the current event (blind, edge): low. Carried; the server enforces group-wide.
+- `MODE_LOCKED` returned as 400 `CATEGORY_IN_USE` while delete returns 409 (blind): low. Carried; matches the frozen I/O matrix.
+- Copy still says bring/driver/claim a seat on custom categories (blind): low. Carried; Story 14.8 owns wording.
+- Categories fetched on every 5s poll (blind): low. Carried; added deliberately so other admins' edits show up.
+- Lost update when two admins edit at once; DELETE+INSERT resets `created_at` (edge, blind): low. Last write wins on a rare admin-only action; the save is serialized by the advisory lock.
+- Editor validation messages, duplicate labels, a11y labels, non-Latin keys becoming `category-N` (blind): low. Carried; polish.
+- `getLogisticsCategories` skips the membership check when `userId` is omitted (blind): low. The only caller passes the authenticated user; guests use `loadGroupCategories`.
+- Public planning fails if the categories query fails (edge): low. Carried; a missing table means the migration was not applied.
+- `updateLogisticsItem` reads the category mode before the membership check (edge): low. One extra read; no wrong result.
+- Test hygiene: guest `useAuth` restore not in `finally`, repeated fetch-mock regex, loosened "Bring List" assertion, positional query mocks (blind): low. Cosmetic; the loosened assertion is needed because the label now appears in both heading and radio.
+- Malformed JSON gives 500 on PATCH (edge): already deferred.
+
 ## Verification
 
 **Commands:**

@@ -102,3 +102,8 @@
 ## Deferred from: spec-item-comment-email-exposure (2026-10-13)
 
 - Event comments and wishlist comments still return the creator's `email` in their GET payloads (item comments no longer do). Same exposure class; fix separately if those routes are reachable without membership.
+
+## Deferred from: code review of spec-14-6-configurable-logistics-categories-labels (2026-10-13)
+
+- Migration 039 (`logistics_categories`) and the new category queries were never run against Postgres; its DO block drops the category CHECK and `carpool_requires_capacity` by pattern match. Unverified severity: high if the drop or the queries are wrong. Settle by applying 039 to a dev database, then exercising GET and PATCH on `/api/groups/:groupId/logistics-categories` and adding items to default and custom categories.
+

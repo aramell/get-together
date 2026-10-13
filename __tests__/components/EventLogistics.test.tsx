@@ -690,6 +690,120 @@ describe('EventLogistics Component', () => {
       expect(await screen.findByRole('button', { name: /manage categories/i })).toBeInTheDocument();
     });
 
+    // Wraps mockCustom's fetch so PATCH/POST calls can be intercepted.
+    function interceptFetch(handler: (url: string, options: any) => any) {
+      const base = global.fetch as jest.Mock;
+      global.fetch = jest.fn((url: string, options?: any) => {
+        const intercepted = handler(url, options);
+        return intercepted ?? base(url, options);
+      }) as unknown as typeof fetch;
+    }
+
+    it('admin saves renamed categories via PATCH, shows the new label and closes the editor', async () => {
+      mockCustom('admin');
+      const saved = [
+        { key: 'snacks', label: 'Nibbles', mode: 'single' },
+        { key: 'rides', label: 'Rides', mode: 'seats' },
+      ];
+      interceptFetch((url, options) =>
+        options?.method === 'PATCH' && url.includes('/api/groups/group-1/logistics-categories')
+          ? Promise.resolve({ ok: true, json: async () => ({ success: true, data: { categories: saved, customized: true } }) })
+          : undefined
+      );
+      renderWithProviders(<EventLogistics eventId="event-1" groupId="group-1" />);
+
+      fireEvent.click(await screen.findByRole('button', { name: /manage categories/i }));
+      fireEvent.change(await screen.findByLabelText('Category name 1'), { target: { value: 'Nibbles' } });
+      fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+
+      await waitFor(() =>
+        expect(screen.getByRole('heading', { level: 3, name: 'Nibbles' })).toBeInTheDocument()
+      );
+      const patchCall = (global.fetch as jest.Mock).mock.calls.find(([, o]) => o?.method === 'PATCH');
+      expect(patchCall[0]).toBe('/api/groups/group-1/logistics-categories');
+      expect(JSON.parse(patchCall[1].body)).toEqual({
+        categories: [
+          { key: 'snacks', label: 'Nibbles', mode: 'single' },
+          { key: 'rides', label: 'Rides', mode: 'seats' },
+        ],
+      });
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    });
+
+    it('keeps the editor open and shows the error when saving categories fails', async () => {
+      mockCustom('admin');
+      interceptFetch((url, options) =>
+        options?.method === 'PATCH' && url.includes('/logistics-categories')
+          ? Promise.resolve({ ok: false, json: async () => ({ success: false, error: 'Category is in use' }) })
+          : undefined
+      );
+      renderWithProviders(<EventLogistics eventId="event-1" groupId="group-1" />);
+
+      fireEvent.click(await screen.findByRole('button', { name: /manage categories/i }));
+      fireEvent.change(await screen.findByLabelText('Category name 1'), { target: { value: 'Nibbles' } });
+      fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+
+      expect(await screen.findByText('Category is in use')).toBeInTheDocument();
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+      expect(screen.queryByRole('heading', { level: 3, name: 'Nibbles' })).not.toBeInTheDocument();
+    });
+
+    it('adds an item to a custom seats category with its key, driver and capacity', async () => {
+      mockCustom('member');
+      let postBody: any = null;
+      interceptFetch((url, options) => {
+        if (options?.method === 'POST' && /\/events\/event-1\/logistics$/.test(url)) {
+          postBody = JSON.parse(options.body);
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              success: true,
+              data: { id: 'r-2', created_by: 'user-1', category: 'rides', title: 'Shuttle', assigned_to: 'other-user', capacity: 4, claims: [], claim_count: 0 },
+            }),
+          });
+        }
+        return undefined;
+      });
+      renderWithProviders(<EventLogistics eventId="event-1" groupId="group-1" />);
+      await waitFor(() => expect(screen.getByText('Van')).toBeInTheDocument());
+
+      fireEvent.click(screen.getByLabelText('Rides'));
+      expect(screen.getByRole('button', { name: /^add$/i })).toBeDisabled();
+      fireEvent.change(screen.getByLabelText(/new logistics item title/i), { target: { value: 'Shuttle' } });
+      fireEvent.change(screen.getByLabelText('Driver'), { target: { value: 'other-user' } });
+      fireEvent.change(screen.getByLabelText(/number of seats/i), { target: { value: '4' } });
+      fireEvent.click(screen.getByRole('button', { name: /^add$/i }));
+
+      await waitFor(() => expect(screen.getByText('Shuttle')).toBeInTheDocument());
+      expect(postBody).toEqual({ category: 'rides', title: 'Shuttle', assigned_to: 'other-user', capacity: 4 });
+    });
+
+    it('adds an item to a custom single category without a capacity', async () => {
+      mockCustom('member');
+      let postBody: any = null;
+      interceptFetch((url, options) => {
+        if (options?.method === 'POST' && /\/events\/event-1\/logistics$/.test(url)) {
+          postBody = JSON.parse(options.body);
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              success: true,
+              data: { id: 's-2', created_by: 'user-1', category: 'snacks', title: 'Fruit', assigned_to: null, capacity: null, claims: [], claim_count: 0 },
+            }),
+          });
+        }
+        return undefined;
+      });
+      renderWithProviders(<EventLogistics eventId="event-1" groupId="group-1" />);
+      await waitFor(() => expect(screen.getByText('Chips')).toBeInTheDocument());
+
+      fireEvent.change(screen.getByLabelText(/new logistics item title/i), { target: { value: 'Fruit' } });
+      fireEvent.click(screen.getByRole('button', { name: /^add$/i }));
+
+      await waitFor(() => expect(screen.getByText('Fruit')).toBeInTheDocument());
+      expect(postBody).toEqual({ category: 'snacks', title: 'Fruit' });
+    });
+
     it('guests see the group labels, read-only, without Manage categories', async () => {
       (useAuth as jest.Mock).mockReturnValue({ userId: null, accessToken: null, isAuthenticated: false, isLoading: false });
       global.fetch = jest.fn(() =>
