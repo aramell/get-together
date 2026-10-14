@@ -54,7 +54,19 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/groups', request.url));
   }
 
-  const response = NextResponse.next();
+  // API routes read the caller's identity from `x-user-id`. Never trust a
+  // client-supplied value: drop it and set it only from a verified token
+  // (accessToken cookie or Authorization: Bearer).
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.delete('x-user-id');
+  if (pathname.startsWith('/api/')) {
+    const bearer = request.headers.get('authorization');
+    const apiToken = accessToken || (bearer?.startsWith('Bearer ') ? bearer.substring(7) : undefined);
+    const verifiedSub = apiToken ? await getVerifiedSubFromJWT(apiToken) : null;
+    if (verifiedSub) requestHeaders.set('x-user-id', verifiedSub);
+  }
+
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
 
   if (process.env.NODE_ENV === 'production') {
     response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
@@ -85,5 +97,7 @@ export const config = {
     '/profile/:path*',
     // Auth routes
     '/auth/:path*',
+    // API routes (sets/sanitizes x-user-id)
+    '/api/:path*',
   ],
 };

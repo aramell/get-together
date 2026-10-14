@@ -2,6 +2,7 @@
 
 import { CognitoIdentityProviderClient, SignUpCommand, InitiateAuthCommand, ForgotPasswordCommand, ConfirmForgotPasswordCommand } from '@aws-sdk/client-cognito-identity-provider';
 import { getSubFromJWT } from '@/lib/auth/jwt';
+import { createUserProfile } from '@/lib/services/userService';
 
 // Public Cognito APIs (SignUpCommand, InitiateAuthCommand, ForgotPasswordCommand,
 // ConfirmForgotPasswordCommand) only need the client ID — no IAM credentials required.
@@ -235,6 +236,8 @@ export async function signupUser(email: string, password: string): Promise<Signu
     const response = await client.send(command);
 
     if (response.UserSub) {
+      // Best effort (swallows DB errors); login re-attempts it.
+      await createUserProfile(response.UserSub, email);
       return {
         success: true,
         message: 'Signup successful!',
@@ -325,6 +328,8 @@ export async function loginUser(email: string, password: string): Promise<LoginR
 
     if (response.AuthenticationResult?.AccessToken) {
       const sub = getSubFromJWT(response.AuthenticationResult.AccessToken);
+      // Ensure a users row exists (covers accounts created before signup did this).
+      if (sub) await createUserProfile(sub, email);
       return {
         success: true,
         message: 'Login successful',

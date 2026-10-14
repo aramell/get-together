@@ -157,3 +157,70 @@ describe('middleware route protection (real JWT verification)', () => {
     expect(response.headers.get('location')).toBeNull();
   });
 });
+
+describe('middleware x-user-id handling on /api routes', () => {
+  let legitimateKey: KeyObject;
+  let attackerKey: KeyObject;
+
+  // NextResponse.next({ request: { headers } }) surfaces the forwarded request
+  // headers as `x-middleware-request-<name>` on the response.
+  const forwardedUserId = (response: Response) =>
+    response.headers.get('x-middleware-request-x-user-id');
+
+  function makeApiRequest(headers: Record<string, string> = {}, cookies: Record<string, string> = {}) {
+    const request = new NextRequest(new URL('http://localhost:3000/api/groups'), { headers });
+    for (const [name, value] of Object.entries(cookies)) {
+      request.cookies.set(name, value);
+    }
+    return request;
+  }
+
+  beforeAll(() => {
+    const legit = generateKeyPairSync('rsa', { modulusLength: 2048 });
+    legitimateKey = legit.privateKey;
+    const publicJwk = legit.publicKey.export({ format: 'jwk' }) as unknown as Jwk;
+    publicJwk.kid = KID;
+    publicJwk.alg = 'RS256';
+    publicJwk.use = 'sig';
+    attackerKey = generateKeyPairSync('rsa', { modulusLength: 2048 }).privateKey;
+    getCognitoJwtVerifier().cacheJwks({ keys: [publicJwk] }, TEST_USER_POOL_ID);
+  });
+
+  it('sets x-user-id from a verified accessToken cookie', async () => {
+    const response = await middleware(
+      makeApiRequest({}, { accessToken: signToken(legitimateKey) })
+    );
+
+    expect(forwardedUserId(response)).toBe('user-1');
+  });
+
+  it('sets x-user-id from a verified Bearer token', async () => {
+    const response = await middleware(
+      makeApiRequest({ authorization: `Bearer ${signToken(legitimateKey)}` })
+    );
+
+    expect(forwardedUserId(response)).toBe('user-1');
+  });
+
+  it('overwrites a client-supplied x-user-id with the verified identity', async () => {
+    const response = await middleware(
+      makeApiRequest({ 'x-user-id': 'victim' }, { accessToken: signToken(legitimateKey) })
+    );
+
+    expect(forwardedUserId(response)).toBe('user-1');
+  });
+
+  it('drops a client-supplied x-user-id when there is no token', async () => {
+    const response = await middleware(makeApiRequest({ 'x-user-id': 'victim' }));
+
+    expect(forwardedUserId(response)).toBeNull();
+  });
+
+  it('drops a client-supplied x-user-id when the token is forged', async () => {
+    const response = await middleware(
+      makeApiRequest({ 'x-user-id': 'victim' }, { accessToken: signToken(attackerKey) })
+    );
+
+    expect(forwardedUserId(response)).toBeNull();
+  });
+});
